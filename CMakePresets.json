@@ -1,0 +1,40 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-x64-clang",
+      "displayName": "Windows x64 (Visual Studio + ClangCL)",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "toolset": "ClangCL",
+      "binaryDir": "${sourceDir}/build/x64-clang",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-x64-clang-asan",
+      "displayName": "Windows x64 ClangCL + AddressSanitizer (tests and fuzzing)",
+      "inherits": "windows-x64-clang",
+      "binaryDir": "${sourceDir}/build/x64-clang-asan",
+      "cacheVariables": { "PASCALJUCE_SANITIZE": "address" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-x64-clang-release", "configurePreset": "windows-x64-clang", "configuration": "Release" },
+    { "name": "windows-x64-clang-debug",   "configurePreset": "windows-x64-clang", "configuration": "Debug" },
+    { "name": "windows-x64-clang-asan",    "configurePreset": "windows-x64-clang-asan", "configuration": "Release" }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-x64-clang-release",
+      "configurePreset": "windows-x64-clang",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "windows-x64-clang-asan",
+      "configurePreset": "windows-x64-clang-asan",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

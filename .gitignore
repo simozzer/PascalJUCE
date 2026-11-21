@@ -1,0 +1,15 @@
+/build/
+/external/
+*.ppu
+*.o
+*.compiled
+*.exe
+/lib/
+backup/
+CMakeUserPresets.json
+*.log
+
+# Local-only files
+/reports/
+/patches/
+/tests/private/
