@@ -40,9 +40,9 @@ function(pascaljuce_stage_licences out_dir)
         "${PASCALJUCE_ROOT}/THIRD_PARTY_NOTICES.md"                          THIRD_PARTY_NOTICES.md
         "${PASCALJUCE_ROOT}/licenses/AGPL-3.0.txt"                           AGPL-3.0.txt
         "${juce_SOURCE_DIR}/LICENSE.md"                                      JUCE-LICENSE.md
-        "${m}/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt"       VST3_SDK-LICENSE.txt
-        "${m}/juce_audio_processors/format_types/LV2_SDK/lv2/COPYING"        LV2-COPYING.txt
-        "${m}/juce_core/zip/zlib/README"                                     zlib-README.txt
+        "${m}/juce_audio_processors_headless/format_types/VST3_SDK/LICENSE.txt" VST3_SDK-LICENSE.txt
+        "${m}/juce_audio_processors_headless/format_types/LV2_SDK/lv2/COPYING" LV2-COPYING.txt
+        "${m}/juce_core/zip/zlib/LICENSE"                                    zlib-LICENSE.txt
         "${m}/juce_audio_formats/codecs/flac/Flac Licence.txt"               FLAC-LICENSE.txt
         "${m}/juce_audio_formats/codecs/oggvorbis/Ogg Vorbis Licence.txt"    OggVorbis-LICENSE.txt
         "${m}/juce_graphics/image_formats/pnglib/LICENSE"                    libpng-LICENSE.txt

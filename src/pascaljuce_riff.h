@@ -2,8 +2,8 @@
     pascaljuce_riff.h - re-frames WAV/RF64 and AIFF/AIFC files so that JUCE's
     readers only ever see the chunks needed to play audio.
 
-    Why: JUCE 8.0.6's WavAudioFormatReader and AiffAudioFormatReader parse
-    every metadata chunk inside their constructors (bext, smpl, inst, cue,
+    Why: JUCE's WavAudioFormatReader and AiffAudioFormatReader parse every
+    metadata chunk inside their constructors (bext, smpl, inst, cue,
     LIST/adtl, iXML, axml, MARK, ...). That is a large parsing surface for
     untrusted files, and it cannot be validated after the fact, so the wrapper
     walks the chunk list itself and hands JUCE a synthesized file:

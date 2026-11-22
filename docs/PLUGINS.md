@@ -252,10 +252,11 @@ VST3 SDK. Before you distribute one, pick a route (details in
     compatible licence.
   - Publish its Corresponding Source: your code, PascalJUCE at the version
     you built (any JUCE patch included) and JUCE.
-  - Use the VST3 SDK under the GPLv3.
 - **Closed source:**
   - Buy a commercial JUCE licence.
-  - Sign Steinberg's VST3 licence agreement.
+
+The VST3 SDK is MIT-licensed (since 3.8.0), so neither route needs an
+agreement with Steinberg.
 
 Either way, ship the `licenses` folder that the build puts in every bundle
 and beside every Standalone app. If you pass `LICENSE_FILE`, your own licence

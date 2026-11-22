@@ -42,18 +42,18 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/JUCE/CMakeLists.txt" AND NOT FET
     set(FETCHCONTENT_SOURCE_DIR_JUCE "${CMAKE_CURRENT_SOURCE_DIR}/external/JUCE")
 endif()
 
-# Pinned to the exact commit of JUCE 8.0.6 (tags can be moved; commits can't).
+# Pinned to the exact commit of JUCE 8.0.17-security (tags can be moved; commits can't).
 FetchContent_Declare(
     JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG 51a8a6d7aeae7326956d747737ccf1575e61e209 # 8.0.6
+    GIT_TAG dabd5ad13cd869cba41046947fffc8e5ce5cd662 # 8.0.17-security
 )
 FetchContent_MakeAvailable(JUCE)
 
-# Optional hardening patch for JUCE itself (see SECURITY.md, "Fixes to JUCE").
+# Optional hardening patch for JUCE itself (see SECURITY.md).
 # When the file exists it is applied once, idempotently, to the local or
 # downloaded checkout, and the build stops if it is not fully applied.
-set(PASCALJUCE_JUCE_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/juce-8.0.6-pascaljuce-security.patch"
+set(PASCALJUCE_JUCE_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/juce-8.0.17-pascaljuce-security.patch"
     CACHE FILEPATH "Patch applied to the JUCE checkout, if it exists")
 set(PASCALJUCE_JUCE_PATCHED OFF)
 if(EXISTS "${PASCALJUCE_JUCE_PATCH}")
@@ -70,7 +70,7 @@ if(EXISTS "${PASCALJUCE_JUCE_PATCH}")
                         WORKING_DIRECTORY "${juce_SOURCE_DIR}" RESULT_VARIABLE _juce_apply ERROR_VARIABLE _juce_err)
         if(NOT _juce_apply EQUAL 0)
             message(FATAL_ERROR "Could not apply ${PASCALJUCE_JUCE_PATCH} to ${juce_SOURCE_DIR}:\n${_juce_err}\n"
-                                "The patch needs JUCE 8.0.6 (commit 51a8a6d7).")
+                                "The patch needs JUCE 8.0.17-security (commit dabd5ad1).")
         endif()
         # Never build on a partly patched tree, whatever git said.
         execute_process(COMMAND ${_juce_git} apply --reverse --check "${PASCALJUCE_JUCE_PATCH}"
@@ -82,7 +82,7 @@ if(EXISTS "${PASCALJUCE_JUCE_PATCH}")
     endif()
     set(PASCALJUCE_JUCE_PATCHED ON)
 else()
-    message(WARNING "Building with unpatched JUCE 8.0.6. See SECURITY.md, \"Fixes to JUCE\".")
+    message(WARNING "Building with unpatched JUCE 8.0.17-security. See SECURITY.md.")
 endif()
 
 include(cmake/PascalJUCE.cmake)
@@ -111,7 +111,7 @@ target_compile_definitions(juce_c_audio
         JUCE_MODAL_LOOPS_PERMITTED=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
-        JUCE_ASIO=0                # set to 1 and add the Steinberg ASIO SDK to enable ASIO
+        JUCE_ASIO=0                # JUCE bundles the ASIO SDK (GPLv3/Steinberg licence): see THIRD_PARTY_NOTICES.md before enabling
 )
 target_include_directories(juce_c_audio
     PUBLIC

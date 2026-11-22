@@ -2,11 +2,12 @@
     Strict UTF-8 validation for untrusted text, shared by juce_c_audio and the
     plug-in wrapper.
 
-    Why: juce::String::fromUTF8 accepts malformed UTF-8, and JUCE's
-    CharPointer_UTF8 decoder trusts lead bytes - a truncated multi-byte
-    sequence at the end of a string makes it read past the terminator (found
-    by fuzzing plug-in state: heap-buffer-overflow in XmlDocument with
-    JUCE 8.0.6). Every piece of text that crosses a trust boundary is checked
+    Why: juce::String::fromUTF8 accepts malformed UTF-8 (debug builds only
+    assert), and in JUCE 8.0.6 the CharPointer_UTF8 decoder trusted lead
+    bytes - a truncated multi-byte sequence at the end of a string made it
+    read past the terminator (found by fuzzing plug-in state: heap-buffer-
+    overflow in XmlDocument). 8.0.16 hardened the decoder; this check stays.
+    Every piece of text that crosses a trust boundary is checked
     with this before it is turned into a juce::String.
 */
 #pragma once

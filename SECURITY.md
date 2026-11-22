@@ -213,18 +213,19 @@ block, so a plug-in cannot grow memory on the audio thread.
 ## Fixes to JUCE
 
 Fuzzing and review through this framework also found security problems in
-JUCE 8.0.6 itself and in code it bundles. They have been
+JUCE itself and in code it bundles (found in 8.0.6; most are still present in
+8.0.17-security). They have been
 reported privately to the JUCE team, and the details are withheld here until
 fixes are released or the 90-day disclosure window ends. The fixes are a
 patch to JUCE, which will be published here at the same time.
 
-Until then, this repository builds against stock JUCE 8.0.6, and CMake warns
+Until then, this repository builds against stock JUCE 8.0.17-security, and CMake warns
 that it is doing so. The library's own checks described above still apply.
 Some of the problems lie inside JUCE code that this library cannot guard
 from outside.
 
 To build with the patch once you have it, place it at
-`patches/juce-8.0.6-pascaljuce-security.patch`, or pass its path with
+`patches/juce-8.0.17-pascaljuce-security.patch`, or pass its path with
 `-DPASCALJUCE_JUCE_PATCH=<file>`. CMake applies it to the JUCE checkout
 idempotently and stops if it does not apply cleanly.
 

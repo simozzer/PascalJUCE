@@ -2539,8 +2539,9 @@ juce_c_result juce_c_audio_file_writer_create(const char* path, const char* form
         return fail(JUCE_C_INVALID_ARGUMENT, "path is required");
     if (! std::isfinite(sample_rate) || sample_rate < 1.0 || sample_rate > 10.0e6)
         return fail(JUCE_C_INVALID_ARGUMENT, "sample_rate must be 1 Hz to 10 MHz");
-    // 255, not 256: JUCE 8.0.6 AudioFormatWriter::writeFromFloatArrays NUL-terminates a
+    // 255, not 256: JUCE 8.0.6 AudioFormatWriter::writeFromFloatArrays NUL-terminated a
     // 256-entry channel table at [numChannels], a heap overflow for 256 channels.
+    // 8.0.17 sizes the table from the channel count; the limit is kept anyway.
     if (channel_count <= 0 || channel_count > max_writer_channels)
         return fail(JUCE_C_INVALID_ARGUMENT, "channel_count must be 1..255");
 
@@ -2569,30 +2570,33 @@ juce_c_result juce_c_audio_file_writer_create(const char* path, const char* form
                         juce::String(bits_per_sample) + "-bit is not supported by " + format->getFormatName());
 
         const auto quality = std::max(0, (int) quality_index);
+        // SampleFormat::automatic (the default) keeps JUCE's historic choice, e.g. 32-bit WAV = float.
+        const auto options = juce::AudioFormatWriterOptions{}.withSampleRate(sample_rate)
+                                                             .withNumChannels((int) channel_count)
+                                                             .withBitsPerSample(bits)
+                                                             .withQualityOptionIndex(quality);
 
         // Dry run into memory, so a rejected configuration never touches an existing file.
         {
-            auto probe = std::make_unique<juce::MemoryOutputStream>();
-            std::unique_ptr<juce::AudioFormatWriter> test(
-                format->createWriterFor(probe.get(), sample_rate, (unsigned int) channel_count, bits, {}, quality));
+            std::unique_ptr<juce::OutputStream> probe = std::make_unique<juce::MemoryOutputStream>();
+            // On success the writer takes (and frees) the stream; on failure it stays in probe.
+            const auto test = format->createWriterFor(probe, options);
             if (test == nullptr)
                 return fail(JUCE_C_INVALID_ARGUMENT, format->getFormatName() + " cannot write "
                                                          + juce::String(channel_count) + " channel(s) at "
                                                          + juce::String(sample_rate) + " Hz, " + juce::String(bits) + "-bit");
-            probe.release(); // owned (and freed) by the test writer
         }
 
-        auto stream = std::make_unique<juce::FileOutputStream>(file);
-        if (! stream->openedOk())
+        auto fileStream = std::make_unique<juce::FileOutputStream>(file);
+        if (! fileStream->openedOk())
             return fail(JUCE_C_JUCE_ERROR, "Cannot create " + file.getFullPathName());
-        stream->setPosition(0);
-        stream->truncate();
+        fileStream->setPosition(0);
+        fileStream->truncate();
 
-        std::unique_ptr<juce::AudioFormatWriter> writer(
-            format->createWriterFor(stream.get(), sample_rate, (unsigned int) channel_count, bits, {}, quality));
+        std::unique_ptr<juce::OutputStream> stream = std::move(fileStream);
+        auto writer = format->createWriterFor(stream, options); // takes the stream on success
         if (writer == nullptr)
             return fail(JUCE_C_JUCE_ERROR, format->getFormatName() + " cannot write with these settings");
-        stream.release(); // now owned by the writer
 
         auto handle = std::make_unique<juce_c_audio_file_writer>();
         handle->flushable = formatText == "wav";

@@ -115,7 +115,7 @@ JUCE_C_AUDIO_API int32_t JUCE_C_CALL juce_c_get_abi_version(void);
 /* Last error text for the calling thread (see "Error reporting"). */
 JUCE_C_AUDIO_API const char* JUCE_C_CALL juce_c_get_last_error_message(void);
 
-/* JUCE version string, e.g. "JUCE v8.0.6". */
+/* JUCE version string, e.g. "JUCE v8.0.17". */
 JUCE_C_AUDIO_API juce_c_result JUCE_C_CALL juce_c_get_juce_version(
     char* buffer, size_t* buffer_size);
 

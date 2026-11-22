@@ -178,7 +178,7 @@ int synth(juce::AudioPluginFormatManager& manager, const juce::String& format, c
     }
 
     {
-        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorIfNeeded());
+        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
         check(editor != nullptr && editor->getWidth() > 0, "editor created");
     }
     plugin->releaseResources();
@@ -305,7 +305,7 @@ int probe(juce::AudioPluginFormatManager& manager, const juce::String& format, c
     }
 
     {
-        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorIfNeeded());
+        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
         check(editor != nullptr, "editor created");
     }
     check(isModuleLoaded(pascalLibraryIn(juce::File(path))) || ! JUCE_WINDOWS, "Pascal library is loaded in the process");
@@ -375,7 +375,7 @@ int broken(juce::AudioPluginFormatManager& manager, const juce::String& format, 
                   "settings survive a save made while the library was unavailable");
         }
 
-        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorIfNeeded());
+        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
         check(editor != nullptr && editor->getWidth() > 0, "error editor shown");
         editor.reset();
         plugin.reset();
@@ -400,7 +400,7 @@ int main(int argc, char* argv[])
                                   .getFullPathName();
 
     juce::AudioPluginFormatManager manager;
-    manager.addDefaultFormats();
+    juce::addDefaultFormatsToManager(manager);
 
     std::printf("%s / %s: %s\n", scenario.toRawUTF8(), formatName.toRawUTF8(), path.toRawUTF8());
     int result = 2;

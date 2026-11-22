@@ -85,6 +85,7 @@ const
 { Layout: version byte, then the tuning as a little-endian Single. }
 function TSimpleSynth.SaveState: TBytes;
 begin
+  Result := nil;
   SetLength(Result, 1 + SizeOf(Single));
   Result[0] := StateVersion;
   Move(FTuning, Result[1], SizeOf(Single));

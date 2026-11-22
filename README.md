@@ -21,7 +21,7 @@ examples/console_demo/        device listing + MIDI-controlled sine demo
 examples/plugins/PascalSynth/ template instrument (VST3/LV2/Standalone)
 plugins/                      your plug-ins go here (built automatically)
 tests/                        C, Pascal and plug-in-hosting tests
-external/JUCE                 JUCE 8.0.6 checkout (downloaded if missing)
+external/JUCE                 JUCE 8.0.17-security checkout (downloaded if missing)
 ```
 
 ## What's wrapped
@@ -40,8 +40,8 @@ external/JUCE                 JUCE 8.0.6 checkout (downloaded if missing)
 ## Licence
 
 PascalJUCE's own code is under the [MIT licence](LICENSE). Anything built with it
-contains JUCE (AGPLv3 or a commercial JUCE licence), the VST3 SDK (GPLv3 or
-Steinberg's licence) and the libraries JUCE bundles. See
+contains JUCE (AGPLv3 or a commercial JUCE licence), the VST3 SDK (MIT) and the
+libraries JUCE bundles. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for what that means when you
 distribute a plug-in. The build copies every required licence text into a
 `licenses` folder in each bundle.
@@ -204,8 +204,9 @@ build\x64-clang\bin\Release\JuceConsoleDemo.exe --seconds 5 --midi
 
 ## Options
 
-- **ASIO**: set `JUCE_ASIO=1` in `CMakeLists.txt` and add the Steinberg ASIO SDK
-  include path.
+- **ASIO**: set `JUCE_ASIO=1` in `CMakeLists.txt`. JUCE bundles the Steinberg
+  ASIO SDK (GPLv3 or Steinberg's ASIO licence); read THIRD_PARTY_NOTICES.md
+  first.
 - **Linux/macOS**: the code and Pascal units are written to be cross-platform
   (library name `juce_c_audio.so` / `.dylib`), but they have only been built and
   tested on Windows x64 so far.
