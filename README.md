@@ -37,6 +37,15 @@ external/JUCE                 JUCE 8.0.6 checkout (downloaded if missing)
 | MIDI helpers | message description, note names, note→Hz; Pascal builders for note on/off, CC, program change, pitch bend |
 | Audio files | read and write WAV/AIFF/FLAC/Ogg on every platform, streaming or whole-file load (MP3/WMA and Core Audio formats are left out for security, see SECURITY.md) |
 
+## Licence
+
+PascalJUCE's own code is under the [MIT licence](LICENSE). Anything built with it
+contains JUCE (AGPLv3 or a commercial JUCE licence), the VST3 SDK (GPLv3 or
+Steinberg's licence) and the libraries JUCE bundles. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for what that means when you
+distribute a plug-in. The build copies every required licence text into a
+`licenses` folder in each bundle.
+
 ## Build (Windows x64, clang)
 
 Requirements: Visual Studio 2026 with **Desktop development with C++** and

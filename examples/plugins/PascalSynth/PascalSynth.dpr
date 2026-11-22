@@ -1,5 +1,6 @@
 {
   PascalSynth - plugin library for the PascalJUCE wrapper.
+  SPDX-License-Identifier: MIT-0 (a template: copy it freely, no notice needed).
   Build: see CMakeLists.txt in this folder (pascaljuce_add_plugin), or build
   this library in Delphi (Win64) and point PASCAL_LIBRARY at the DLL.
 }

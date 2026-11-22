@@ -14,7 +14,8 @@
 #       [INTEGRITY_CHECK ON|OFF]                  (default ON, see below)
 #       PASCAL_SOURCE  MyPlugin.dpr      # compile with Free Pascal, or
 #       PASCAL_LIBRARY path/to/MyPlugin.dll  # use a library you built (e.g. in Delphi)
-#       [PASCAL_FLAGS -dSOMETHING ...] [PASCAL_UNIT_PATHS dir ...])
+#       [PASCAL_FLAGS -dSOMETHING ...] [PASCAL_UNIT_PATHS dir ...]
+#       [LICENSE_FILE path])             # your plug-in's licence, shipped as licenses/LICENSE.txt
 #
 # The Pascal library is copied next to the plug-in binary inside every bundle
 # (e.g. My Synth.vst3/Contents/x86_64-win/<target>_pascal.dll) and loaded at
@@ -25,6 +26,47 @@
 # afterwards (e.g. a planted DLL in a user-writable plug-in folder).
 
 set(PASCALJUCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." CACHE INTERNAL "")
+
+# Collects the licence texts every binary must ship with (THIRD_PARTY_NOTICES.md)
+# into <out_dir>, at configure time. EXTRA is the plug-in's own licence, if given.
+function(pascaljuce_stage_licences out_dir)
+    cmake_parse_arguments(ARG "" "EXTRA" "" ${ARGN})
+    if(NOT juce_SOURCE_DIR)
+        message(FATAL_ERROR "pascaljuce_stage_licences: JUCE must be added first")
+    endif()
+    set(m "${juce_SOURCE_DIR}/modules")
+    set(pairs
+        "${PASCALJUCE_ROOT}/LICENSE"                                         PascalJUCE-LICENSE.txt
+        "${PASCALJUCE_ROOT}/THIRD_PARTY_NOTICES.md"                          THIRD_PARTY_NOTICES.md
+        "${PASCALJUCE_ROOT}/licenses/AGPL-3.0.txt"                           AGPL-3.0.txt
+        "${juce_SOURCE_DIR}/LICENSE.md"                                      JUCE-LICENSE.md
+        "${m}/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt"       VST3_SDK-LICENSE.txt
+        "${m}/juce_audio_processors/format_types/LV2_SDK/lv2/COPYING"        LV2-COPYING.txt
+        "${m}/juce_core/zip/zlib/README"                                     zlib-README.txt
+        "${m}/juce_audio_formats/codecs/flac/Flac Licence.txt"               FLAC-LICENSE.txt
+        "${m}/juce_audio_formats/codecs/oggvorbis/Ogg Vorbis Licence.txt"    OggVorbis-LICENSE.txt
+        "${m}/juce_graphics/image_formats/pnglib/LICENSE"                    libpng-LICENSE.txt
+        "${m}/juce_graphics/image_formats/jpglib/README"                     jpeglib-README.txt
+        "${m}/juce_graphics/fonts/harfbuzz/COPYING"                          HarfBuzz-COPYING.txt
+        "${m}/juce_graphics/unicode/sheenbidi/LICENSE"                       SheenBidi-LICENSE.txt)
+    if(APPLE)
+        list(APPEND pairs "${m}/juce_audio_plugin_client/AU/AudioUnitSDK/LICENSE.txt" AudioUnitSDK-LICENSE.txt)
+    endif()
+    if(ARG_EXTRA)
+        list(APPEND pairs "${ARG_EXTRA}" LICENSE.txt)
+    endif()
+    list(LENGTH pairs n)
+    math(EXPR last "${n} - 1")
+    foreach(i RANGE 0 ${last} 2)
+        math(EXPR j "${i} + 1")
+        list(GET pairs ${i} from)
+        list(GET pairs ${j} to)
+        if(NOT EXISTS "${from}")
+            message(FATAL_ERROR "Licence file missing: ${from}")
+        endif()
+        configure_file("${from}" "${out_dir}/${to}" COPYONLY)
+    endforeach()
+endfunction()
 
 # Compiler/linker hardening for a target the framework builds.
 function(pascaljuce_harden target)
@@ -72,7 +114,8 @@ endfunction()
 
 function(pascaljuce_add_plugin target)
     set(one_value PRODUCT_NAME COMPANY_NAME COMPANY_WEBSITE MANUFACTURER_CODE PLUGIN_CODE KIND VERSION
-                  BUNDLE_ID LV2URI PASCAL_SOURCE PASCAL_LIBRARY MIDI_INPUT MIDI_OUTPUT INTEGRITY_CHECK)
+                  BUNDLE_ID LV2URI PASCAL_SOURCE PASCAL_LIBRARY MIDI_INPUT MIDI_OUTPUT INTEGRITY_CHECK
+                  LICENSE_FILE)
     set(multi_value FORMATS PASCAL_FLAGS PASCAL_UNIT_PATHS)
     cmake_parse_arguments(ARG "" "${one_value}" "${multi_value}" ${ARGN})
 
@@ -323,6 +366,15 @@ function(pascaljuce_add_plugin target)
     endif()
 
     # ---- copy it into every bundle (runs every build; copy_if_different) ---
+    # Licence texts go in too (THIRD_PARTY_NOTICES.md), before any signing step.
+    set(licence_stage "${CMAKE_CURRENT_BINARY_DIR}/${target}_licenses")
+    if(ARG_LICENSE_FILE)
+        cmake_path(ABSOLUTE_PATH ARG_LICENSE_FILE BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                   OUTPUT_VARIABLE licence_extra)
+        pascaljuce_stage_licences("${licence_stage}" EXTRA "${licence_extra}")
+    else()
+        pascaljuce_stage_licences("${licence_stage}")
+    endif()
     set(copy_commands)
     foreach(format IN LISTS ARG_FORMATS)
         set(wrapper "${target}_${format}")
@@ -344,9 +396,18 @@ function(pascaljuce_add_plugin target)
             endif()
         endif()
 
+        if(format STREQUAL "LV2")
+            set(licence_dest "${dest}/licenses")
+        elseif(format STREQUAL "Standalone" AND NOT APPLE)
+            set(licence_dest "${dest}/licenses")
+        else() # inside a bundle: Contents/<arch> or Contents/MacOS -> Contents/Resources
+            set(licence_dest "${dest}/../Resources/licenses")
+        endif()
         list(APPEND copy_commands
              COMMAND "${CMAKE_COMMAND}" -E make_directory "${dest}"
              COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${pascal_lib}" "${dest}/${pascal_lib_name}")
+        list(APPEND copy_commands
+             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${licence_stage}" "${licence_dest}")
     endforeach()
 
     add_custom_target(${target}_PascalLibrary ALL

@@ -240,5 +240,31 @@ In a `midi_effect`, incoming MIDI is not passed through automatically:
 - The editor is JUCE's generic one: one control per parameter. A custom UI
   drawn by Pascal code is not wired up yet.
 - One main bus only (no sidechain or multi-out).
-- Licensing: plug-ins built with JUCE are under JUCE's licence (AGPLv3 or a
-  commercial JUCE licence). Check it before you distribute.
+
+## Licensing your plug-in
+
+PascalJUCE is MIT, but every plug-in you build with it contains JUCE and the
+VST3 SDK. Before you distribute one, pick a route (details in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)):
+
+- **Open source (JUCE under the AGPLv3):**
+  - License your plug-in, Pascal code included, under the AGPLv3 or a
+    compatible licence.
+  - Publish its Corresponding Source: your code, PascalJUCE at the version
+    you built (any JUCE patch included) and JUCE.
+  - Use the VST3 SDK under the GPLv3.
+- **Closed source:**
+  - Buy a commercial JUCE licence.
+  - Sign Steinberg's VST3 licence agreement.
+
+Either way, ship the `licenses` folder that the build puts in every bundle
+and beside every Standalone app. If you pass `LICENSE_FILE`, your own licence
+goes in that folder too:
+
+```cmake
+pascaljuce_add_plugin(MySynth
+    ...
+    LICENSE_FILE LICENSE)
+```
+
+VST is a trademark of Steinberg Media Technologies GmbH.

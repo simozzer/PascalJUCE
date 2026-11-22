@@ -127,6 +127,13 @@ target_link_libraries(juce_c_audio
         juce::juce_core
         juce::juce_recommended_config_flags
 )
+
+# Licence texts beside the DLL (THIRD_PARTY_NOTICES.md): ship them with it.
+pascaljuce_stage_licences("${CMAKE_BINARY_DIR}/juce_c_audio_licenses")
+add_custom_command(TARGET juce_c_audio POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_BINARY_DIR}/juce_c_audio_licenses"
+            "$<TARGET_FILE_DIR:juce_c_audio>/licenses"
+    VERBATIM)
 pascaljuce_harden(juce_c_audio)
 
 include(CTest)

@@ -2,6 +2,8 @@
   SimpleSynth - a minimal template instrument for PascalJUCE.
   8 voices, sine/saw/square, linear attack/release, gain.
   Deliberately small: copy this folder and make it your own.
+  SPDX-License-Identifier: MIT-0 (no attribution needed). The plug-in you build
+  from it contains JUCE: see THIRD_PARTY_NOTICES.md before you distribute it.
 }
 unit SimpleSynth;
 
