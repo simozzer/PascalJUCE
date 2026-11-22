@@ -174,7 +174,7 @@ _pascaljuce_find_fpc(_fpc)
 if(_fpc)
     message(STATUS "Pascal tests will use ${_fpc}")
     set(_pascal_check_flags -B -Mdelphi -FcUTF8 -Cr -Co -Ct -CR -gl -gh -vewn)
-    foreach(suite test_app_units test_plugin_unit)
+    foreach(suite test_app_units test_plugin_unit test_ui_unit test_layout_unit)
         set(_units "${CMAKE_BINARY_DIR}/pascal-units/${suite}")
         file(MAKE_DIRECTORY ${_units})
         add_test(NAME ${suite}_build
@@ -184,12 +184,57 @@ if(_fpc)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/pascal/${suite}.dpr)
         set_tests_properties(${suite}_build PROPERTIES FIXTURES_SETUP ${suite}_binary)
         add_test(NAME ${suite}
-            COMMAND $<TARGET_FILE_DIR:juce_c_audio>/${suite}${CMAKE_EXECUTABLE_SUFFIX})
+            COMMAND $<TARGET_FILE_DIR:juce_c_audio>/${suite}${CMAKE_EXECUTABLE_SUFFIX} "${CMAKE_CURRENT_SOURCE_DIR}")
         set_tests_properties(${suite} PROPERTIES
             FIXTURES_REQUIRED ${suite}_binary
             RESOURCE_LOCK midi_loopback
             FAIL_REGULAR_EXPRESSION "[1-9][0-9]* unfreed memory blocks")
     endforeach()
+
+    # The design-time property lists are generated from the run-time controls:
+    # fail if someone changed a control without re-running the generator.
+    set(_gen_dir "${CMAKE_BINARY_DIR}/pascal-units/gen_design_props")
+    file(MAKE_DIRECTORY ${_gen_dir})
+    add_test(NAME gen_design_props_build
+        COMMAND ${_fpc} -B -Mdelphi -FcUTF8 -vewn -Fu${CMAKE_CURRENT_SOURCE_DIR}/pascal
+                -FU${_gen_dir} -FE${_gen_dir} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_design_props.dpr)
+    set_tests_properties(gen_design_props_build PROPERTIES FIXTURES_SETUP gen_design_props_binary)
+    add_test(NAME design_props_current
+        COMMAND ${_gen_dir}/gen_design_props${CMAKE_EXECUTABLE_SUFFIX} "${CMAKE_CURRENT_SOURCE_DIR}" --check)
+    set_tests_properties(design_props_current PROPERTIES FIXTURES_REQUIRED gen_design_props_binary)
+
+    # Lazarus: the design-time packages (built as packages only, with a private
+    # config directory: nothing is installed into the IDE) and the LCL test of
+    # the design-time controls (WYSIWYG against the JUCE reference rendering).
+    cmake_path(GET _fpc PARENT_PATH _fpc_bin)
+    find_program(LAZBUILD_EXECUTABLE lazbuild HINTS "${_fpc_bin}/../../../.." NO_DEFAULT_PATH)
+    if(LAZBUILD_EXECUTABLE)
+        message(STATUS "Lazarus tests will use ${LAZBUILD_EXECUTABLE}")
+        cmake_path(GET LAZBUILD_EXECUTABLE PARENT_PATH _lazarus_dir)
+        set(_lazbuild "${LAZBUILD_EXECUTABLE}" "--pcp=${CMAKE_BINARY_DIR}/lazarus-config"
+                      "--lazarusdir=${_lazarus_dir}" "--compiler=${_fpc}")
+        add_test(NAME lazarus_package_lcl
+            COMMAND ${_lazbuild} --build-all "${CMAKE_CURRENT_SOURCE_DIR}/packages/lazarus/pascaljuce_lcl.lpk")
+        add_test(NAME lazarus_package_design
+            COMMAND ${_lazbuild} --build-all "${CMAKE_CURRENT_SOURCE_DIR}/packages/lazarus/pascaljuce_design.lpk")
+        add_test(NAME lcl_design_test_build
+            COMMAND ${_lazbuild} --build-all "${CMAKE_CURRENT_SOURCE_DIR}/tests/lcl/test_design_lcl.lpi")
+        set_tests_properties(lazarus_package_design PROPERTIES DEPENDS lazarus_package_lcl)
+        set_tests_properties(lcl_design_test_build PROPERTIES DEPENDS lazarus_package_design
+                             FIXTURES_SETUP lcl_design_binary)
+        set_tests_properties(lazarus_package_lcl lazarus_package_design lcl_design_test_build PROPERTIES
+                             RESOURCE_LOCK lazbuild TIMEOUT 900)
+        add_test(NAME lcl_design_test
+            COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tests/lcl/lib/x86_64-win64/test_design_lcl${CMAKE_EXECUTABLE_SUFFIX}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}")
+        set_tests_properties(lcl_design_test PROPERTIES FIXTURES_REQUIRED lcl_design_binary RESOURCE_LOCK lazbuild
+                             FAIL_REGULAR_EXPRESSION "[1-9][0-9]* unfreed memory blocks")
+        if(NOT WIN32)
+            set_tests_properties(lcl_design_test PROPERTIES DISABLED TRUE) # output path above is Windows x64
+        endif()
+    else()
+        message(STATUS "lazbuild not found next to fpc - Lazarus package tests disabled (set LAZBUILD_EXECUTABLE)")
+    endif()
 else()
     message(STATUS "fpc not found - Pascal tests disabled (set FPC_EXECUTABLE)")
 endif()
@@ -230,6 +275,89 @@ if(TARGET ProbeEffect)
                 "$<TARGET_FILE_DIR:fuzz_plugin_state>"
         VERBATIM)
     add_test(NAME fuzz_plugin_state COMMAND fuzz_plugin_state 2000 3)
+endif()
+
+#-------------------------------------------------------------------------------
+# Custom editors. Both executables link the real wrapper source, as the
+# fuzz_plugin_state target does, so the test can reach the editor component.
+#
+# fuzz_editor: the wrapper loads EditorProbe, a plug-in library written in C++
+# against juce_c_plugin.h that calls the editor API with hostile arguments
+# (scripted checks, then a random-call fuzzer).
+set(_editor_wrapper_defs
+    JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
+    PASCALJUCE_PLUGIN_KIND=0 PASCALJUCE_EDITOR_TEST_HOOKS=1 JUCE_MODAL_LOOPS_PERMITTED=1
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+juce_add_console_app(fuzz_editor PRODUCT_NAME "fuzz_editor")
+target_sources(fuzz_editor PRIVATE tests/fuzz/fuzz_editor.cpp plugin/pascaljuce_plugin_processor.cpp)
+target_include_directories(fuzz_editor PRIVATE plugin/include)
+target_compile_definitions(fuzz_editor PRIVATE ${_editor_wrapper_defs}
+    JucePlugin_Name="Editor Probe" PASCALJUCE_PLUGIN_LIBRARY="EditorProbe_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}")
+target_link_libraries(fuzz_editor PRIVATE
+    juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+
+add_library(EditorProbe_pascal SHARED tests/plugins/EditorProbe/editor_probe.cpp)
+target_compile_features(EditorProbe_pascal PRIVATE cxx_std_17)
+target_include_directories(EditorProbe_pascal PRIVATE plugin/include)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/private/probe_extra.inc")
+    target_compile_definitions(EditorProbe_pascal PRIVATE PASCALJUCE_PRIVATE_TESTS=1)
+endif()
+set_target_properties(EditorProbe_pascal PROPERTIES
+    PREFIX ""
+    # Next to fuzz_editor: the wrapper loads its library from beside its own binary.
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzz_editor_artefacts/$<CONFIG>"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzz_editor_artefacts/$<CONFIG>")
+add_dependencies(fuzz_editor EditorProbe_pascal)
+target_include_directories(fuzz_editor PRIVATE tests/plugins/EditorProbe)
+add_test(NAME fuzz_editor_scenario COMMAND fuzz_editor scenario)
+add_test(NAME fuzz_editor COMMAND fuzz_editor fuzz 3000 11)
+set_tests_properties(fuzz_editor_scenario fuzz_editor PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+
+# editor_test: the PascalSynth template's Pascal editor, offscreen.
+if(TARGET PascalSynth)
+    juce_add_console_app(editor_test PRODUCT_NAME "editor_test")
+    target_sources(editor_test PRIVATE tests/editor_test.cpp plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/PascalSynth/PascalSynth_pascal/hash/$<CONFIG>")
+    target_compile_definitions(editor_test PRIVATE ${_editor_wrapper_defs}
+        JucePlugin_Name="Pascal Synth" PASCALJUCE_PLUGIN_LIBRARY="PascalSynth_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 PASCALJUCE_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    if(WIN32)
+        target_link_libraries(editor_test PRIVATE psapi)
+    endif()
+    add_dependencies(editor_test PascalSynth_PascalLibrary PascalSynth_PascalHash)
+    add_custom_command(TARGET editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/PascalSynth/PascalSynth_pascal/$<CONFIG>/PascalSynth_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                "$<TARGET_FILE_DIR:editor_test>"
+        VERBATIM)
+    add_test(NAME editor_test COMMAND editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
+# mz101_editor_test: the Mz101 Pascal panel (a designed form, MIDI learn), offscreen, the
+# same way. Its source and reference image live with the example (GNU AGPL v3).
+if(TARGET Mz101)
+    set(_mz101 "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/Mz101")
+    juce_add_console_app(mz101_editor_test PRODUCT_NAME "mz101_editor_test")
+    target_sources(mz101_editor_test PRIVATE "${_mz101}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mz101_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/Mz101/Mz101_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mz101_editor_test PRIVATE ${_editor_wrapper_defs}
+        JucePlugin_Name="Mz101 Pascal" PASCALJUCE_PLUGIN_LIBRARY="Mz101_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZ101_VERIFY_DIR="${_mz101}/verify")
+    target_link_libraries(mz101_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mz101_editor_test Mz101_PascalLibrary Mz101_PascalHash)
+    add_custom_command(TARGET mz101_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz101/Mz101_pascal/$<CONFIG>/Mz101_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                "$<TARGET_FILE_DIR:mz101_editor_test>"
+        VERBATIM)
+    add_test(NAME mz101_editor_test COMMAND mz101_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mz101_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
 endif()
 
 #-------------------------------------------------------------------------------
@@ -280,6 +408,7 @@ if(PASCALJUCE_ASAN_DIR)
     endif()
     foreach(_cfg IN LISTS _configs)
         foreach(_dir "bin/${_cfg}" "plugin_host_test_artefacts/${_cfg}" "fuzz_plugin_state_artefacts/${_cfg}"
+                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}"
                      "examples/plugins/PascalSynth/PascalSynth_artefacts/${_cfg}/Standalone")
             file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/${_dir}")
             file(COPY "${PASCALJUCE_ASAN_DIR}/clang_rt.asan_dynamic-x86_64.dll" DESTINATION "${CMAKE_BINARY_DIR}/${_dir}")

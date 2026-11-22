@@ -1,0 +1,84 @@
+object SynthEditorForm: TSynthEditorForm
+  Left = 300
+  Height = 210
+  Top = 200
+  Width = 480
+  Caption = 'Pascal Synth editor (design only)'
+  ClientHeight = 210
+  ClientWidth = 480
+  Color = 2367518
+  LCLVersion = '4.8.0.0'
+  object MainPanel: TJucePanel
+    Left = 6
+    Height = 198
+    Top = 6
+    Width = 468
+    Caption = 'PASCAL SYNTH'
+    Color = -13618117
+    GradientColor = -14473685
+    object Wave: TJuceSwitch
+      Left = 16
+      Height = 64
+      Hint = 'Oscillator waveform'
+      Top = 60
+      Width = 150
+      Caption = 'WAVE'
+      ParameterId = 'wave'
+      Positions = 3
+      Labels = 'Sine|Saw|Square'
+    end
+    object Attack: TJuceKnob
+      Left = 180
+      Height = 104
+      Hint = 'Attack time'
+      Top = 44
+      Width = 76
+      Caption = 'ATTACK'
+      ParameterId = 'attack'
+    end
+    object Release: TJuceKnob
+      Left = 262
+      Height = 104
+      Hint = 'Release time'
+      Top = 44
+      Width = 76
+      Caption = 'RELEASE'
+      ParameterId = 'release'
+    end
+    object Gain: TJuceKnob
+      Left = 344
+      Height = 104
+      Hint = 'Output level'
+      Top = 44
+      Width = 76
+      Caption = 'GAIN'
+      ParameterId = 'gain'
+    end
+    object OutMeter: TJuceMeter
+      Left = 436
+      Height = 132
+      Hint = 'Output peak'
+      Top = 36
+      Width = 14
+    end
+    object OutLabel: TJuceLabel
+      Left = 416
+      Height = 18
+      Top = 170
+      Width = 54
+      Caption = 'OUT'
+      FontSize = 11
+      Color = -6643542
+    end
+    object HelpLabel: TJuceLabel
+      Left = 16
+      Height = 18
+      Top = 170
+      Width = 300
+      Caption = 'Drag: change   Shift: fine   Double-click: default'
+      FontSize = 11
+      Alignment = jaLeft
+      Color = -6643542
+    end
+  end
+end

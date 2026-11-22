@@ -13,6 +13,8 @@ defends against, how, how to verify it, and where its responsibility ends.
 | MIDI bytes | devices, other software, the host | MIDI inputs, `OnAudio` MIDI, plug-in `Ctx.MidiEvent` |
 | Plug-in binaries on disk | anyone with write access to a plug-in folder | the wrapper loading `<target>_pascal.dll` |
 | API arguments | the program using the library (bugs, not malice) | every C function |
+| Editor calls and images | the plug-in library's UI code (bugs); image files it loads (e.g. downloaded skins) | `jcp_editor_api`, `create_image` → JUCE's PNG/JPEG decoders |
+| Window lifetime | the host, which may close, resize or recreate the editor at any moment, including inside a callback, and may destroy the plug-in on any thread | the editor component, editor callbacks |
 
 Out of scope: a malicious *host* process (it already runs your code), the
 operating system and its drivers, and the plug-in author's own Pascal code.
@@ -111,6 +113,203 @@ block gets a transport advanced to its own start.
 
 The Pascal side gets a bounds-safe `TBytes`; `LoadState` must still validate
 its contents (the docs and template show how).
+
+### Custom editors
+A plug-in library can draw its own editor through `jcp_editor_api`
+(`juce_c_plugin.h`). JUCE owns the window; the library paints with drawing
+calls and reacts to mouse, timer, parameter and menu callbacks. The editor
+API is treated like the rest of the C boundary: every argument is checked
+before JUCE sees it, and the window's lifetime belongs to the host, not the
+library.
+
+- **One thread.** Every editor function runs on the message thread only. A
+  call from any other thread is ignored (getters return 0 or -1) before any
+  lock is taken, so a library thread can neither race the window nor
+  deadlock against it. Library editor callbacks are made only on the message
+  thread.
+- **Handles are tokens, never pointers.** A `jcp_editor` is a value from a
+  counter that is never reused, looked up in a registry under a lock; a
+  closed editor's handle is refused. A `jcp_graphics` is valid only while its
+  own `paint()` call runs: it is compared with the paint in progress, so a
+  token kept for later, a forged one, or one passed to another editor draws
+  nothing. Images are small integers owned by one editor and freed with it.
+- **Arguments.** Coordinates must be finite and are clamped to ±100,000
+  (sizes to 0-200,000, line widths to 0-1000, font heights to 1-1000); a call
+  with NaN or infinity does nothing. An arc's sweep is limited to two turns
+  (JUCE walks arcs in small steps), a path to 65,536 elements, and
+  `save_state` nesting to 64; unbalanced saves are undone when the paint
+  ends. A gradient whose two points coincide is drawn as a plain colour
+  (JUCE divides by their distance). Editor sizes are clamped to 16-4096,
+  timers to 1-120 Hz, justification flags masked.
+- **Text** is strict UTF-8, at most 4096 bytes (ids 256, menu items 1024,
+  font names 256); anything else is not used. Parameter text is copied into
+  the caller's buffer, always NUL-terminated and never cut inside a
+  character. Menus have at most 512 items, and `item_size` must be at least
+  `sizeof(jcp_menu_item)`.
+- **Images.** Only PNG and JPEG, and only after the wrapper has checked the
+  whole file structure itself (`plugin/pascaljuce_image_check.h`), and only
+  in a conservative subset; JUCE's automatic format detection, which also
+  tries GIF, is not used:
+  - PNG: signature, `IHDR` first with valid fields, every chunk inside the
+    data with a correct CRC, consecutive `IDAT`s, `IEND` present;
+  - JPEG: sequential Huffman only (SOF0/SOF1, 8-bit, 3 components with
+    integral sampling ratios, one scan holding all of them). Every
+    DQT, DHT (a valid canonical code), DRI, SOF and SOS segment is validated,
+    every table a scan uses must be defined, and the data
+    must reach an `EOI`. Progressive, multi-scan, grayscale and CMYK JPEGs
+    are refused: a multi-scan file makes libjpeg replay the whole image once
+    per scan, so a few bytes per scan header could hold the UI thread for
+    hours.
+
+  The size is taken from the header before any decoder runs: at most 8192
+  pixels a side and 16 M pixels, encoded data at most 32 MB, and at most 256
+  images and 64 M pixels per editor. The decoded image must have the
+  header's size; it is converted to a plain software ARGB image.
+- **Parameters.** Values from the library are clamped to 0..1, and NaN or
+  infinity is ignored. Changes and gestures from the editor are queued and
+  delivered to the host after the library's callback returns, never from
+  inside it, so a host reacting synchronously cannot re-enter the library.
+  Delivery itself is not re-entrant: a host that closes the editor from
+  inside a parameter notification (which ends the editor's gestures) makes
+  the delivery loop go round again rather than nest. That case ended a
+  gesture twice before the tests caught it. Gestures an editor leaves open
+  are ended when it closes. Host automation reaches the editor as coalesced
+  per-parameter flags, delivered on the message thread.
+- **Meters** (`set_meter`, any thread including audio) are a fixed array of
+  64 atomic floats in the wrapper: the index is checked, non-finite values
+  are stored as 0.
+- **Opening web pages** (`open_url`). A plug-in may ask the host OS to open a
+  page in the browser (a project link), so a library - or a preset or project
+  value a library passes on - must not be able to run anything, open local
+  files or act behind the user's back:
+  - *only as the answer to a click*: accepted only while the library's own
+    mouse callback for a press, release or double click, or its
+    `popup_result` for a chosen item, is running (the flag is set around that
+    call alone, not while the host is notified afterwards), at call depth 1,
+    with no paint in progress; never from `create_editor`, `destroy`, paint,
+    timers, parameter or resize callbacks, a dismissed menu, another thread or
+    another editor's handle; once per click and at most once a second in the
+    process;
+  - *only https pages*: `https://` (scheme case-insensitive), a DNS host name
+    (letters, digits and '-' labels, at least two, a top-level domain of
+    letters or `xn--`; no IP address, no `localhost`, no user name, no '%'),
+    an optional port 1-65535, then only `A-Z a-z 0-9 - . _ ~ : / ? # @ & + , =
+    %`; '%' only before two hex digits that are not a control character; at
+    most 2048 bytes. No spaces, quotes, backslashes, `$`, `` ` ``, `;`, `|`,
+    `<`, `>`, `(`, `)`, `*`, `!`, `'`, braces or non-ASCII bytes;
+  - *opened outside the callback*, from the message loop, never under the
+    editor lock;
+  - opened with the platform's URL launcher (ShellExecute, LSOpenCFURLRef,
+    xdg-open);
+  - test builds record the URL instead of starting a browser.
+- **Scaled editors** (`set_design_size`, `get_scale`). Design sizes are
+  clamped to 16-4096, scale limits to 0.25-4 and then to what keeps the window
+  within 16-4096; non-finite limits refuse the call. The scale applied to the
+  drawing is the window over the design size (a window whose shape is off by
+  more than 1%, from a host ignoring the limits, is drawn at the smaller scale
+  and the rest filled black); mouse positions are divided by it and repaint
+  rectangles multiplied, still clamped. Applying a new size is several JUCE
+  calls, each of which may make the host close the window: every step checks
+  that the window still exists (found by the review below). A `resized`
+  notification refused because the library is inside another callback is
+  retried from the message loop, never lost. The remembered scale is clamped
+  to the editor's limits before it is stored; read back from untrusted state
+  it must be finite and is clamped to 0.25-4 (and to the editor's limits when
+  used). A library parameter with the reserved id `pascaljuce.editor.scale`
+  wins, and older wrappers ignore it as an unknown parameter.
+- **Tooltip and menu look** (`set_look`). `struct_size` is checked before any
+  other field; a non-finite font height or a font name that is not strict
+  UTF-8 of at most 256 bytes refuses the whole look; heights are clamped to
+  6-72; colours are plain values. The LookAndFeel is shared: an open menu's
+  callback holds a reference, so a menu outliving its editor never uses a
+  freed look, and the editor detaches it before it goes.
+- **Lifetime.** The library's editor object is held by a shared session that
+  outlives the window, the registry entry and every call in progress:
+  - the library's `destroy()` runs exactly once;
+  - if the host closes the window during a library callback, `destroy()`
+    waits until that callback has returned, and the window is never touched
+    again;
+  - a menu answer arriving after the window closed is dropped, and one menu
+    per editor can be open at a time;
+  - editor callbacks never nest: one at a time per editor, none while the
+    instance is inside another library call on the same thread (a paint
+    asked for during a callback is deferred);
+  - a plug-in destroyed while its editor is still open (a host bug) destroys
+    the library's editor first, or abandons it unused if that is not safe
+    from the current thread. The processor's destructor and every editor
+    callback share a lock, so a host destroying the plug-in on another thread
+    waits for a callback in progress;
+  - an instance destroyed from inside one of its own library calls is now
+    leaked rather than freed under the code still running on that stack;
+  - a host may destroy the processor from inside a notification we send it
+    (or on another thread just after an editor callback). The delivery lock
+    and an "alive" flag live in a small shared object that outlives the
+    processor: delivery re-checks the flag after every host call and stops
+    touching the processor once it is cleared, and the destructor clears it
+    and then waits on the lock;
+  - notifications caused by `paint()` go out from the message loop, never
+    inside JUCE's paint of the window, and the wrapper never calls the host
+    while it holds its editor lock, except that a library resizing its
+    window inside a callback reaches the host from there (see Limits).
+
+  An adversarial review of this code (November 2026) found the
+  destroyed-during-delivery and cross-thread cases above, notifications
+  inside paint, a gesture begun inside `destroy()` left open, the JPEG
+  multi-scan cost, an unbounded total translation and a dropped menu answer
+  during a nested callback; all are fixed and the scenario test covers the
+  main ones.
+
+  A second review (November 2026) of scaling, `open_url` and `set_look`
+  found: a use of the freed
+
+  window when the host closes it during the several steps of a scaled resize
+  (every step now checks); the click flag still set while the host was
+  notified after the callback (now set around the library call only); a
+  `resized` notification lost when refused; scale limits lost on `set_size`;
+  unclamped remembered scales; and a per-editor URL rate limit (now
+  process-wide). All are fixed; the scenario test covers the closed-window
+  resize, the click-only rule and the validator. Still open: the set_size
+  case below (the host may be called under the editor lock when the library
+  resizes its window inside a callback), which predates these functions.
+- **Containment.** Every editor function is `noexcept` and catches
+  everything; FP exceptions are masked around every library callback,
+  drawing call and image decode. The Pascal trampolines catch every
+  exception, and a control whose `Paint` raises is skipped for that frame.
+- **Pascal side.** Free Pascal compiles `not (X > Y)` as `X <= Y`, which is
+  false for NaN, so the units test with `IsNan` explicitly. Bound controls
+  read and write parameters only through the editor API, never DSP state.
+- **Designed layouts** (`JuceLayout.pas`). A form file embedded with `{$R}`
+  is part of the plug-in's own signed/hashed library, so it is trusted input
+  (an attacker who can change it can change the code). The loader is
+  bounded anyway, so a corrupt or hand-edited form cannot crash the host:
+  its own reader of the component-stream format checks every length field
+  against the remaining data and fixed limits (16 MB binary, 32 MB text,
+  4096 objects, depth 32, 512 properties per object, 64 KB strings, 8 MB
+  per embedded image, 10^6 values) before allocating; text forms are
+  pre-scanned token by token (as the RTL parser reads them, newlines
+  ignored) for nesting depth and unterminated strings before the RTL's
+  recursive `ObjectTextToBinary` sees them; classes come only from a fixed
+  registry of `TJuceControl` descendants (no `FindClass`/`GetClass`, so no
+  arbitrary class can be instantiated); properties are set through RTTI
+  with range checks, `Name` only from the object header; events bind only
+  to published methods declared in the plug-in's own editor class (not the
+  framework's base classes). Their signature cannot be checked (FPC has no
+  RTTI for it), which is acceptable because the form is the plug-in's own.
+  Lenient-mode warnings are capped (100). Failure raises `EJuceLayoutError`
+  and adds nothing: embedded images are all decoded (through the wrapper's
+  checked decoder) before any is added. Tested with every truncation and
+  3000 random mutations of a real form (`test_layout_unit`). An adversarial
+  review of the loader (Nov 2026) found a one-line nesting bypass of the
+  text pre-scan, unbounded warnings, a non-atomic image commit, events
+  bindable to base-class methods, `Name` settable as a property, and a
+  speculative double load in the value-type-21 path; all are fixed and
+  covered by tests.
+- **Build-time tools.** `pascaljuce_params` (the `PARAMETER_LIST` option)
+  loads the freshly built plug-in library into a build-time process to read
+  its parameter declarations, i.e. it runs the library's initialisation
+  code on the build machine, as the hosting tests already do. The design
+  packages run inside the IDE and read only the form, the `.params` file
+  and Pascal sources next to it.
 
 ### Untrusted MIDI inside plug-ins
 Every incoming event is checked before the Pascal `Process` sees it:
@@ -247,6 +446,7 @@ ctest --preset windows-x64-clang-asan
 build\x64-clang-asan\bin\Release\fuzz_c_api.exe file <iterations> <seed>
 build\x64-clang-asan\bin\Release\fuzz_c_api.exe midi <iterations> <seed>
 build\x64-clang-asan\fuzz_plugin_state_artefacts\Release\fuzz_plugin_state.exe <iterations> <seed>
+build\x64-clang-asan\fuzz_editor_artefacts\Release\fuzz_editor.exe fuzz <iterations> <seed>
 ```
 
 What the suites cover:
@@ -257,6 +457,9 @@ What the suites cover:
 | `test_app_units`, `test_plugin_unit` | the Pascal units, compiled with range/overflow/object checks and `heaptrc` (any leak fails the test), including concurrent heap use from JUCE threads and ABI struct-size handling |
 | `fuzz_midi`, `fuzz_audio_files`, `fuzz_plugin_state` | deterministic mutation fuzzing of the three attacker-controlled inputs (run longer by hand) |
 | `plugin_host_*` | the built VST3/LV2 bundles under JUCE's own hosting, including hostile state, a missing library and a tampered library |
+| `fuzz_editor_scenario` | the editor API from a C++ test library: calls from other threads, stale and forged handles, drawing outside paint, image limits (oversized, truncated, bad CRC, GIF), parameter-text truncation, menus (one at a time, answer after close dropped), the host closing the window inside a callback (also inside a scaled resize), a gesture left open, the processor destroyed under an open editor, the URL validator (60+ hostile URLs) and `open_url` only during clicks, scaling (limits, drawing, mouse mapping, remembered and hostile saved scales, letterboxing), `set_look` (hostile looks, a menu outliving its editor), 1000 editors |
+| `fuzz_editor` | random host actions (open/close, paint, mouse, wheel, resize, automation from other threads, menus, audio) while the library makes random API calls with hostile arguments in every callback, including `set_design_size`, `open_url` (every URL actually opened must pass the validator) and `set_look` |
+| `editor_test`, `test_ui_unit` | the Pascal controls: rendering against reference images, mouse, gestures, automation, menus, lifetime, no leaks over 1000 editors |
 
 ## Limits
 
@@ -266,10 +469,31 @@ What the suites cover:
   formats are not offered at all: their readers were not part of the review,
   and they decode through operating-system code. Decode those with a library
   you trust and pass the samples in a buffer.
+- **Editor images are decoded by JUCE's bundled libpng and libjpeg.** The
+  structure checks keep the decoders on well-formed input and bound what they
+  allocate, but the decoders still parse the compressed data. For skins from
+  untrusted sources, prefer PNG, or decode them elsewhere and ship only
+  images you made.
+- **Editor teardown and host locks.** Every library editor callback runs
+  under one wrapper-wide lock, so that a host destroying a plug-in on
+  another thread waits for it. If the library resizes its window inside a
+  callback, the host's resize handling runs under that lock. A host that
+  destroys another plug-in instance on a second thread while holding a lock
+  its resize handler also takes could deadlock. If a host destroys a
+  plug-in with its editor still open on another thread (against JUCE's
+  rules), the library editor is abandoned and the host may see a gesture
+  begin without its end.
+- **The editor runs in the host's process and on its UI thread.** A library
+  that loops forever in a callback freezes the host's interface; nothing
+  here can stop that.
 - **Integrity checking proves the library is the one built with this wrapper**,
   not that it is benign. Sign your releases (Authenticode on Windows, a
   Developer ID with notarisation on macOS); signing also covers the wrapper.
-- **The macOS/AU path is not yet tested**, including bundle signing.
+- **The macOS/AU path is not yet tested**, including bundle signing and the
+  macOS and Linux `open_url` launchers (LSOpenCFURLRef, xdg-open).
+- **open_url opens what the URL says.** The checks keep it to an https page,
+  not to a page you trust: IDN host names (`xn--`) can look like others.
+  Pass only URLs your plug-in ships, never ones from presets or projects.
 - **Pascal code is the author's responsibility.** The fake-huge sample array
   types are unchecked by design (speed); use `Ctx.Channel`, `Ctx.MidiEvent`
   and `Ctx.Param`, which are bounds-checked, and always honour `NumSamples`.

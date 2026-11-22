@@ -9,4 +9,5 @@ pascaljuce_add_plugin(PascalSynth
     VERSION           0.1.0
     PASCAL_SOURCE     PascalSynth.dpr # compiled with Free Pascal
     # PASCAL_LIBRARY  path/to/PascalSynth.dll   # ...or a DLL you built in Delphi
+    PARAMETER_LIST    PascalSynth.params        # for the form designer (SynthEditorForm.lfm)
 )

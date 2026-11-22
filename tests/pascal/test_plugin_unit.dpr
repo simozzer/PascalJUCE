@@ -280,9 +280,9 @@ begin
   CheckEquals(8, OffsetOf(@Ctx, @Ctx.Channels), 'jcp_process_context.channels');
   CheckEquals(40, OffsetOf(@Ctx, @Ctx.NumChannels), 'jcp_process_context.num_channels');
   CheckEquals(68, OffsetOf(@Ctx, @Ctx.IsNonRealtime), 'jcp_process_context.is_non_realtime');
-  CheckEquals(80, SizeOf(TJcpHostApi), 'jcp_host_api size');
+  CheckEquals(88, SizeOf(TJcpHostApi), 'jcp_host_api size (with set_meter)');
   CheckEquals(72, OffsetOf(@Api, @@Api.GetExtension), 'jcp_host_api.get_extension');
-  CheckEquals(88, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size');
+  CheckEquals(96, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size (with create_editor)');
   CheckEquals(40, OffsetOf(@VT, @@VT.Process), 'jcp_plugin_vtable.process');
   CheckEquals(72, OffsetOf(@VT, @@VT.GetParameterText), 'jcp_plugin_vtable.get_parameter_text');
   CheckEquals(48, SizeOf(TJcpPluginFactory), 'jcp_plugin_factory size');

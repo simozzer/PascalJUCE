@@ -6,7 +6,11 @@ There are two parts:
    and audio-file modules, plus Pascal units for Free Pascal/Lazarus and Delphi.
 2. **Plug-ins:** write **VST3 / LV2 / Standalone** (and, on macOS, **AU**)
    instruments and effects in Pascal. JUCE handles the plug-in formats; your
-   code subclasses `TJucePlugin`. See **[docs/PLUGINS.md](docs/PLUGINS.md)**.
+   code subclasses `TJucePlugin`, and can draw its own editor with Pascal
+   controls (knobs, sliders, switches, buttons, meters), built in code or
+   **designed visually in the Lazarus or Delphi form designer** and loaded
+   from the embedded .lfm/.dfm at run time. See
+   **[docs/PLUGINS.md](docs/PLUGINS.md)**.
 
 ```
 include/juce_c_audio.h        C API for apps (the contract)
@@ -14,6 +18,11 @@ src/juce_c_audio.cpp          C++ implementation over JUCE
 pascal/juce_c_audio.pas       raw 1:1 Pascal imports (cdecl)
 pascal/JuceAudio.pas          app object layer: devices, MIDI, files
 pascal/JucePlugin.pas         plug-in base class (no DLL dependencies)
+pascal/JuceUI.pas, JuceControls.pas, JuceCanvas.pas
+                              custom plug-in editors: controls drawn by JUCE
+pascal/JuceLayout.pas         builds an editor from a designed .lfm/.dfm (no LCL/VCL)
+pascal/design/                design-time controls + TCanvas back end (LCL/VCL only)
+packages/lazarus/, delphi/    IDE packages: "PascalJUCE" palette, ParameterId editor
 pascal/JuceTypes.pas          shared sample/channel array types
 plugin/                       C++ plug-in wrapper + its C ABI (juce_c_plugin.h)
 cmake/PascalJUCE.cmake        pascaljuce_add_plugin()
@@ -75,6 +84,12 @@ produces the example plug-in
 | `test_app_units` | `JuceAudio.pas`, built with range/overflow checks and `heaptrc` (leaks fail), on the virtual device |
 | `test_plugin_unit` | `JucePlugin.pas` through its exported entry point with a fake host, plus ABI layout checks |
 | `fuzz_midi`, `fuzz_audio_files`, `fuzz_plugin_state` | reproducible fuzzing of the attacker-controlled inputs |
+| `test_ui_unit` | `JuceUI.pas` / `JuceControls.pas` through the editor ABI with a fake host: binding, mouse, gestures, menus, lifetime, published properties, 1000 editors (`heaptrc`) |
+| `editor_test` | the PascalSynth editor (loaded from its designed form) offscreen: rendering against `tests/data/ui` reference PNGs, simulated mouse, host automation, popup menu, window closed mid-edit, 1000 editors |
+| `test_layout_unit` | `JuceLayout.pas`: the embedded PascalSynth form against the code-built panel, .dfm vs .lfm, every class and property text -> binary -> controls, strict/lenient, scaling, every truncation and 3000 mutations of a form, oversized and deeply nested input (`heaptrc`) |
+| `design_props_current` | the design-time property lists (`pascal/design/JuceDesignGen.inc`) match the run-time controls |
+| `lazarus_package_*`, `lcl_design_test` | the Lazarus packages build (with `lazbuild`, private config, nothing installed); the design-time controls render the PascalSynth form like JUCE does (pixel comparison), and what the designer saves loads back with every property intact |
+| `fuzz_editor_scenario`, `fuzz_editor` | the editor API against a C++ library that calls it with hostile arguments, wrong threads and stale handles; then random calls in every callback |
 | `plugin_host_*` | the built VST3/LV2 bundles loaded through JUCE's hosting: instrument, effect, MIDI out, state, missing and tampered libraries |
 
 For an AddressSanitizer run (overflows and use-after-free abort the tests):

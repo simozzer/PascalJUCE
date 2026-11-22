@@ -13,7 +13,8 @@ library PascalSynth;
 
 uses
   JucePlugin,
-  SimpleSynth in 'SimpleSynth.pas';
+  SimpleSynth in 'SimpleSynth.pas',
+  SynthEditor in 'SynthEditor.pas';
 
 exports
   pascaljuce_plugin_entry;

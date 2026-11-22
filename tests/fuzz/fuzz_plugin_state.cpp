@@ -251,6 +251,20 @@ int main(int argc, char* argv[])
         plugin->getStateInformation(back);
     }
 
+    // A library without create_editor (built before custom editors existed, or
+    // not wanting one) keeps JUCE's generic editor.
+    {
+        std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
+        const bool generic = dynamic_cast<juce::GenericAudioProcessorEditor*>(editor.get()) != nullptr;
+        plugin->editorBeingDeleted(editor.get());
+        editor.reset();
+        if (! generic)
+        {
+            std::printf("a library without an editor must get the generic editor\n");
+            return 1;
+        }
+    }
+
     plugin->releaseResources();
     std::printf("fuzz plugin state: %ld iterations (seed %u) completed without memory errors\n", iterations, seed);
     return 0;

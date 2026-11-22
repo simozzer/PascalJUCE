@@ -15,7 +15,9 @@
 #       PASCAL_SOURCE  MyPlugin.dpr      # compile with Free Pascal, or
 #       PASCAL_LIBRARY path/to/MyPlugin.dll  # use a library you built (e.g. in Delphi)
 #       [PASCAL_FLAGS -dSOMETHING ...] [PASCAL_UNIT_PATHS dir ...]
-#       [LICENSE_FILE path])             # your plug-in's licence, shipped as licenses/LICENSE.txt
+#       [LICENSE_FILE path]              # your plug-in's licence, shipped as licenses/LICENSE.txt
+#       [PARAMETER_LIST path])           # write the parameter list there after each build, for the
+#                                        # form designer (e.g. next to your .lfm; see docs/PLUGINS.md)
 #
 # The Pascal library is copied next to the plug-in binary inside every bundle
 # (e.g. My Synth.vst3/Contents/x86_64-win/<target>_pascal.dll) and loaded at
@@ -94,6 +96,18 @@ if(WIN32 AND NOT TARGET pascaljuce_pe_flags)
     set_target_properties(pascaljuce_pe_flags PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
 
+# Build-time tool that writes a library's parameter list for the form
+# designer (PARAMETER_LIST below; see tools/pascaljuce_params.cpp).
+if(NOT CMAKE_CROSSCOMPILING AND NOT TARGET pascaljuce_params)
+    add_executable(pascaljuce_params "${PASCALJUCE_ROOT}/tools/pascaljuce_params.cpp")
+    target_compile_features(pascaljuce_params PRIVATE cxx_std_17)
+    target_include_directories(pascaljuce_params PRIVATE "${PASCALJUCE_ROOT}/plugin/include")
+    if(UNIX)
+        target_link_libraries(pascaljuce_params PRIVATE ${CMAKE_DL_LIBS})
+    endif()
+    set_target_properties(pascaljuce_params PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endif()
+
 function(_pascaljuce_find_fpc out_var)
     if(FPC_EXECUTABLE)
         set(${out_var} "${FPC_EXECUTABLE}" PARENT_SCOPE)
@@ -115,7 +129,7 @@ endfunction()
 function(pascaljuce_add_plugin target)
     set(one_value PRODUCT_NAME COMPANY_NAME COMPANY_WEBSITE MANUFACTURER_CODE PLUGIN_CODE KIND VERSION
                   BUNDLE_ID LV2URI PASCAL_SOURCE PASCAL_LIBRARY MIDI_INPUT MIDI_OUTPUT INTEGRITY_CHECK
-                  LICENSE_FILE)
+                  LICENSE_FILE PARAMETER_LIST)
     set(multi_value FORMATS PASCAL_FLAGS PASCAL_UNIT_PATHS)
     cmake_parse_arguments(ARG "" "${one_value}" "${multi_value}" ${ARGN})
 
@@ -301,7 +315,8 @@ function(pascaljuce_add_plugin target)
         set(pascal_sources)
         foreach(dir IN LISTS dep_dirs)
             file(GLOB_RECURSE found CONFIGURE_DEPENDS
-                 "${dir}/*.pas" "${dir}/*.pp" "${dir}/*.inc" "${dir}/*.dpr" "${dir}/*.lpr")
+                 "${dir}/*.pas" "${dir}/*.pp" "${dir}/*.inc" "${dir}/*.dpr" "${dir}/*.lpr"
+                 "${dir}/*.lfm" "${dir}/*.dfm") # form files embedded with {$R}
             list(APPEND pascal_sources ${found})
         endforeach()
 
@@ -344,6 +359,25 @@ function(pascaljuce_add_plugin target)
     # copy the rule into every target that depends on the file).
     add_custom_target(${target}_PascalBuild DEPENDS "${pascal_lib}")
     set_target_properties(${target}_PascalBuild PROPERTIES PASCALJUCE_LIBRARY "${pascal_lib}")
+
+    # ---- parameter list for the form designer (optional) ------------------
+    # Loads the built library and writes its parameters (id, kind, name, units,
+    # range, default, choices) to PARAMETER_LIST; the design-time packages read
+    # it for the ParameterId drop-down and for the preview values. The file is
+    # only rewritten when it changes.
+    if(ARG_PARAMETER_LIST)
+        if(TARGET pascaljuce_params)
+            cmake_path(ABSOLUTE_PATH ARG_PARAMETER_LIST BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                       OUTPUT_VARIABLE parameter_list)
+            add_custom_target(${target}_ParameterList ALL
+                COMMAND "$<TARGET_FILE:pascaljuce_params>" "${pascal_lib}" "${parameter_list}"
+                COMMENT "Exporting the parameter list of ${target}"
+                VERBATIM)
+            add_dependencies(${target}_ParameterList ${target}_PascalBuild pascaljuce_params)
+        else()
+            message(STATUS "pascaljuce_add_plugin(${target}): PARAMETER_LIST ignored (cross-compiling)")
+        endif()
+    endif()
 
     # ---- integrity hash compiled into the wrapper ---------------------------
     if(ARG_INTEGRITY_CHECK)

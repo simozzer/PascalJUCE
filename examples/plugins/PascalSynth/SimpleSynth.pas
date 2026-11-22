@@ -1,6 +1,7 @@
 {
   SimpleSynth - a minimal template instrument for PascalJUCE.
-  8 voices, sine/saw/square, linear attack/release, gain.
+  8 voices, sine/saw/square, linear attack/release, gain, and a custom editor
+  (SynthEditor.pas) with an output meter.
   Deliberately small: copy this folder and make it your own.
   SPDX-License-Identifier: MIT-0 (no attribution needed). The plug-in you build
   from it contains JUCE: see THIRD_PARTY_NOTICES.md before you distribute it.
@@ -35,6 +36,7 @@ type
   private
     FVoices: array[0..7] of TVoice;
     FTuning: Single;        { A4 in Hz: extra state, saved with SaveState }
+    FPeak: Single;          { loudest output sample of the block, for the meter }
     procedure NoteOn(Note, Velocity: Integer);
     procedure NoteOff(Note: Integer);
     procedure HandleMidi(const Event: TJuceMidiEvent);
@@ -45,6 +47,8 @@ type
     procedure Reset; override;
     procedure Process(const Ctx: TJuceProcessContext); override;
     function TailSeconds: Double; override;
+    { The window: return nil (or delete this) for the host's generic editor. }
+    function CreateEditor: TJuceEditorBase; override;
     { Anything beyond the parameters goes here. LoadState data comes from project
       files, i.e. strangers: check the size, the version and every value. }
     function SaveState: TBytes; override;
@@ -54,7 +58,12 @@ type
 implementation
 
 uses
-  Math;
+  Math, SynthEditor;
+
+function TSimpleSynth.CreateEditor: TJuceEditorBase;
+begin
+  Result := TSynthEditor.Create(Self);
+end;
 
 constructor TSimpleSynth.Create;
 begin
@@ -210,6 +219,8 @@ begin
       if Buf <> nil then
         Buf^[I] := Sample * Gain;
     end;
+    if Abs(Sample * Gain) > FPeak then
+      FPeak := Abs(Sample * Gain);
   end;
 end;
 
@@ -219,6 +230,7 @@ var
   Event: PJuceMidiEvent;
 begin
   { Render up to each MIDI event so notes start sample-accurately. }
+  FPeak := 0;
   Pos := 0;
   for E := 0 to Ctx.NumMidiEvents - 1 do
   begin
@@ -232,6 +244,8 @@ begin
     HandleMidi(Event^);
   end;
   Render(Ctx, Pos, Ctx.NumSamples);
+  { For the editor's meter: one atomic store, safe on the audio thread. }
+  SetMeter(MeterOutput, FPeak);
 end;
 
 end.

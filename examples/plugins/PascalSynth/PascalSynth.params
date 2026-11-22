@@ -1,0 +1,6 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+wave	choice	Waveform		0	2	1	1	Sine|Saw|Square
+attack	float	Attack	ms	1	2000	10	0	
+release	float	Release	ms	1	2000	300	0	
+gain	float	Gain		0	1	0.699999988	0	

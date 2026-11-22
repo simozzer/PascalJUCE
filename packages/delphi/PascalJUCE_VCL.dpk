@@ -1,0 +1,49 @@
+package PascalJUCE_VCL;
+
+{ PascalJUCE controls for the Delphi form designer: the run-time part (the
+  design-time controls, the TCanvas back end, and the plug-in units they
+  wrap). Required by PascalJUCE_Design.dpk. Never use it in a plug-in.
+  See README.md in this folder. Not compiled here: no Delphi was available. }
+
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS OFF}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DESCRIPTION 'PascalJUCE controls (VCL, run time of the designer)'}
+{$RUNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  vclimg;
+
+contains
+  JuceTypes in '..\..\pascal\JuceTypes.pas',
+  JucePlugin in '..\..\pascal\JucePlugin.pas',
+  JuceCanvas in '..\..\pascal\JuceCanvas.pas',
+  JuceUI in '..\..\pascal\JuceUI.pas',
+  JuceControls in '..\..\pascal\JuceControls.pas',
+  JuceLayout in '..\..\pascal\JuceLayout.pas',
+  JuceRaster in '..\..\pascal\design\JuceRaster.pas',
+  JuceTCanvas in '..\..\pascal\design\JuceTCanvas.pas',
+  JuceDesignControls in '..\..\pascal\design\JuceDesignControls.pas';
+
+end.

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <Name Value="pascaljuce_design"/>
+    <Type Value="DesignTime"/>
+    <Author Value="PascalJUCE"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Parsing>
+        <SyntaxOptions>
+          <SyntaxMode Value="Delphi"/>
+        </SyntaxOptions>
+      </Parsing>
+      <Other>
+        <CustomOptions Value="-FcUTF8"/>
+      </Other>
+    </CompilerOptions>
+    <Description Value="PascalJUCE for the Lazarus IDE: a &quot;PascalJUCE&quot; palette page with the plug-in editor controls (painted by the plug-in's own drawing code), a ParameterId drop-down fed by the plug-in's parameter list, colour and image property editors. Design forms with it, then embed the .lfm in the plug-in (see docs/PLUGINS.md)."/>
+    <License Value="See LICENSE in the PascalJUCE repository."/>
+    <Version Major="0" Minor="2"/>
+    <Files Count="1">
+      <Item1>
+        <Filename Value="JuceDesignRegLaz.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="JuceDesignRegLaz"/>
+      </Item1>
+    </Files>
+    <RequiredPkgs Count="2">
+      <Item1>
+        <PackageName Value="pascaljuce_lcl"/>
+        <DefaultFilename Value="pascaljuce_lcl.lpk" Prefer="True"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="IDEIntf"/>
+      </Item2>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

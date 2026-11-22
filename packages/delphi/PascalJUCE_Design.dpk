@@ -1,0 +1,43 @@
+package PascalJUCE_Design;
+
+{ PascalJUCE for the Delphi IDE: a "PascalJUCE" palette page with the
+  plug-in editor controls (painted by the plug-in's own drawing code), a
+  ParameterId drop-down fed by the plug-in's parameter list, colour and
+  image property editors. Install this one (it requires PascalJUCE_VCL).
+  See README.md in this folder. Not compiled here: no Delphi was available. }
+
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS OFF}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DESCRIPTION 'PascalJUCE controls (form designer)'}
+{$DESIGNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  designide,
+  PascalJUCE_VCL;
+
+contains
+  JuceDesignRegVcl in 'JuceDesignRegVcl.pas';
+
+end.

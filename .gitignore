@@ -13,3 +13,8 @@ CMakeUserPresets.json
 /reports/
 /patches/
 /tests/private/
+
+# Lazarus build output and session files
+lib/
+*.lps
+*.res
