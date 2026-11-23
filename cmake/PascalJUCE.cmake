@@ -88,7 +88,9 @@ if(NOT MSVC)
         if(PASCALJUCE_HAVE_CF_PROTECTION)
             list(APPEND PASCALJUCE_EXTRA_HARDENING_FLAGS -fcf-protection=full)
         endif()
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$" AND NOT APPLE)
+        # Not on Apple: plain arm64 (not arm64e) binaries cannot use return-address
+        # signing there, and exceptions fail to unwind through signed frames.
         check_cxx_compiler_flag(-mbranch-protection=standard PASCALJUCE_HAVE_BRANCH_PROTECTION)
         if(PASCALJUCE_HAVE_BRANCH_PROTECTION)
             list(APPEND PASCALJUCE_EXTRA_HARDENING_FLAGS -mbranch-protection=standard)

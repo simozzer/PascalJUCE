@@ -405,7 +405,8 @@ block, so a plug-in cannot grow memory on the audio thread.
   On Linux and macOS: `-fstack-protector-strong`, stack-clash protection
   (`-fstack-clash-protection`), control-flow protection where the compiler
   supports it (`-fcf-protection=full`, Intel CET, on x86_64;
-  `-mbranch-protection=standard`, PAC and BTI, on arm64), `_FORTIFY_SOURCE=2`
+  `-mbranch-protection=standard`, PAC and BTI, on Linux arm64; not on Apple
+  Silicon, where plain arm64 binaries do not support it), `_FORTIFY_SOURCE=2`
   (release builds; sanitizer builds leave it out, since the sanitizers
   intercept the same calls) and position independence (PIC, and PIE for the
   Standalone apps). On Linux also full RELRO (`-z relro -z now`) and a
