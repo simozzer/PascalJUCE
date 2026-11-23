@@ -23,6 +23,9 @@ program gen_design_props;
 {$APPTYPE CONSOLE}
 
 uses
+{$IFDEF FPC}{$IFDEF UNIX}
+  cthreads, { first: the units below may start the RTL's threading in their initialisation }
+{$ENDIF}{$ENDIF}
   SysUtils, Classes, TypInfo, JucePlugin, JuceUI, JuceControls;
 
 const

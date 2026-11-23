@@ -1,0 +1,252 @@
+#
+# PascalJUCE CI: configure, build and run the whole test suite natively on
+#
+#   Windows x64         Visual Studio + ClangCL, 64-bit Lazarus/FPC (Chocolatey)
+#   Linux x86_64        Ubuntu 22.04, GCC, FPC 3.2.2 and Lazarus from apt
+#   Linux arm64         Ubuntu 22.04 on Arm (covers the Raspberry Pi 5 with
+#                       64-bit Raspberry Pi OS, whose glibc is newer)
+#   macOS arm64         Apple Silicon (macOS 15), FPC 3.2.2 from Homebrew
+#   macOS x86_64        Intel, FPC 3.2.2 from Homebrew
+#   Linux x86_64 ASan   AddressSanitizer: the suite plus longer fuzz runs
+#
+# Each job keeps the PascalSynth bundles and the juce_c_audio library for 14
+# days. Ubuntu 22.04 is the oldest glibc the runners offer: what is built
+# there also runs on newer distributions.
+#
+# Failures are turned into annotations (.github/scripts/annotate.sh). They are
+# public, so they only name what failed; the details stay in the job log.
+#
+# The artifacts are test builds, not release binaries.
+#
+name: ci
+
+on:
+  push:
+    branches: [main, cross-platform]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64,    runner: ubuntu-22.04,     preset: linux-x64,      os: linux }
+          - { name: linux-arm64,  runner: ubuntu-22.04-arm, preset: linux-arm64,    os: linux }
+          - { name: linux-x64-asan, runner: ubuntu-22.04,   preset: linux-x64-asan, os: linux, fuzz: true }
+          - { name: macos-arm64,  runner: macos-15,         preset: macos,          os: mac }
+          - { name: macos-x86_64, runner: macos-15-intel,   preset: macos,          os: mac }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      BUILD: build/${{ matrix.preset }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      # JUCE on Linux: ALSA, FreeType, Fontconfig and the X11 headers (JACK,
+      # curl and WebKit stay off). Free Pascal and Lazarus (LCL, GTK2) for the
+      # Pascal suites and design-time packages; Xvfb for the GUI tests.
+      - name: Packages (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ ninja-build pkg-config binutils \
+            libasound2-dev libfreetype-dev libfontconfig1-dev fonts-dejavu-core \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            fpc lazarus xvfb xauth openbox x11-utils
+          fpc -iV
+          lazbuild --version || true
+          cmake --version
+
+      - name: Packages (macOS)
+        if: matrix.os == 'mac'
+        run: |
+          brew install fpc ninja
+          fpc -iV
+          fpc -iTP
+          cmake --version
+          xcodebuild -version
+
+      - name: Configure
+        run: |
+          set -o pipefail
+          cmake --preset ${{ matrix.preset }} 2>&1 | tee configure.log || {
+            .github/scripts/annotate.sh build configure.log; exit 1; }
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build --preset ${{ matrix.preset }} --parallel 2>&1 | tee build.log || {
+            .github/scripts/annotate.sh build build.log; exit 1; }
+
+      - name: Test
+        run: |
+          status=0
+          if [ "${{ matrix.os }}" = linux ]; then
+            # The GUI tests (menus, editor windows, the LCL test) need an X display.
+            .github/scripts/headless.sh \
+              ctest --test-dir "$BUILD" -V --timeout 900 -j 3 > ctest.log 2>&1 || status=$?
+          else
+            ctest --test-dir "$BUILD" -V --timeout 900 -j 3 > ctest.log 2>&1 || status=$?
+          fi
+          .github/scripts/annotate.sh show 60 ctest.log
+          .github/scripts/annotate.sh ctest ctest.log
+          exit $status
+
+      - name: Virtual display (Linux)
+        if: always() && matrix.os == 'linux'
+        run: |
+          .github/scripts/headless.sh sh -c 'xdpyinfo | grep -E "depth of root|depths|bits_per_pixel|default visual|class:" | head -12' > display.txt 2>&1 || true
+          .github/scripts/annotate.sh notice "virtual display" display.txt
+
+      # Free Pascal links through a generated script on macOS; show it if a Pascal build failed.
+      - name: Free Pascal link scripts (macOS, on failure)
+        if: failure() && matrix.os == 'mac'
+        run: |
+          for f in "$BUILD"/bin/ppaslink.sh "$BUILD"/pascal-units/*/ppaslink.sh; do
+            [ -f "$f" ] || continue
+            .github/scripts/annotate.sh show 200 "$f"
+          done
+
+      - name: Longer fuzz runs (AddressSanitizer)
+        if: matrix.fuzz
+        run: |
+          set -o pipefail
+          b="$BUILD"
+          status=0
+          # "name|command": only the name goes into a failure annotation.
+          for entry in "fuzz_c_api midi|$b/bin/fuzz_c_api midi 200000 101" \
+                       "fuzz_c_api file|$b/bin/fuzz_c_api file 20000 102" \
+                       "fuzz_plugin_state|$b/fuzz_plugin_state_artefacts/Release/fuzz_plugin_state 20000 103" \
+                       "fuzz_editor|.github/scripts/headless.sh $b/fuzz_editor_artefacts/Release/fuzz_editor fuzz 20000 104"; do
+            name=${entry%%|*}
+            cmd=${entry#*|}
+            echo "== $cmd"
+            $cmd > fuzz.log 2>&1 || {
+              status=1
+              .github/scripts/annotate.sh fail "fuzz target $name failed"
+              .github/scripts/annotate.sh show 60 fuzz.log
+              continue
+            }
+            .github/scripts/annotate.sh show 5 fuzz.log
+          done
+          exit $status
+
+      - name: Validate the Audio Unit
+        if: matrix.os == 'mac'
+        run: |
+          comp="$BUILD/examples/plugins/PascalSynth/PascalSynth_artefacts/Release/AU/Pascal Synth.component"
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Pascal Synth.component"
+          ditto "$comp" ~/Library/Audio/Plug-Ins/Components/"Pascal Synth.component"
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          auval -a | grep -i pjuc || true
+          auval -strict -v aumu Psy1 Pjuc > auval.log 2>&1 || {
+            .github/scripts/annotate.sh fail "auval failed"
+            .github/scripts/annotate.sh show 60 auval.log; exit 1; }
+          .github/scripts/annotate.sh show 20 auval.log
+
+      - name: Package
+        if: ${{ !matrix.fuzz }}
+        run: |
+          out="dist/PascalJUCE-${{ matrix.name }}"
+          art="$BUILD/examples/plugins/PascalSynth/PascalSynth_artefacts/Release"
+          mkdir -p "$out/PascalSynth" "$out/lib" "$out/include"
+          for b in VST3 LV2 AU Standalone; do
+            [ -e "$art/$b" ] && cp -R "$art/$b" "$out/PascalSynth/"
+          done
+          cp -R "$BUILD"/bin/libjuce_c_audio.* "$BUILD/juce_c_audio_licenses" "$out/lib/"
+          cp include/juce_c_audio.h "$out/include/"
+          cp -R pascal "$out/pascal"
+          (cd dist && tar -czf "PascalJUCE-${{ matrix.name }}.tar.gz" "PascalJUCE-${{ matrix.name }}")
+          find "$out" -maxdepth 4 | sort
+
+      - name: Keep the build
+        if: ${{ !matrix.fuzz }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: PascalJUCE-${{ matrix.name }}
+          path: dist/*.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+
+  windows:
+    name: windows-x64
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      # 64-bit Lazarus brings FPC 3.2.2 for x86_64-win64 in C:\lazarus, where CMake looks.
+      - name: Lazarus and Free Pascal
+        shell: pwsh
+        run: |
+          choco install lazarus -y --no-progress
+          Get-ChildItem C:\lazarus\fpc\*\bin\x86_64-win64\fpc.exe
+          & (Get-ChildItem C:\lazarus\fpc\*\bin\x86_64-win64\fpc.exe | Select-Object -First 1).FullName -iV
+
+      # The preset names Visual Studio 2026; use the newest Visual Studio the image has.
+      - name: Configure
+        run: |
+          set -o pipefail
+          vs=$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationVersion)
+          echo "Visual Studio $vs"
+          case "$vs" in
+            18.*) gen="Visual Studio 18 2026" ;;
+            *)    gen="Visual Studio 17 2022" ;;
+          esac
+          cmake -S . -B build/x64-clang -G "$gen" -A x64 -T ClangCL 2>&1 | tee configure.log || {
+            .github/scripts/annotate.sh build configure.log; exit 1; }
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build/x64-clang --config Release -- -m 2>&1 | tee build.log || {
+            .github/scripts/annotate.sh build build.log; exit 1; }
+
+      - name: Test
+        run: |
+          status=0
+          ctest --test-dir build/x64-clang -C Release -V --timeout 900 > ctest.log 2>&1 || status=$?
+          .github/scripts/annotate.sh show 60 ctest.log
+          .github/scripts/annotate.sh ctest ctest.log
+          exit $status
+
+      - name: Package
+        run: |
+          out="dist/PascalJUCE-windows-x64"
+          art="build/x64-clang/examples/plugins/PascalSynth/PascalSynth_artefacts/Release"
+          mkdir -p "$out/PascalSynth" "$out/lib" "$out/include"
+          for b in VST3 LV2 Standalone; do
+            [ -e "$art/$b" ] && cp -R "$art/$b" "$out/PascalSynth/"
+          done
+          cp -R build/x64-clang/bin/Release/juce_c_audio.dll build/x64-clang/bin/Release/licenses "$out/lib/"
+          cp build/x64-clang/lib/Release/juce_c_audio.lib "$out/lib/" || true
+          cp include/juce_c_audio.h "$out/include/"
+          cp -R pascal "$out/pascal"
+
+      - name: Keep the build
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: PascalJUCE-windows-x64
+          path: dist/
+          retention-days: 14
+          if-no-files-found: error

@@ -111,7 +111,7 @@ constructor TJuceCanvasTextRenderer.Create;
 begin
   inherited Create;
   FBitmap := TBitmap.Create;
-  FBitmap.PixelFormat := pf24bit;
+  FBitmap.PixelFormat := {$IFDEF MSWINDOWS}pf24bit{$ELSE}pf32bit{$ENDIF}; { GTK2: the display's layout }
   FBitmap.SetSize(4, 4);
 end;
 
@@ -253,7 +253,8 @@ begin
 {$IFDEF FPC}
     Img := TLazIntfImage.Create(0, 0, [riqfRGB]);
     try
-      Desc.Init_BPP24_B8G8R8_BIO_TTB(Width, Height);
+      { 32 bits per pixel: GTK2 accepts only its display's pixel layout for bitmap data }
+      Desc.Init_BPP32_B8G8R8_BIO_TTB(Width, Height);
       Img.DataDescription := Desc;
       for Y := 0 to Height - 1 do
       begin
@@ -261,9 +262,10 @@ begin
         for X := 0 to Width - 1 do
         begin
           C := PixelAt(X, Y);
-          Line[X * 3] := C and $FF;
-          Line[X * 3 + 1] := (C shr 8) and $FF;
-          Line[X * 3 + 2] := (C shr 16) and $FF;
+          Line[X * 4] := C and $FF;
+          Line[X * 4 + 1] := (C shr 8) and $FF;
+          Line[X * 4 + 2] := (C shr 16) and $FF;
+          Line[X * 4 + 3] := 0;
         end;
       end;
       Result.LoadFromIntfImage(Img);

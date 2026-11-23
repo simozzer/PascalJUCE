@@ -23,9 +23,11 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <cfenv>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <map>
@@ -56,6 +58,10 @@
     #include <sys/wait.h>
     #if JUCE_MAC
         #include <CoreServices/CoreServices.h> // LSOpenCFURLRef (open_url)
+    #else
+        #include <signal.h>
+        #include <sys/syscall.h> // close_range (open_url's launcher)
+extern "C" char** environ;
     #endif
 #endif
 
@@ -158,6 +164,25 @@ struct ScopedFpState
    #if defined(_M_IX86)
     unsigned int saved87 = 0;
    #endif
+#elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+    // AArch64: FPCR bits 8-12 and 15 enable traps (invalid, divide by zero,
+    // overflow, underflow, inexact, denormal input). They are cleared for the
+    // call; rounding mode and FZ stay as they are, and the whole register is
+    // restored afterwards.
+    static constexpr uint64_t trapEnableBits = 0x9F00u;
+    static uint64_t readFpcr() noexcept { uint64_t v; asm volatile("mrs %0, fpcr" : "=r"(v)); return v; }
+    static void writeFpcr(uint64_t v) noexcept { asm volatile("msr fpcr, %0" : : "r"(v)); }
+    ScopedFpState() noexcept : saved(readFpcr())
+    {
+        if ((saved & trapEnableBits) != 0)
+            writeFpcr(saved & ~trapEnableBits);
+    }
+    ~ScopedFpState() noexcept
+    {
+        if (readFpcr() != saved)
+            writeFpcr(saved);
+    }
+    uint64_t saved;
 #endif
 };
 
@@ -326,7 +351,7 @@ private:
         }
         CloseHandle(file);
 #else
-        const int fd = open(fullPath.toRawUTF8(), O_RDONLY | O_CLOEXEC);
+        int fd = open(fullPath.toRawUTF8(), O_RDONLY | O_CLOEXEC);
         if (fd < 0)
         {
             error = "Cannot open " + fullPath;
@@ -1867,6 +1892,187 @@ static std::vector<std::string>& testOpenedUrls()
     static std::vector<std::string> urls;
     return urls;
 }
+
+// Test executables can leave text out of the rendering, to tell text pixels from the rest.
+static std::atomic<bool>& testSkipText()
+{
+    static std::atomic<bool> skip { false };
+    return skip;
+}
+#endif
+
+/* The platform launchers. They are compiled in every build, test builds
+   included (which record URLs instead of calling them), so that each one is
+   compiled and its inputs can be checked by the tests. `url` has passed
+   validatedUrl(): it is plain ASCII and starts with "https://". */
+#if JUCE_WINDOWS
+static juce::URL launcherUrl(const std::string& url)
+{
+    // Without parsing: juce::URL would re-encode the query part.
+    return juce::URL::createWithoutParsing(juce::String::fromUTF8(url.c_str(), (int) url.size()));
+}
+
+[[maybe_unused]] static void launchWithSystem(const std::string& url)
+{
+    launcherUrl(url).launchInDefaultBrowser();
+}
+#elif JUCE_MAC
+static CFURLRef createLauncherUrl(const std::string& url)
+{
+    return CFURLCreateWithBytes(nullptr, reinterpret_cast<const UInt8*>(url.data()), (CFIndex) url.size(),
+                                kCFStringEncodingASCII, nullptr);
+}
+
+[[maybe_unused]] static void launchWithSystem(const std::string& url)
+{
+    if (auto ref = createLauncherUrl(url))
+    {
+        JUCE_BEGIN_IGNORE_DEPRECATION_WARNINGS
+        LSOpenCFURLRef(ref, nullptr);
+        JUCE_END_IGNORE_DEPRECATION_WARNINGS
+        CFRelease(ref);
+    }
+}
+#else
+// xdg-open with the URL as its only argument: no shell is involved, and the
+// URL starts with "https://", so it can never be taken for an option.
+static std::vector<std::string> launcherArgv(const std::string& url)
+{
+    return { "xdg-open", url };
+}
+
+// The absolute path of `name`: as given if it holds a '/', else the first
+// executable regular file in an absolute PATH directory (empty and relative
+// PATH entries, which would mean the working directory, are skipped).
+static std::string resolveExecutable(const std::string& name)
+{
+    if (name.empty())
+        return {};
+    if (name.find('/') != std::string::npos)
+        return name;
+    const char* path = std::getenv("PATH");
+    const std::string dirs = path != nullptr && *path != 0 ? path : "/usr/local/bin:/usr/bin:/bin";
+    size_t start = 0;
+    while (start <= dirs.size())
+    {
+        const size_t end = std::min(dirs.find(':', start), dirs.size());
+        const std::string dir = dirs.substr(start, end - start);
+        start = end + 1;
+        if (dir.empty() || dir[0] != '/')
+            continue;
+        const std::string candidate = dir + "/" + name;
+        struct stat st {};
+        if (stat(candidate.c_str(), &st) == 0 && S_ISREG(st.st_mode) && access(candidate.c_str(), X_OK) == 0)
+            return candidate;
+    }
+    return {};
+}
+
+// The host's environment without the dynamic loader's injection variables.
+static std::vector<std::string> launcherEnvironment()
+{
+    std::vector<std::string> env;
+    for (char** e = environ; e != nullptr && *e != nullptr; ++e)
+    {
+        const std::string entry(*e);
+        if (entry.rfind("LD_PRELOAD=", 0) == 0 || entry.rfind("LD_LIBRARY_PATH=", 0) == 0
+            || entry.rfind("LD_AUDIT=", 0) == 0)
+            continue;
+        env.push_back(entry);
+    }
+    return env;
+}
+
+// Runs args[0] (searched on PATH) detached: the intermediate child exits at
+// once (no zombie) and the grandchild is re-parented. The grandchild gets
+// /dev/null as stdin/stdout/stderr, none of the host's other descriptors, an
+// empty signal mask with default signal handling, and the environment without
+// LD_PRELOAD, LD_LIBRARY_PATH and LD_AUDIT. Everything the children use is
+// prepared before fork(): only async-signal-safe calls are made after it, as
+// required in a multi-threaded host. False if no child could be started.
+static bool spawnDetached(const std::vector<std::string>& args) noexcept
+{
+    try
+    {
+        if (args.empty())
+            return false;
+        const std::string program = resolveExecutable(args[0]);
+        if (program.empty())
+            return false;
+        std::vector<const char*> argv;
+        argv.reserve(args.size() + 1);
+        for (const auto& a : args)
+            argv.push_back(a.c_str());
+        argv.push_back(nullptr);
+
+        const auto environment = launcherEnvironment();
+        std::vector<const char*> envp;
+        envp.reserve(environment.size() + 1);
+        for (const auto& e : environment)
+            envp.push_back(e.c_str());
+        envp.push_back(nullptr);
+
+        // Upper bound for the descriptor loop, if close_range is not available.
+        long openMax = sysconf(_SC_OPEN_MAX);
+        if (openMax < 0 || openMax > (1L << 20))
+            openMax = 1L << 20;
+        const int maxFd = (int) openMax;
+
+        sigset_t noSignals;
+        sigemptyset(&noSignals);
+        struct sigaction defaultAction {};
+        defaultAction.sa_handler = SIG_DFL;
+        sigemptyset(&defaultAction.sa_mask);
+
+        const int devNull = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (devNull < 0)
+            return false;
+
+        const pid_t child = fork();
+        if (child == 0)
+        {
+            setsid();
+            if (fork() == 0)
+            {
+                // /dev/null on 0-2. dup2 clears close-on-exec on the copies; if the
+                // descriptor itself is 0-2, move it out of the way first.
+                int nul = devNull;
+                if (nul <= 2)
+                    nul = fcntl(devNull, F_DUPFD, 3);
+                if (nul < 0 || dup2(nul, 0) < 0 || dup2(nul, 1) < 0 || dup2(nul, 2) < 0)
+                    _exit(127);
+                // Nothing else of the host's: every descriptor from 3 up is closed.
+               #if defined(SYS_close_range)
+                if (syscall(SYS_close_range, 3u, ~0u, 0u) != 0)
+               #endif
+                    for (int fd = 3; fd < maxFd; ++fd)
+                        close(fd);
+                for (int sig = 1; sig < NSIG; ++sig)
+                    sigaction(sig, &defaultAction, nullptr); // fails harmlessly for KILL, STOP
+                sigprocmask(SIG_SETMASK, &noSignals, nullptr);
+                execve(program.c_str(), const_cast<char* const*>(argv.data()), const_cast<char* const*>(envp.data()));
+                _exit(127);
+            }
+            _exit(0);
+        }
+        close(devNull);
+        if (child < 0)
+            return false;
+        while (waitpid(child, nullptr, 0) < 0 && errno == EINTR)
+        {
+        }
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+[[maybe_unused]] static void launchWithSystem(const std::string& url)
+{
+    spawnDetached(launcherArgv(url));
+}
 #endif
 
 static void launchUrl(const std::string& url) noexcept
@@ -1875,32 +2081,8 @@ static void launchUrl(const std::string& url) noexcept
     {
        #if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
         testOpenedUrls().push_back(url);
-       #elif JUCE_WINDOWS
-        // Without parsing: juce::URL would re-encode the query part.
-        juce::URL::createWithoutParsing(juce::String::fromUTF8(url.c_str(), (int) url.size())).launchInDefaultBrowser();
-       #elif JUCE_MAC
-        if (auto ref = CFURLCreateWithBytes(nullptr, reinterpret_cast<const UInt8*>(url.data()), (CFIndex) url.size(),
-                                            kCFStringEncodingASCII, nullptr))
-        {
-            LSOpenCFURLRef(ref, nullptr);
-            CFRelease(ref);
-        }
        #else
-        // The intermediate child exits at once (no zombie); the grandchild
-        // is re-parented.
-        const pid_t child = fork();
-        if (child == 0)
-        {
-            setsid();
-            if (fork() == 0)
-            {
-                const char* const argv[] = { "xdg-open", url.c_str(), nullptr };
-                execvp(argv[0], const_cast<char* const*>(argv));
-            }
-            _exit(0);
-        }
-        if (child > 0)
-            waitpid(child, nullptr, 0);
+        launchWithSystem(url);
        #endif
     }
     catch (...)
@@ -3360,6 +3542,10 @@ struct EditorApi
     {
         if (text == nullptr || ! rectArgs(x, y, w, h) || ! isSafeText(text, JCP_EDITOR_MAX_TEXT))
             return;
+       #if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
+        if (testSkipText().load())
+            return;
+       #endif
         PASCALJUCE_PAINT(
             const auto flags = justification & (JCP_JUSTIFY_LEFT | JCP_JUSTIFY_RIGHT | JCP_JUSTIFY_HCENTRE
                                                 | JCP_JUSTIFY_TOP | JCP_JUSTIFY_BOTTOM | JCP_JUSTIFY_VCENTRE);
@@ -3564,5 +3750,53 @@ std::string pascaljuce_test_opened_url(int index)
 std::string pascaljuce_test_validated_url(const char* url)
 {
     return pascaljuce::validatedUrl(url);
+}
+#endif
+
+#if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
+// What this platform's launcher is handed for a URL, without starting it:
+// Windows the juce::URL text, macOS the CFURL's absolute string, elsewhere
+// the argument vector, one argument per line.
+std::string pascaljuce_test_launcher_input(const std::string& url)
+{
+   #if JUCE_WINDOWS
+    return pascaljuce::launcherUrl(url).toString(true).toStdString();
+   #elif JUCE_MAC
+    std::string result;
+    if (auto ref = pascaljuce::createLauncherUrl(url))
+    {
+        if (auto text = CFURLGetString(ref))
+            result = juce::String::fromCFString(text).toStdString();
+        CFRelease(ref);
+    }
+    return result;
+   #else
+    std::string result;
+    for (const auto& arg : pascaljuce::launcherArgv(url))
+        result += arg + "\n";
+    return result;
+   #endif
+}
+
+// Runs the real detached launcher with `program` in place of xdg-open (Linux
+// and other X11/Wayland systems only; false elsewhere or if nothing started).
+bool pascaljuce_test_spawn_launcher(const std::string& program, const std::string& url)
+{
+   #if JUCE_WINDOWS || JUCE_MAC
+    juce::ignoreUnused(program, url);
+    return false;
+   #else
+    auto args = pascaljuce::launcherArgv(url);
+    args[0] = program;
+    return pascaljuce::spawnDetached(args);
+   #endif
+}
+#endif
+
+#if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
+// While set, the editor API draws no text (tests use it to find the text pixels).
+void pascaljuce_test_skip_text(bool skip)
+{
+    pascaljuce::testSkipText().store(skip);
 }
 #endif

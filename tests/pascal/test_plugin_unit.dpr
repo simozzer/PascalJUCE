@@ -16,6 +16,9 @@ program test_plugin_unit;
 {$APPTYPE CONSOLE}
 
 uses
+{$IFDEF FPC}{$IFDEF UNIX}
+  cthreads, { first: the units below may start the RTL's threading in their initialisation }
+{$ENDIF}{$ENDIF}
   SysUtils, Math, JuceTypes, JucePlugin, TestFramework;
 
 { ---------------------------------------------------------------------------- }

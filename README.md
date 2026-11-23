@@ -74,6 +74,62 @@ statically, so it only depends on Windows system DLLs. The same build
 produces the example plug-in
 (`build/x64-clang/examples/plugins/PascalSynth/PascalSynth_artefacts/Release/`).
 
+## Build (Linux x86_64 and arm64)
+
+Tested on Ubuntu 22.04 (x86_64 and arm64, GCC 11) in CI. The arm64 build is
+also the one for a **Raspberry Pi 5** running 64-bit Raspberry Pi OS
+(Bookworm); see [Raspberry Pi](docs/PLUGINS.md#raspberry-pi). On Debian or
+Ubuntu:
+
+```sh
+sudo apt-get install g++ cmake ninja-build pkg-config \
+  libasound2-dev libfreetype-dev libfontconfig1-dev \
+  libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxi-dev \
+  libxinerama-dev libxrandr-dev libxrender-dev \
+  fpc            # Free Pascal 3.2.2: Pascal tests and plug-ins
+  # optional: lazarus (design-time packages and their tests), xvfb (headless test runs)
+
+cmake --preset linux-x64          # or linux-arm64 (the same build, its own folder)
+cmake --build --preset linux-x64
+ctest --preset linux-x64          # headless: xvfb-run -a ctest --preset linux-x64
+```
+
+CMake 3.25 or newer is needed for the presets (3.22 without them). Output:
+`build/linux-x64/bin/libjuce_c_audio.so`, and the plug-ins under
+`build/linux-x64/examples/plugins/PascalSynth/PascalSynth_artefacts/Release/`.
+The library needs only glibc, libstdc++, ALSA and (for GUI code) the X11
+libraries, which JUCE loads at run time. JACK is off, as in JUCE's
+defaults.
+
+## Build (macOS, Apple Silicon and Intel)
+
+Tested on macOS 15 (arm64 and x86_64) in CI. Needs the Xcode
+command line tools (`xcode-select --install`), and [Homebrew](https://brew.sh)
+for the rest:
+
+```sh
+brew install cmake ninja fpc
+cmake --preset macos               # this Mac's architecture, macOS 11 or later
+cmake --build --preset macos
+ctest --preset macos
+```
+
+Output: `build/macos/bin/libjuce_c_audio.dylib` and the VST3, AU, LV2 and
+Standalone builds of the example plug-in. Every product is signed ad hoc
+(see [Distributing on macOS](docs/PLUGINS.md#macos-signing-notarisation-and-gatekeeper)
+for Developer ID signing). Free Pascal compiles one architecture per build:
+for universal binaries, build `macos-arm64` and `macos-x86_64` and combine
+them with `lipo` (docs/PLUGINS.md). The Lazarus package tests are skipped on
+macOS unless `LAZBUILD_EXECUTABLE` points at a Lazarus installation.
+
+### Sanitizers
+
+Every platform has an AddressSanitizer preset (`windows-x64-clang-asan`,
+`linux-x64-asan`, `linux-arm64-asan`, `macos-asan`); Linux and macOS also
+have UndefinedBehaviorSanitizer presets (`*-ubsan`). Configure, build and
+test them like the release presets. CI runs the Linux x86_64 ASan build on
+every push, with longer fuzz runs.
+
 ### Tests
 
 `ctest` runs:
@@ -90,7 +146,28 @@ produces the example plug-in
 | `design_props_current` | the design-time property lists (`pascal/design/JuceDesignGen.inc`) match the run-time controls |
 | `lazarus_package_*`, `lcl_design_test` | the Lazarus packages build (with `lazbuild`, private config, nothing installed); the design-time controls render the PascalSynth form like JUCE does (pixel comparison), and what the designer saves loads back with every property intact |
 | `fuzz_editor_scenario`, `fuzz_editor` | the editor API against a C++ library that calls it with hostile arguments, wrong threads and stale handles; then random calls in every callback |
-| `plugin_host_*` | the built VST3/LV2 bundles loaded through JUCE's hosting: instrument, effect, MIDI out, state, missing and tampered libraries |
+| `plugin_host_*` | the built VST3/LV2 bundles loaded through JUCE's hosting: instrument, effect, MIDI out, state, missing, tampered and replaced libraries |
+| `library_integrity_*` | every copy of each Pascal library in the bundles has the SHA-256 the wrapper records (and, on macOS, a valid signature) |
+| `pe_flags_*` (Windows), `hardening_*` (Linux, macOS) | the shipped binaries carry the exploit mitigations in SECURITY.md (checked with the PE header, `readelf` or `otool`) |
+
+Tests that cannot run somewhere are listed by ctest as *Not Run (Disabled)*,
+with the reason printed at configure time: `pe_flags_*` outside Windows, and
+the Lazarus tests where `lazbuild` is not found (macOS by default). Tests that
+need hardware skip those parts at run time and say so: a real audio device
+(none on CI machines) and the Windows MIDI Services loopback ports (Windows
+only; there is no portable loopback MIDI device). On Linux the GUI tests need
+an X display: on a headless machine run ctest under `xvfb-run` with a window
+manager (see `.github/scripts/headless.sh`).
+
+The reference images in `tests/data/ui` were rendered on Windows; text is
+what differs elsewhere (another default font and rasteriser). `editor_test`
+therefore finds the text pixels and holds everything else to the same limit
+on every platform (at most 0.2% of pixels off by more than 24 levels;
+measured 0% on Windows and Linux arm64, 0.05% on Linux x86_64, 0.02% on
+macOS); text areas may differ in up to 35% of their pixels off Windows
+(measured 24-29%). The LCL test allows 6% of the whole panel off Windows
+(measured 4.4% on Linux, 3.0% on Windows, where the limit stays 4%).
+
 
 For an AddressSanitizer run (overflows and use-after-free abort the tests):
 
@@ -105,7 +182,12 @@ See **[SECURITY.md](SECURITY.md)** for the threat model and defences.
 ## Using it from Pascal
 
 1. Put `juce_c_audio.dll` next to your executable. The bitness must match:
-   a 64-bit program needs the 64-bit DLL.
+   a 64-bit program needs the 64-bit DLL. On Linux and macOS, Free Pascal
+   links `libjuce_c_audio.so` / `libjuce_c_audio.dylib` by name: pass its
+   folder with `-Fl<dir>` and give the program an rpath so it finds the
+   library beside itself (`-k-rpath=$ORIGIN` on Linux, quoted in a shell,
+   on macOS `install_name_tool -add_rpath @executable_path <program>` after
+   linking), or install it in a library folder.
 2. Add `pascal/` to the unit search path (Lazarus: *Project Options →
    Paths → Other unit files*; Delphi: *Search path*).
 3. `uses JuceAudio;`. That single unit is enough.
@@ -152,6 +234,15 @@ Command-line build of the demo with FPC 64-bit:
 ```powershell
 C:\lazarus64\fpc\3.2.2\bin\x86_64-win64\fpc.exe -Mdelphi -Fupascal -FEbuild\x64-clang\bin\Release examples\console_demo\JuceConsoleDemo.dpr
 build\x64-clang\bin\Release\JuceConsoleDemo.exe --seconds 5 --midi
+```
+
+On Linux (on macOS: drop the `-k` option, use `build/macos/bin`, then run
+`install_name_tool -add_rpath @executable_path build/macos/bin/JuceConsoleDemo`):
+
+```sh
+fpc -Mdelphi -Fupascal -Flbuild/linux-x64/bin '-k-rpath=$ORIGIN' \
+    -FEbuild/linux-x64/bin examples/console_demo/JuceConsoleDemo.dpr
+build/linux-x64/bin/JuceConsoleDemo --seconds 5 --midi
 ```
 
 ### Rules worth knowing
@@ -222,9 +313,11 @@ build\x64-clang\bin\Release\JuceConsoleDemo.exe --seconds 5 --midi
 - **ASIO**: set `JUCE_ASIO=1` in `CMakeLists.txt`. JUCE bundles the Steinberg
   ASIO SDK (GPLv3 or Steinberg's ASIO licence); read THIRD_PARTY_NOTICES.md
   first.
-- **Linux/macOS**: the code and Pascal units are written to be cross-platform
-  (library name `juce_c_audio.so` / `.dylib`), but they have only been built and
-  tested on Windows x64 so far.
+- **Platforms**: Windows x64, Linux x86_64 and arm64, macOS arm64 and x86_64,
+  each built and tested in CI (`.github/workflows/ci.yml`). 32-bit targets
+  are not built or tested.
+  The builds CI keeps (its workflow artifacts) are test builds, not release
+  binaries: they are signed ad hoc at most and built from whatever was pushed.
 - **Delphi**: the units are written for Delphi too, but have only been compiled
   with Free Pascal in Delphi mode so far. Command-line `dcc64` builds need the unit scope
   names (`-NSSystem;Winapi`), because the units use `SysUtils`, `Types` and

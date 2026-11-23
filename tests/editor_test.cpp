@@ -17,6 +17,7 @@
 */
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
+#include "test_foreground.h"
 
 #include <cstdio>
 #include <thread>
@@ -28,9 +29,17 @@
     #include <windows.h>
     #include <psapi.h>
 #endif
+#if JUCE_MAC
+    #include <mach/mach.h>
+#endif
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <vector>
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();
 int pascaljuce_live_editor_sessions();
+void pascaljuce_test_skip_text(bool skip);
 
 namespace
 {
@@ -78,9 +87,22 @@ juce::Image render(juce::Component& c)
 
 juce::File referenceDir() { return juce::File(PASCALJUCE_TEST_DATA).getChildFile("ui"); }
 
-// Same size, and at most 0.5% of pixels differ by more than 24 in any channel.
-void compareWithReference(const juce::Image& actual, const juce::String& name)
+// The references were rendered on Windows. Text is the one part that differs
+// between platforms: JUCE draws it with the platform's default sans-serif face
+// (Verdana on Windows; on Linux whatever Fontconfig offers, e.g. DejaVu Sans;
+// on macOS its own) and its own rasteriser. So the comparison finds the text
+// pixels (the editor rendered again with text left out, grown by 3 pixels)
+// and holds the rest of the panel to the same standard everywhere:
+//   outside text: at most 0.2% of those pixels off by more than 24 in a channel;
+//   text areas:   Windows at most 0.5% of all pixels (as the panel as a whole),
+//                 elsewhere at most 60% of the text pixels (other glyph shapes).
+void compareWithReference(juce::Component& c, const juce::String& name)
 {
+    const auto actual = render(c);
+    pascaljuce_test_skip_text(true);
+    const auto noText = render(c);
+    pascaljuce_test_skip_text(false);
+
     const auto file = referenceDir().getChildFile(name + ".png");
     const bool update = juce::SystemStats::getEnvironmentVariable("PASCALJUCE_UPDATE_UI_REFERENCES", {}) == "1";
     if (update || ! file.existsAsFile())
@@ -94,28 +116,54 @@ void compareWithReference(const juce::Image& actual, const juce::String& name)
         return;
     }
     const auto expected = juce::ImageFileFormat::loadFrom(file);
-    if (! expected.isValid() || expected.getWidth() != actual.getWidth() || expected.getHeight() != actual.getHeight())
+    const int w = actual.getWidth(), h = actual.getHeight();
+    if (! expected.isValid() || expected.getWidth() != w || expected.getHeight() != h)
     {
         check(false, name + ": reference size differs");
         return;
     }
-    int bad = 0, worst = 0;
-    juce::Image diff(juce::Image::ARGB, actual.getWidth(), actual.getHeight(), true, juce::SoftwareImageType());
-    for (int y = 0; y < actual.getHeight(); ++y)
-        for (int x = 0; x < actual.getWidth(); ++x)
+    const auto channelDiff = [](juce::Colour a, juce::Colour e)
+    {
+        return std::max({ std::abs(a.getRed() - e.getRed()), std::abs(a.getGreen() - e.getGreen()),
+                          std::abs(a.getBlue() - e.getBlue()), std::abs(a.getAlpha() - e.getAlpha()) });
+    };
+    std::vector<char> isText((size_t) (w * h), 0);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            if (channelDiff(actual.getPixelAt(x, y), noText.getPixelAt(x, y)) > 0)
+                for (int dy = -3; dy <= 3; ++dy)
+                    for (int dx = -3; dx <= 3; ++dx)
+                        if (x + dx >= 0 && y + dy >= 0 && x + dx < w && y + dy < h)
+                            isText[(size_t) ((y + dy) * w + x + dx)] = 1;
+
+    int bad = 0, worst = 0, textPixels = 0, textBad = 0, outsideBad = 0, outsideWorst = 0;
+    juce::Image diff(juce::Image::ARGB, w, h, true, juce::SoftwareImageType());
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
         {
-            const auto a = actual.getPixelAt(x, y), e = expected.getPixelAt(x, y);
-            const int d = std::max({ std::abs(a.getRed() - e.getRed()), std::abs(a.getGreen() - e.getGreen()),
-                                     std::abs(a.getBlue() - e.getBlue()), std::abs(a.getAlpha() - e.getAlpha()) });
+            const int d = channelDiff(actual.getPixelAt(x, y), expected.getPixelAt(x, y));
+            const bool text = isText[(size_t) (y * w + x)] != 0;
+            textPixels += text ? 1 : 0;
             worst = std::max(worst, d);
+            if (! text)
+                outsideWorst = std::max(outsideWorst, d);
             if (d > 24)
             {
                 ++bad;
-                diff.setPixelAt(x, y, juce::Colours::red);
+                ++(text ? textBad : outsideBad);
+                diff.setPixelAt(x, y, text ? juce::Colours::orange : juce::Colours::red);
             }
         }
-    const int allowed = actual.getWidth() * actual.getHeight() / 200;
-    if (bad > allowed)
+    const int outsidePixels = w * h - textPixels;
+    const bool outsideOk = outsideBad <= outsidePixels / 500;
+   #if JUCE_WINDOWS
+    const bool textOk = bad <= w * h / 200;
+    const juce::String textRule = "whole panel at most 0.5%";
+   #else
+    const bool textOk = textBad <= textPixels * 35 / 100;
+    const juce::String textRule = "text areas at most 35%";
+   #endif
+    if (! outsideOk || ! textOk)
     {
         for (const auto& [img, suffix] : { std::pair<const juce::Image*, const char*> { &actual, ".actual.png" }, { &diff, ".diff.png" } })
         {
@@ -125,8 +173,14 @@ void compareWithReference(const juce::Image& actual, const juce::String& name)
             juce::PNGImageFormat().writeImageToStream(*img, out);
         }
     }
-    check(bad <= allowed, name + " matches its reference (" + juce::String(bad) + " pixels off, worst channel difference "
-                              + juce::String(worst) + ")");
+    const auto pct = [](int n, int of) { return juce::String(100.0 * n / std::max(1, of), 2) + "%"; };
+    check(outsideOk, name + " matches its reference outside text (" + juce::String(outsideBad) + " of "
+                         + juce::String(outsidePixels) + " pixels off = " + pct(outsideBad, outsidePixels)
+                         + ", limit 0.2%; worst channel difference " + juce::String(outsideWorst) + ")");
+    check(textOk, name + " matches its reference in text areas (" + juce::String(textBad) + " of "
+                      + juce::String(textPixels) + " text pixels off = " + pct(textBad, textPixels) + "; "
+                      + juce::String(bad) + " in all = " + pct(bad, w * h) + "; " + textRule
+                      + "; worst " + juce::String(worst) + ")");
 }
 
 juce::MouseEvent mouseEvent(juce::Component& c, juce::Point<float> pos, juce::ModifierKeys mods, int clicks,
@@ -192,7 +246,19 @@ int64_t privateBytes()
     PROCESS_MEMORY_COUNTERS_EX counters {};
     GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters), sizeof(counters));
     return (int64_t) counters.PrivateUsage;
+#elif JUCE_MAC
+    task_vm_info_data_t info {};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info), &count) != KERN_SUCCESS)
+        return 0;
+    return (int64_t) info.phys_footprint; // what Activity Monitor calls Memory
 #else
+    // Resident anonymous memory (heap, stacks): the closest to Windows' private bytes.
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line))
+        if (line.rfind("RssAnon:", 0) == 0)
+            return (int64_t) std::strtoll(line.c_str() + 8, nullptr, 10) * 1024;
     return 0;
 #endif
 }
@@ -246,7 +312,7 @@ int main()
                                                                           + juce::String(editor->getWidth()) + " x "
                                                                           + juce::String(editor->getHeight()));
         pump();
-        compareWithReference(render(*editor), "pascalsynth_default");
+        compareWithReference(*editor, "pascalsynth_default");
 
         std::printf("Host automation reaches the controls\n");
         std::thread host([&]
@@ -261,9 +327,9 @@ int main()
         });
         host.join();
         pump(150);
-        compareWithReference(render(*editor), "pascalsynth_automated");
+        compareWithReference(*editor, "pascalsynth_automated");
         resetToDefaults(p);
-        compareWithReference(render(*editor), "pascalsynth_default"); // and back
+        compareWithReference(*editor, "pascalsynth_default"); // and back
         gestures.begins = gestures.ends = 0;
 
         std::printf("Mouse\n");
@@ -298,6 +364,7 @@ int main()
         check(gestures.begins == gestures.ends, "gestures balanced after all edits (" + juce::String(gestures.begins) + ")");
 
         std::printf("Right-click menu\n");
+        pascaljuceTestBringToFront(*editor);
         drag(*editor, attackKnob, attackKnob - juce::Point<float>(0.0f, 40.0f));
         pump();
         click(*editor, attackKnob, right);

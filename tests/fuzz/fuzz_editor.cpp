@@ -17,6 +17,7 @@
 #include <juce_events/juce_events.h>
 
 #include "../plugins/EditorProbe/editor_probe.h"
+#include "../test_foreground.h"
 
 #include <cstdio>
 #include <iterator>
@@ -33,6 +34,9 @@
     #include <windows.h>
 #else
     #include <dlfcn.h>
+    #include <fcntl.h>
+    #include <stdlib.h>
+    #include <unistd.h>
 #endif
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();
@@ -40,6 +44,8 @@ int pascaljuce_live_editor_sessions();
 int pascaljuce_test_opened_url_count();
 std::string pascaljuce_test_opened_url(int index);
 std::string pascaljuce_test_validated_url(const char* url);
+std::string pascaljuce_test_launcher_input(const std::string& url);
+bool pascaljuce_test_spawn_launcher(const std::string& program, const std::string& url);
 
 namespace
 {
@@ -71,25 +77,36 @@ void pump(int ms)
     juce::MessageManager::getInstance()->runDispatchLoopUntil(ms);
 }
 
-editor_probe_state* probeState()
+// An export of the probe library the wrapper loaded (nullptr if it is not loaded).
+void* probeSymbol(const char* name)
 {
 #if JUCE_WINDOWS
     auto* module = GetModuleHandleW(L"EditorProbe_pascal.dll");
-    auto fn = module != nullptr ? reinterpret_cast<editor_probe_state_fn>(GetProcAddress(module, "editor_probe_state_get")) : nullptr;
+    return module != nullptr ? reinterpret_cast<void*>(GetProcAddress(module, name)) : nullptr;
 #else
-    auto fn = reinterpret_cast<editor_probe_state_fn>(dlsym(RTLD_DEFAULT, "editor_probe_state_get"));
+    // The wrapper loads it RTLD_LOCAL (on Linux through /proc/self/fd/N), so
+    // its symbols are not global: ask for the already-loaded object by its
+    // file, without loading it (glibc and dyld match on the file's identity).
+    const auto file = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                          .getSiblingFile(PASCALJUCE_PLUGIN_LIBRARY);
+    void* module = dlopen(file.getFullPathName().toRawUTF8(), RTLD_NOW | RTLD_LOCAL | RTLD_NOLOAD);
+    if (module == nullptr)
+        return nullptr;
+    void* symbol = dlsym(module, name);
+    dlclose(module); // drops only the reference NOLOAD added
+    return symbol;
 #endif
+}
+
+editor_probe_state* probeState()
+{
+    auto fn = reinterpret_cast<editor_probe_state_fn>(probeSymbol("editor_probe_state_get"));
     return fn != nullptr ? fn() : nullptr;
 }
 
 editor_probe_poke_fn probePoke()
 {
-#if JUCE_WINDOWS
-    auto* module = GetModuleHandleW(L"EditorProbe_pascal.dll");
-    return module != nullptr ? reinterpret_cast<editor_probe_poke_fn>(GetProcAddress(module, "editor_probe_poke_stale")) : nullptr;
-#else
-    return reinterpret_cast<editor_probe_poke_fn>(dlsym(RTLD_DEFAULT, "editor_probe_poke_stale"));
-#endif
+    return reinterpret_cast<editor_probe_poke_fn>(probeSymbol("editor_probe_poke_stale"));
 }
 
 juce::Image render(juce::Component& c)
@@ -230,6 +247,7 @@ int scenario(juce::AudioProcessor& p, editor_probe_state& s)
     render(*editor); // the editor still draws after all that
 
     std::printf("Popup menu\n");
+    pascaljuceTestBringToFront(*editor);
     s.action = PROBE_SHOW_MENU;
     mouseDown(*editor);
     check(s.menu_first == 1 && s.menu_second == 0, "menu shown; a second one while it is open is refused");
@@ -352,6 +370,79 @@ int scenario(juce::AudioProcessor& p, editor_probe_state& s)
         const std::string longest = "https://example.com/" + std::string(JCP_MAX_URL - 20, 'a');
         check(pascaljuce_test_validated_url(longest.c_str()) == longest, "JCP_MAX_URL bytes accepted");
         check(pascaljuce_test_validated_url((longest + "a").c_str()).empty(), "one more refused");
+    }
+
+    std::printf("open_url: the platform launcher\n");
+    {
+        // What the launcher is handed must be exactly the validated URL, as one value.
+        int wrong = 0;
+        const std::string longest = "https://example.com/" + std::string(JCP_MAX_URL - 20, 'a');
+        for (const std::string& url : { std::string("https://github.com/simozzer/Mz101"),
+                                       std::string("https://Example.COM:8443/a/b-c_d.e~f?q=1&r=%41#top"),
+                                       std::string("https://example.com/@user/x:y+z,w=v"), longest })
+        {
+            const auto validated = pascaljuce_test_validated_url(url.c_str());
+            const auto input = pascaljuce_test_launcher_input(validated);
+           #if JUCE_WINDOWS || JUCE_MAC
+            const auto expected = validated;
+           #else
+            const auto expected = "xdg-open\n" + validated + "\n";
+           #endif
+            if (validated != url || input != expected)
+            {
+                ++wrong;
+                std::printf("    %s -> '%s'\n", url.c_str(), input.c_str());
+            }
+        }
+        check(wrong == 0, "the launcher gets the URL unchanged, as a single argument");
+
+       #if ! JUCE_WINDOWS && ! JUCE_MAC
+        // The real fork/exec path, with a stand-in for xdg-open that records its
+        // arguments and what it inherited: an open descriptor of ours (it must not
+        // see it), LD_LIBRARY_PATH (removed) and stdin (/dev/null).
+        std::string dirTemplate = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                      .getChildFile("pascaljuce_launcher_XXXXXX").getFullPathName().toStdString();
+        const bool madeDir = mkdtemp(dirTemplate.data()) != nullptr; // private (0700), unpredictable name
+        check(madeDir, "launcher test directory created");
+        const juce::File dir(dirTemplate);
+        const auto script = dir.getChildFile("fake-xdg-open");
+        const auto record = dir.getChildFile("args.txt");
+        const int leakFd = 57;
+        const int opened = open("/dev/null", O_RDONLY); // no O_CLOEXEC: inheritable
+        const bool haveLeakFd = opened >= 0 && dup2(opened, leakFd) == leakFd;
+        if (opened >= 0 && opened != leakFd)
+            close(opened);
+        const char* oldLibPath = std::getenv("LD_LIBRARY_PATH");
+        const std::string savedLibPath = oldLibPath != nullptr ? oldLibPath : "";
+        setenv("LD_LIBRARY_PATH", "/nonexistent/pascaljuce", 1);
+        const auto r = record.getFullPathName();
+        script.replaceWithText("#!/bin/sh\n{ echo \"$#\"; for a in \"$@\"; do printf '%s\\n' \"$a\"; done\n"
+                               "  if [ -e /proc/self/fd/" + juce::String(leakFd) + " ]; then echo fd=open; else echo fd=closed; fi\n"
+                               "  echo \"libpath=${LD_LIBRARY_PATH-unset}\"\n"
+                               "  echo \"stdin=$(readlink /proc/self/fd/0)\"; } > \"" + r + ".tmp\"\n"
+                               "mv \"" + r + ".tmp\" \"" + r + "\"\n",
+                               false, false, "\n"); // Unix line ends (the default is CR LF)
+        script.setExecutePermission(true);
+        const std::string url = "https://Example.COM:8443/a/b-c_d.e~f?q=1&r=%41#top";
+        check(madeDir && pascaljuce_test_spawn_launcher(script.getFullPathName().toStdString(), url),
+              "launcher process started");
+        if (oldLibPath != nullptr)
+            setenv("LD_LIBRARY_PATH", savedLibPath.c_str(), 1);
+        else
+            unsetenv("LD_LIBRARY_PATH");
+        if (haveLeakFd)
+            close(leakFd);
+        for (int i = 0; i < 100 && ! record.existsAsFile(); ++i)
+            juce::Thread::sleep(50);
+        const auto lines = juce::StringArray::fromLines(record.loadFileAsString().trimEnd());
+        check(lines.size() == 5 && lines[0] == "1" && lines[1] == juce::String(url),
+              "the detached launcher ran with exactly one argument, the URL: '" + record.loadFileAsString() + "'");
+        check(haveLeakFd && lines[2] == "fd=closed", "the launcher inherits none of the host's descriptors");
+        check(lines[3] == "libpath=unset", "the launcher's environment has no LD_LIBRARY_PATH");
+        check(lines[4] == "stdin=/dev/null", "the launcher's stdin is /dev/null");
+        if (madeDir)
+            dir.deleteRecursively();
+       #endif
     }
 
     std::printf("open_url: only as the answer to a click\n");

@@ -330,10 +330,15 @@ block, so a plug-in cannot grow memory on the audio thread.
   3. confirms afterwards that the mapped image is the same file object
      (same volume and file ID) as the one it hashed.
 
-  On Linux it loads the very descriptor it hashed (`/proc/self/fd/N`, kept
-  open until loading is done). On
-  macOS it checks the device and inode after loading. A modified or replaced
-  library is refused, and the plug-in reports the problem.
+  On Linux it loads the very descriptor it hashed (`/proc/self/fd/N`, opened
+  `O_CLOEXEC` and kept open for the life of the process, so the name stays
+  unique to that file). On macOS it checks, after `dlopen`, that the file at
+  the loaded image's path (found through the entry point's `dladdr`) has the
+  device and inode of the descriptor it hashed. A modified or replaced
+  library is refused, and the plug-in reports the problem. The macOS check
+  is by path: an attacker who can replace files in the bundle while it loads
+  could put the original back before the check. That attacker can already
+  replace the wrapper (below).
 - **What this check does and doesn't protect against.** It detects a Pascal
   library that was modified, corrupted or swapped after the build, and a
   library from a different build. It does **not** stop an attacker who can
@@ -344,13 +349,14 @@ block, so a plug-in cannot grow memory on the audio thread.
 - Residual risk: on Windows and macOS the identity check runs after the
   library is mapped. An attacker able to rename directories on the bundle's
   path during that window could get a different file's initialisation code
-  to run, although it would then be refused. That attacker can already
+  to run (on Windows it would then be refused). That attacker can already
   replace the wrapper, as above.
 - On Linux the library is loaded from the very file descriptor that was
   hashed, so renames cannot swap it, but an attacker who can write to the
   file in place during loading still could. On macOS the identity check runs
-  after `dlopen`, so it detects a swap but cannot stop the swapped library's
-  initialisers. On both, code signing (library validation on macOS) is the
+  after `dlopen` and by path, so it cannot stop the swapped library's
+  initialisers, and misses a swap that is undone before it runs. On both,
+  code signing (library validation on macOS) is the
   real protection; Windows holds a deny-write handle throughout.
 - If the library cannot be loaded, the plug-in stays silent, shows an error
   window, and hands the host back the project's state unchanged, so saving
@@ -364,8 +370,9 @@ block, so a plug-in cannot grow memory on the audio thread.
   host keeps running.
 - Floating-point exceptions are masked around every call that does FP work
   or calls into JUCE or a driver, in either direction, and the caller's FP
-  state is restored afterwards. That includes the x87 control word on 32-bit
-  x86.
+  state is restored afterwards: MXCSR on x86_64, plus the x87 control word on
+  32-bit x86, and FPCR's trap-enable bits on AArch64 (Linux arm64, Apple
+  Silicon).
 - Device state is only read on the message thread, or for the open device
   of a manager inside that same manager's callback. Device lists and MIDI
   enablement are message-thread-only, because JUCE changes them while the
@@ -395,19 +402,50 @@ block, so a plug-in cannot grow memory on the audio thread.
 ### Build hardening
 - C/C++ binaries on Windows: stack cookies (`/GS`), Control Flow Guard
   (`/guard:cf`), ASLR, DEP and CET shadow-stack compatibility (`/CETCOMPAT`).
-  On Linux/macOS: `-fstack-protector-strong` and `_FORTIFY_SOURCE=2`, plus
-  full RELRO and a non-executable stack on Linux.
-- Pascal plug-in libraries: built with relocations, then given ASLR,
-  high-entropy ASLR and DEP by `tools/pe_flags` (FPC cannot set these from a
-  unit). This applies to prebuilt Delphi libraries too. Control Flow Guard is
-  not available for FPC/Delphi code.
-- `ctest` checks that every shipped binary carries these flags.
+  On Linux and macOS: `-fstack-protector-strong`, stack-clash protection
+  (`-fstack-clash-protection`), control-flow protection where the compiler
+  supports it (`-fcf-protection=full`, Intel CET, on x86_64;
+  `-mbranch-protection=standard`, PAC and BTI, on arm64), `_FORTIFY_SOURCE=2`
+  (release builds; sanitizer builds leave it out, since the sanitizers
+  intercept the same calls) and position independence (PIC, and PIE for the
+  Standalone apps). On Linux also full RELRO (`-z relro -z now`) and a
+  non-executable stack (`-z noexecstack`). On macOS PIE and a non-executable
+  stack are the linker's defaults (there is no RELRO switch; dyld protects
+  the `__DATA_CONST` segment itself), and every product is code-signed (ad hoc unless you
+  give a Developer ID, see docs/PLUGINS.md).
+- Pascal plug-in libraries on Windows: built with relocations, then given
+  ASLR, high-entropy ASLR and DEP by `tools/pe_flags` (FPC cannot set these
+  from a unit). This applies to prebuilt Delphi libraries too. Control Flow
+  Guard is not available for FPC/Delphi code. On Linux, FPC builds them as
+  position-independent code (`-Cg`) and links them with full RELRO and a
+  non-executable stack. FPC has no stack protector or FORTIFY_SOURCE, so
+  Pascal code relies on its range, overflow and stack checks (Debug builds)
+  and on the wrapper validating everything it passes in. On macOS they are
+  signed before they are hashed.
+- `ctest` checks that every shipped binary carries these flags:
+  `pe_flags_*` read the PE headers on Windows; `hardening_*`
+  (`cmake/PascalJUCECheckHardening.cmake`) read ELF files with `readelf`
+  (ET_DYN, `PT_GNU_STACK` not executable, `PT_GNU_RELRO` with `BIND_NOW`, no
+  text relocations, only `$ORIGIN`-relative RPATH/RUNPATH entries, and for
+  C++ binaries `__stack_chk_fail` and `__*_chk` imports) and Mach-O files
+  with `otool`/`nm` (PIE or dylib/bundle, no
+  `MH_ALLOW_STACK_EXECUTION`, `LC_CODE_SIGNATURE`, only
+  `@loader_path`/`@executable_path` run paths, `___stack_chk_*` and
+  `___*_chk` imports). The FORTIFY check passes if the binary imports at
+  least one `__*_chk` function: it shows the flag took effect, not that
+  every call is checked, and on Mach-O it is informational only. The
+  control-flow flags are not checked. They cover `juce_c_audio`, every plug-in format
+  binary and every Pascal library the build makes.
 - JUCE is pinned to an exact commit, not a movable tag. A reviewable patch
   to JUCE itself is applied when present (see "Fixes to JUCE").
 - Debug builds of Pascal plug-in libraries enable FPC's range, overflow,
   stack and object checks.
 - On macOS, the Pascal library is signed before it is hashed, so signing
-  cannot invalidate the recorded hash.
+  cannot invalidate the recorded hash, and bundles are signed without
+  `--deep`, so the library is never re-signed afterwards. The
+  `library_integrity_*` tests check, after every build and on every
+  platform, that each copy of the library in the bundles has the recorded
+  hash (and, on macOS, a valid signature).
 
 ## Fixes to JUCE
 
@@ -449,6 +487,20 @@ build\x64-clang-asan\fuzz_plugin_state_artefacts\Release\fuzz_plugin_state.exe <
 build\x64-clang-asan\fuzz_editor_artefacts\Release\fuzz_editor.exe fuzz <iterations> <seed>
 ```
 
+Linux and macOS (presets `linux-x64`, `linux-arm64`, `macos`, each with an
+`-asan` and a `-ubsan` variant):
+
+```sh
+cmake --preset linux-x64-asan && cmake --build --preset linux-x64-asan
+xvfb-run -a ctest --preset linux-x64-asan      # xvfb-run only on a headless machine
+build/linux-x64-asan/bin/fuzz_c_api file <iterations> <seed>
+build/linux-x64-asan/fuzz_editor_artefacts/Release/fuzz_editor fuzz <iterations> <seed>
+```
+
+CI (`.github/workflows/ci.yml`) runs the whole suite on Windows x64, Linux
+x86_64 and arm64 and macOS arm64 and x86_64 on every push, the Linux x86_64
+ASan build with longer fuzz runs, and `auval` on the macOS Audio Unit.
+
 What the suites cover:
 
 | Suite | Checks |
@@ -456,7 +508,8 @@ What the suites cover:
 | `c_api_test` | every C function, including NULL handles, out-of-range indices, the buffer-size protocol, thread misuse, MIDI validation and file-writer bounds |
 | `test_app_units`, `test_plugin_unit` | the Pascal units, compiled with range/overflow/object checks and `heaptrc` (any leak fails the test), including concurrent heap use from JUCE threads and ABI struct-size handling |
 | `fuzz_midi`, `fuzz_audio_files`, `fuzz_plugin_state` | deterministic mutation fuzzing of the three attacker-controlled inputs (run longer by hand) |
-| `plugin_host_*` | the built VST3/LV2 bundles under JUCE's own hosting, including hostile state, a missing library and a tampered library |
+| `plugin_host_*` | the built VST3/LV2 bundles under JUCE's own hosting, including hostile state, a missing library, a tampered library and one replaced by another valid plug-in library; on every platform it checks by file identity that a refused library was never mapped and an accepted one was |
+| `library_integrity_*`, `pe_flags_*`, `hardening_*` | every bundle copy of a Pascal library matches the recorded hash (and is signed, on macOS); every shipped binary carries the build hardening above |
 | `fuzz_editor_scenario` | the editor API from a C++ test library: calls from other threads, stale and forged handles, drawing outside paint, image limits (oversized, truncated, bad CRC, GIF), parameter-text truncation, menus (one at a time, answer after close dropped), the host closing the window inside a callback (also inside a scaled resize), a gesture left open, the processor destroyed under an open editor, the URL validator (60+ hostile URLs) and `open_url` only during clicks, scaling (limits, drawing, mouse mapping, remembered and hostile saved scales, letterboxing), `set_look` (hostile looks, a menu outliving its editor), 1000 editors |
 | `fuzz_editor` | random host actions (open/close, paint, mouse, wheel, resize, automation from other threads, menus, audio) while the library makes random API calls with hostile arguments in every callback, including `set_design_size`, `open_url` (every URL actually opened must pass the validator) and `set_look` |
 | `editor_test`, `test_ui_unit` | the Pascal controls: rendering against reference images, mouse, gestures, automation, menus, lifetime, no leaks over 1000 editors |
@@ -489,8 +542,23 @@ What the suites cover:
 - **Integrity checking proves the library is the one built with this wrapper**,
   not that it is benign. Sign your releases (Authenticode on Windows, a
   Developer ID with notarisation on macOS); signing also covers the wrapper.
-- **The macOS/AU path is not yet tested**, including bundle signing and the
-  macOS and Linux `open_url` launchers (LSOpenCFURLRef, xdg-open).
+- **Platform coverage.** Linux and macOS are built and tested in CI (the
+  whole suite, `auval` for the AU), but not on real audio hardware, not in
+  Logic or other macOS DAWs, and not on a real Raspberry Pi. The `open_url`
+  launchers are compiled in every build; tests check what each is handed
+  and, on Linux, run the real fork/exec path with a stand-in for `xdg-open`.
+  LSOpenCFURLRef and xdg-open themselves are not started by the tests.
+- **Linux has no code signing for plug-ins.** The integrity check is all
+  there is; install plug-ins where only you (`~/.vst3`) or root
+  (`/usr/lib/vst3`) can write. A user-writable plug-in folder lets anyone
+  running as you replace the wrapper too.
+- **macOS hardened runtime and library validation.** Ad-hoc signatures are
+  for local use; Gatekeeper quarantines them when downloaded. A host with
+  the hardened runtime and library validation loads no third-party
+  plug-ins unless it has the `disable-library-validation` entitlement (most
+  DAWs do) or hosts them out of process. A Standalone app built with
+  `--options=runtime` loads its Pascal library only if both are signed by
+  the same Developer ID team, which the build ensures when you give one.
 - **open_url opens what the URL says.** The checks keep it to an https page,
   not to a page you trust: IDN host names (`xn--`) can look like others.
   Pass only URLs your plug-in ships, never ones from presets or projects.

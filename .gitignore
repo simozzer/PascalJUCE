@@ -18,3 +18,5 @@ CMakeUserPresets.json
 lib/
 *.lps
 *.res
+# Lazarus writes this when lazbuild runs without --pcp (machine-specific paths).
+packagefiles.xml

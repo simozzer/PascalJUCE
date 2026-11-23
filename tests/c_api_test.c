@@ -1724,7 +1724,7 @@ static void test_audio_files(void)
         fclose(kf);
     }
     CHECK_RESULT(juce_c_audio_file_writer_create(keep, "", 1234567, 2, 16, 0, &writer), JUCE_C_INVALID_ARGUMENT,
-                 "FLAC at an impossible rate rejected");
+                 "writer rejects an unsupported sample rate");
     kf = fopen(keep, "rb");
     char kept[16] = { 0 };
     if (kf != NULL)

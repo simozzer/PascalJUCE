@@ -17,6 +17,9 @@ program test_ui_unit;
 {$APPTYPE CONSOLE}
 
 uses
+{$IFDEF FPC}{$IFDEF UNIX}
+  cthreads, { first: the units below may start the RTL's threading in their initialisation }
+{$ENDIF}{$ENDIF}
   SysUtils, Classes, TypInfo, Math, JuceTypes, JucePlugin, JuceCanvas, JuceUI, JuceControls, TestFramework;
 
 { ---------------------------------------------------------------------------- }

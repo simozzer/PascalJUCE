@@ -70,7 +70,34 @@ function(pascaljuce_stage_licences out_dir)
     endforeach()
 endfunction()
 
-# Compiler/linker hardening for a target the framework builds.
+# Position-independent executables need the linker flag as well (CMP0083).
+if(NOT MSVC)
+    include(CheckPIESupported)
+    check_pie_supported(OUTPUT_VARIABLE _pascaljuce_pie_output LANGUAGES C CXX)
+
+    # Stack-clash and control-flow protection, where the compiler supports them
+    # for the architecture being built (Intel CET on x86_64, PAC/BTI on arm64).
+    include(CheckCXXCompilerFlag)
+    set(PASCALJUCE_EXTRA_HARDENING_FLAGS "")
+    check_cxx_compiler_flag(-fstack-clash-protection PASCALJUCE_HAVE_STACK_CLASH)
+    if(PASCALJUCE_HAVE_STACK_CLASH)
+        list(APPEND PASCALJUCE_EXTRA_HARDENING_FLAGS -fstack-clash-protection)
+    endif()
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+        check_cxx_compiler_flag(-fcf-protection=full PASCALJUCE_HAVE_CF_PROTECTION)
+        if(PASCALJUCE_HAVE_CF_PROTECTION)
+            list(APPEND PASCALJUCE_EXTRA_HARDENING_FLAGS -fcf-protection=full)
+        endif()
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        check_cxx_compiler_flag(-mbranch-protection=standard PASCALJUCE_HAVE_BRANCH_PROTECTION)
+        if(PASCALJUCE_HAVE_BRANCH_PROTECTION)
+            list(APPEND PASCALJUCE_EXTRA_HARDENING_FLAGS -mbranch-protection=standard)
+        endif()
+    endif()
+endif()
+
+# Compiler/linker hardening for a target the framework builds. Checked after
+# the build by the pe_flags_* (Windows) and hardening_* (Linux, macOS) tests.
 function(pascaljuce_harden target)
     if(MSVC) # MSVC and clang-cl
         target_compile_options(${target} PRIVATE /GS /guard:cf)
@@ -79,9 +106,17 @@ function(pascaljuce_harden target)
             target_link_options(${target} PRIVATE /CETCOMPAT)
         endif()
     else()
-        target_compile_options(${target} PRIVATE -fstack-protector-strong
-                               "$<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>")
-        if(NOT APPLE)
+        target_compile_options(${target} PRIVATE -fstack-protector-strong ${PASCALJUCE_EXTRA_HARDENING_FLAGS})
+        # FORTIFY_SOURCE needs optimisation, and sanitizer builds replace those
+        # libc checks with their own interceptors. -U first: some toolchains
+        # (Ubuntu's GCC) already define it, at another level.
+        if(NOT PASCALJUCE_SANITIZE)
+            target_compile_options(${target} PRIVATE
+                "$<$<NOT:$<CONFIG:Debug>>:-U_FORTIFY_SOURCE;-D_FORTIFY_SOURCE=2>")
+        endif()
+        # PIC for libraries, PIE (-fPIE and -pie) for executables such as Standalone.
+        set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+        if(NOT APPLE) # macOS: PIE, NX stack and bound stubs are the linker's defaults
             target_link_options(${target} PRIVATE -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack)
         endif()
     endif()
@@ -125,6 +160,46 @@ function(_pascaljuce_find_fpc out_var)
     find_program(FPC_EXECUTABLE NAMES fpc)
     set(${out_var} "${FPC_EXECUTABLE}" PARENT_SCOPE)
 endfunction()
+
+# Free Pascal flags that pick the target: on macOS one architecture per build,
+# matching CMAKE_OSX_ARCHITECTURES (for universal binaries, build per
+# architecture, lipo the results and pass the result as PASCAL_LIBRARY).
+function(_pascaljuce_fpc_arch_flags out_var context)
+    set(flags)
+    if(APPLE)
+        list(LENGTH CMAKE_OSX_ARCHITECTURES n_arch)
+        if(n_arch GREATER 1)
+            message(FATAL_ERROR "${context}: FPC builds one architecture at a time; "
+                                "build per architecture and pass a lipo'd library as PASCAL_LIBRARY")
+        elseif(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+            set(flags -Paarch64)
+        elseif(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+            set(flags -Px86_64)
+        endif()
+    endif()
+    set(${out_var} ${flags} PARENT_SCOPE)
+endfunction()
+
+# Free Pascal's target CPU and OS ("x86_64", "linux"), as in Lazarus'
+# $(TargetCPU)-$(TargetOS) output folders.
+function(_pascaljuce_fpc_target fpc out_cpu out_os)
+    _pascaljuce_fpc_arch_flags(arch "FPC target")
+    execute_process(COMMAND "${fpc}" ${arch} -iTP OUTPUT_VARIABLE cpu OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND "${fpc}" ${arch} -iTO OUTPUT_VARIABLE os OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(${out_cpu} "${cpu}" PARENT_SCOPE)
+    set(${out_os} "${os}" PARENT_SCOPE)
+endfunction()
+
+# macOS: the identity the Pascal library is signed with before it is hashed.
+# "-" is an ad-hoc signature (enough to run on Apple Silicon, not for
+# distribution). For distribution give your "Developer ID Application: ..."
+# identity and PASCALJUCE_CODESIGN_FLAGS "--options=runtime;--timestamp";
+# see docs/PLUGINS.md.
+if(APPLE)
+    set(PASCALJUCE_CODESIGN_IDENTITY "-" CACHE STRING "codesign identity for Pascal libraries (- = ad hoc)")
+    set(PASCALJUCE_CODESIGN_FLAGS "" CACHE STRING "Extra codesign flags for Pascal libraries (a list)")
+    find_program(PASCALJUCE_CODESIGN codesign REQUIRED)
+endif()
 
 function(pascaljuce_add_plugin target)
     set(one_value PRODUCT_NAME COMPANY_NAME COMPANY_WEBSITE MANUFACTURER_CODE PLUGIN_CODE KIND VERSION
@@ -274,9 +349,11 @@ function(pascaljuce_add_plugin target)
         set(harden_depends pascaljuce_pe_flags)
     elseif(APPLE)
         # Sign the staged file *before* it is hashed: codesign rewrites the Mach-O,
-        # so signing the bundle copy afterwards would break the integrity check.
-        # Ad-hoc here; sign with your Developer ID for distribution. Untested so far.
-        set(harden_commands COMMAND codesign -f -s - "${pascal_lib}")
+        # so signing the bundle copy afterwards would break the integrity check
+        # (the library_integrity_* tests check every copy). Ad hoc by default;
+        # see PASCALJUCE_CODESIGN_IDENTITY for distribution.
+        set(harden_commands COMMAND "${PASCALJUCE_CODESIGN}" --force --sign "${PASCALJUCE_CODESIGN_IDENTITY}"
+                                    ${PASCALJUCE_CODESIGN_FLAGS} "${pascal_lib}")
     endif()
 
     if(ARG_PASCAL_LIBRARY)
@@ -320,26 +397,17 @@ function(pascaljuce_add_plugin target)
             list(APPEND pascal_sources ${found})
         endforeach()
 
-        # macOS: one architecture per build (for universal binaries, build per
-        # architecture, lipo the results and pass the result as PASCAL_LIBRARY).
-        set(arch_flags)
-        if(APPLE)
-            list(LENGTH CMAKE_OSX_ARCHITECTURES n_arch)
-            if(n_arch GREATER 1)
-                message(FATAL_ERROR "pascaljuce_add_plugin(${target}): FPC builds one architecture at a time; "
-                                    "build per architecture and pass a lipo'd library as PASCAL_LIBRARY")
-            elseif(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
-                set(arch_flags -Paarch64)
-            elseif(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
-                set(arch_flags -Px86_64)
-            endif()
-        endif()
+        _pascaljuce_fpc_arch_flags(arch_flags "pascaljuce_add_plugin(${target})")
 
         # Debug: full run-time checks (range, overflow, stack, object) and line info.
         set(config_flags "$<IF:$<CONFIG:Debug>,-gw;-gl;-O-;-Cr;-Co;-Ct;-CR,-O2;-Xs>")
         set(platform_flags)
         if(WIN32)
             set(platform_flags -WR) # base relocations, so ASLR can be enabled
+        elseif(NOT APPLE)
+            # ELF: position-independent code, full RELRO, non-executable stack
+            # (checked by the hardening_* tests).
+            set(platform_flags -Cg -k-z -krelro -k-z -know -k-z -knoexecstack)
         endif()
 
         add_custom_command(
@@ -384,6 +452,7 @@ function(pascaljuce_add_plugin target)
         # Re-hashed on every build (cheap; the header is only rewritten when the
         # hash changes), so a replaced prebuilt library can't leave a stale hash.
         set(hash_header "${gen_dir}/hash/$<CONFIG>/pascaljuce_library_hash.h")
+        set_target_properties(${target}_PascalBuild PROPERTIES PASCALJUCE_HASH_HEADER "${hash_header}")
         add_custom_target(${target}_PascalHash
             COMMAND "${CMAKE_COMMAND}" "-DLIBRARY=${pascal_lib}" "-DOUTPUT=${hash_header}"
                     -P "${PASCALJUCE_ROOT}/cmake/PascalJUCEHash.cmake"
@@ -464,6 +533,29 @@ function(pascaljuce_add_plugin target)
             COMMENT "Refreshing LV2 manifest for ${target}"
             VERBATIM)
         add_dependencies(${target}_LV2_Manifest ${target}_LV2)
+    endif()
+
+    # macOS: sign every product with the same identity as the Pascal library.
+    # Bundles are signed as a whole but not with --deep, which would re-sign
+    # (and so change) the Pascal library inside after it was hashed. Runs after
+    # JUCE's own post-build steps (moduleinfo.json), which were added first.
+    if(APPLE)
+        foreach(format IN LISTS ARG_FORMATS)
+            set(wrapper "${target}_${format}")
+            if(NOT TARGET ${wrapper})
+                continue()
+            endif()
+            if(format STREQUAL "LV2")
+                set(signed "$<TARGET_FILE:${wrapper}>")
+            else()
+                set(signed "$<TARGET_BUNDLE_DIR:${wrapper}>")
+            endif()
+            add_custom_command(TARGET ${wrapper} POST_BUILD
+                COMMAND "${PASCALJUCE_CODESIGN}" --force --sign "${PASCALJUCE_CODESIGN_IDENTITY}"
+                        ${PASCALJUCE_CODESIGN_FLAGS} "${signed}"
+                COMMENT "Signing ${wrapper}"
+                VERBATIM)
+        endforeach()
     endif()
 endfunction()
 

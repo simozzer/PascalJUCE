@@ -37,22 +37,35 @@ compiling, hashing and copying.
    `CreateEditor` to get the generic editor.
 4. Build:
 
-```powershell
-cmake --preset windows-x64-clang
-cmake --build --preset windows-x64-clang-release
+```sh
+cmake --preset windows-x64-clang     # Linux: linux-x64 / linux-arm64; macOS: macos
+cmake --build --preset windows-x64-clang-release   # or: --preset linux-x64 / macos
 ```
 
-The output is in `build/x64-clang/plugins/MySynth/MySynth_artefacts/Release/`:
+(README.md lists what each platform needs installed.) The output is in
+`build/<preset folder>/plugins/MySynth/MySynth_artefacts/Release/`, e.g.
+`build/x64-clang/...` on Windows or `build/linux-x64/...`.
 
-| Format | Output | Install by copying to |
-|---|---|---|
-| VST3 | `VST3/My Synth.vst3` (folder) | `C:\Program Files\Common Files\VST3` |
-| LV2 | `LV2/My Synth.lv2` (folder) | `%APPDATA%\LV2` |
-| Standalone | `Standalone/My Synth.exe` | anywhere; good for debugging |
-| AU (macOS) | `AU/My Synth.component` | `~/Library/Audio/Plug-Ins/Components` |
+### Where to install
 
-Copy the whole bundle folder. It contains `<target>_pascal.dll` next to the
-wrapper binary.
+Copy the whole bundle folder: it contains `<target>_pascal.dll` / `.so` /
+`.dylib` next to the wrapper binary, and the `licenses` folder.
+
+| Format | Output | Windows | Linux | macOS |
+|---|---|---|---|---|
+| VST3 | `VST3/My Synth.vst3` (folder) | `C:\Program Files\Common Files\VST3` | `~/.vst3` (you), `/usr/lib/vst3` or `/usr/local/lib/vst3` (everyone) | `~/Library/Audio/Plug-Ins/VST3` (you), `/Library/Audio/Plug-Ins/VST3` |
+| LV2 | `LV2/My Synth.lv2` (folder) | `%APPDATA%\LV2` | `~/.lv2`, `/usr/lib/lv2` or `/usr/local/lib/lv2` | `~/Library/Audio/Plug-Ins/LV2` |
+| AU | `AU/My Synth.component` | - | - | `~/Library/Audio/Plug-Ins/Components` (you), `/Library/Audio/Plug-Ins/Components` |
+| Standalone | `Standalone/My Synth[.exe/.app]` | anywhere | anywhere (with its `.so` beside it) | `/Applications` or anywhere |
+
+On Debian-based distributions (Ubuntu, Raspberry Pi OS) the system folders
+are `/usr/lib/vst3` and `/usr/lib/lv2`, or the `/usr/local/lib/...` ones for
+software you install by hand; hosts also search `~/.vst3` and `~/.lv2`.
+Install with `cp -r`, which keeps the files' execute bits; on macOS use
+`ditto` (or the Finder), which keeps the signatures. After installing an AU,
+`killall -9 AudioComponentRegistrar` makes macOS notice it without a log-out,
+and `auval -v aumu <PLUGIN_CODE> <MANUFACTURER_CODE>` validates it (use
+`aufx` for an effect, `aumi` for a MIDI effect).
 
 ## The library
 
@@ -664,7 +677,11 @@ in the packages.
 ## Free Pascal notes
 
 - On Unix, `JucePlugin` pulls in `cthreads` itself: hosts call in from many
-  threads.
+  threads. Keep `JucePlugin` first in your library's `uses` clause (or list
+  `{$IFDEF UNIX}cthreads,{$ENDIF}` first): a unit initialised before the
+  thread manager that starts the RTL's threading stops the program with
+  "Threading has been used before cthreads was initialized". The same goes
+  for programs (tests, tools) that use the units.
 - `JucePlugin` makes `string` UTF-8 inside your library
   (`DefaultSystemCodePage` and the RTL's file-name code page). Only your DLL is
   affected, not the host. Locale separators that Windows reports as non-ASCII
@@ -716,13 +733,124 @@ In a `midi_effect`, incoming MIDI is not passed through automatically:
 - **LV2:** there is no "not automatable" flag; JUCE reports every parameter as
   automatable. Parameter changes from the host reach the plug-in inside
   `Process`.
-- **macOS / AU:** needs a Mac with Xcode, FPC for `aarch64-darwin` and/or
-  `x86_64-darwin`, and Developer ID signing and notarisation before
-  distribution. The CMake function adds `AU`, places
-  `<target>_pascal.dylib` in `Contents/MacOS` and ad-hoc-signs it. **This
-  path has not been built or tested yet.** For a universal binary, build the
-  library for each architecture, combine them with `lipo`, and pass the result
-  as `PASCAL_LIBRARY`.
+- **macOS / AU:** needs the Xcode command line tools and FPC for
+  `aarch64-darwin` and/or `x86_64-darwin` (Homebrew's `fpc`). The CMake
+  function adds `AU`, places `<target>_pascal.dylib` in `Contents/MacOS`,
+  signs it before hashing it, and signs every product (see below). CI builds
+  and tests it on Apple Silicon and Intel and runs `auval` on the AU; it has
+  not been tried in Logic or other DAWs yet.
+
+## Universal macOS binaries
+
+Free Pascal compiles one architecture at a time, so a universal plug-in is
+built in three steps: build the Pascal library once per architecture,
+combine the two with `lipo`, and build the plug-in universal with that
+library as `PASCAL_LIBRARY`:
+
+```sh
+cmake --preset macos-arm64  && cmake --build --preset macos-arm64
+cmake --preset macos-x86_64 && cmake --build --preset macos-x86_64   # needs an x86_64-darwin FPC
+lipo -create build/macos-arm64/plugins/MySynth/MySynth_pascal/Release/MySynth_pascal.dylib \
+             build/macos-x86_64/plugins/MySynth/MySynth_pascal/Release/MySynth_pascal.dylib \
+     -output MySynth_pascal-universal.dylib
+# now point MySynth at it: PASCAL_LIBRARY MySynth_pascal-universal.dylib (instead of PASCAL_SOURCE)
+cmake -S . -B build/macos-universal -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+      "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+cmake --build build/macos-universal
+```
+
+A universal configure stops with an error if any plug-in it builds still
+uses `PASCAL_SOURCE` (so move or point the example plug-in too), and the test
+suites are single-architecture (hence `BUILD_TESTING=OFF`): run the tests in
+the per-architecture builds. The universal build re-signs the staged
+library and hashes it, as for any prebuilt library. Homebrew's `fpc` is a
+native compiler: on Apple Silicon, the x86_64 half needs the official FPC
+installer (which has both compilers) or an Intel Mac. CI builds each
+architecture natively instead.
+
+## macOS: signing, notarisation and Gatekeeper
+
+By default every product is signed **ad hoc** (`codesign --sign -`): enough
+for Apple Silicon to run it on the Mac that built it, not enough for other
+people's Macs. A downloaded ad-hoc-signed plug-in is quarantined, and
+Gatekeeper refuses it ("cannot be opened because the developer cannot be
+verified"). For your own copies, or testers who accept that, remove the
+quarantine attribute after installing. Do this only for builds you made
+yourself (or got directly from someone you trust): quarantine is what makes
+macOS check a downloaded plug-in at all.
+
+```sh
+xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"My Synth.vst3"
+```
+
+For distribution, sign with a **Developer ID Application** certificate and
+the hardened runtime, then notarise:
+
+```sh
+cmake --preset macos \
+  "-DPASCALJUCE_CODESIGN_IDENTITY=Developer ID Application: Your Name (TEAMID)" \
+  "-DPASCALJUCE_CODESIGN_FLAGS=--options=runtime;--timestamp"
+cmake --build --preset macos
+
+# zip each bundle (ditto keeps signatures and symlinks), notarise, staple
+ditto -c -k --keepParent "My Synth.vst3" "My Synth-vst3.zip"
+xcrun notarytool submit "My Synth-vst3.zip" --keychain-profile <profile> --wait
+xcrun stapler staple "My Synth.vst3"
+spctl --assess --type install -vv "My Synth.vst3"   # or --type execute for the .app
+```
+
+(`xcrun notarytool store-credentials <profile>` stores your Apple ID or API
+key once.) The build signs the Pascal library **before** it hashes it, then
+signs each bundle as a whole. **Never re-sign a bundle with
+`codesign --deep`**: that re-signs the Pascal library inside, changes its
+bytes, and the integrity check then refuses it (the plug-in loads but stays
+silent with an error editor). If you must re-sign by hand, sign the bundle
+without `--deep`; the library inside is already signed with the same
+identity. `ctest` (`library_integrity_*`) checks that every bundle copy still
+matches its hash and has a valid signature.
+
+Hardened runtime and library validation: a host with library validation
+only loads code signed by Apple or by its own team, so it loads no
+third-party plug-ins at all; DAWs that load plug-ins either carry the
+`com.apple.security.cs.disable-library-validation` entitlement or host
+plug-ins in a separate process (Logic and GarageBand do this for AUs). Your
+Standalone app, signed with `--options=runtime`, validates the libraries it
+loads: the Pascal library is signed with the same Developer ID, so it
+passes. With an ad-hoc identity and the hardened runtime, the Standalone app
+would refuse its own library: keep the hardened runtime for Developer ID
+builds.
+
+## Raspberry Pi
+
+The `linux-arm64` preset is the build for a **Raspberry Pi 5** (or 4) with
+**64-bit Raspberry Pi OS Bookworm**; the 32-bit OS is not supported. CI
+builds and tests it on Ubuntu 22.04 for Arm (an older glibc than Bookworm's,
+so its builds run on the Pi too), but it has not been run on a real Pi.
+
+Building natively on the Pi: install the packages from README.md (Bookworm
+has CMake 3.25, GCC 12 and FPC 3.2.2 in its own repositories), then
+
+```sh
+cmake --preset linux-arm64
+cmake --build --preset linux-arm64 --parallel 2   # -j2 on a 4 GB Pi; 4 on 8 GB
+ctest --preset linux-arm64
+```
+
+As an estimate (not measured yet), expect 25 to 45 minutes for a first build on a Pi 5 (JUCE is
+compiled several times: the library, each plug-in, the test programs), and
+a few minutes after that. Each compiler process can take around 1 GB, so
+with 4 GB use `--parallel 2`, or add swap (`sudo dphys-swapfile`). Use
+`-DPASCALJUCE_BUILD_PLUGINS=OFF -DBUILD_TESTING=OFF` to build only the
+library. Cross-compiling from a PC is not set up.
+
+Hosts that load arm64 Linux plug-ins on the Pi: **Reaper** (its
+"Linux aarch64" build: VST3 and LV2), **Ardour** (LV2 and VST3; the
+official binaries are x86_64 only, use the distribution's package or build
+it), **Carla** (LV2 and VST3, also as a host inside other hosts), **Zrythm**
+and **Qtractor** (LV2, VST3). Bitwig Studio and most commercial DAWs have no
+Linux arm64 build. Install into `~/.vst3` and `~/.lv2`. Audio on the Pi goes
+through ALSA (JACK and PipeWire's JACK layer through the host); the
+plug-ins themselves don't care which.
 
 ## Limitations (current)
 

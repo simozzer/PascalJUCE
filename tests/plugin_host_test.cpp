@@ -1,5 +1,5 @@
 /*
-    plugin_host_test <scenario> <VST3|LV2> <bundle path>
+    plugin_host_test <scenario> <VST3|LV2> <bundle path> [replacement library]
 
     Loads PascalJUCE plug-ins through JUCE's own plug-in hosting (the same
     code paths a DAW exercises). Scenarios:
@@ -13,14 +13,31 @@
                 stay silent, show the error editor and preserve state
       tampered  a copy of the bundle whose Pascal library was modified after
                 the build: the integrity check must refuse to load it
+      replaced  a copy of the bundle whose Pascal library was replaced by
+                another, valid, plug-in library (the 4th argument): refused
+                the same way
+
+    "Loaded in the process" is checked by file identity on every platform:
+    the loaded modules (Windows), the mappings in /proc/self/maps (Linux) or
+    dyld's image list (macOS) are compared with the file's device and inode.
 */
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
 
 #include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #if JUCE_WINDOWS
     #include <windows.h>
+#else
+    #include <sys/stat.h>
+    #if JUCE_MAC
+        #include <mach-o/dyld.h>
+    #else
+        #include <sys/sysmacros.h>
+    #endif
 #endif
 
 namespace
@@ -98,8 +115,43 @@ bool isModuleLoaded(const juce::File& file)
 #if JUCE_WINDOWS
     return GetModuleHandleW(file.getFullPathName().toWideCharPointer()) != nullptr;
 #else
-    juce::ignoreUnused(file);
+    struct stat target {};
+    if (stat(file.getFullPathName().toRawUTF8(), &target) != 0)
+        return false;
+   #if JUCE_MAC
+    for (uint32_t i = 0, n = _dyld_image_count(); i < n; ++i)
+    {
+        struct stat image {};
+        const char* name = _dyld_get_image_name(i);
+        if (name != nullptr && stat(name, &image) == 0 && image.st_dev == target.st_dev && image.st_ino == target.st_ino)
+            return true;
+    }
     return false;
+   #else
+    // Every line: address perms offset major:minor inode path. The wrapper maps the
+    // library through /proc/self/fd/N; the kernel reports the file itself.
+    std::ifstream maps("/proc/self/maps");
+    std::string line;
+    while (std::getline(maps, line))
+    {
+        std::istringstream fields(line);
+        std::string address, perms, offset, device;
+        unsigned long long inode = 0;
+        if (! (fields >> address >> perms >> offset >> device >> inode) || inode == 0)
+            continue;
+        if (inode != (unsigned long long) target.st_ino)
+            continue;
+        unsigned int devMajor = 0, devMinor = 0;
+        const bool sameDevice = std::sscanf(device.c_str(), "%x:%x", &devMajor, &devMinor) == 2
+                             && devMajor == major(target.st_dev) && devMinor == minor(target.st_dev);
+        // Overlay file systems report another device here than stat() does: then the path decides.
+        std::string mappedPath;
+        std::getline(fields >> std::ws, mappedPath);
+        if (sameDevice || mappedPath == file.getFullPathName().toStdString())
+            return true;
+    }
+    return false;
+   #endif
 #endif
 }
 
@@ -308,18 +360,19 @@ int probe(juce::AudioPluginFormatManager& manager, const juce::String& format, c
         std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
         check(editor != nullptr, "editor created");
     }
-    check(isModuleLoaded(pascalLibraryIn(juce::File(path))) || ! JUCE_WINDOWS, "Pascal library is loaded in the process");
+    check(isModuleLoaded(pascalLibraryIn(juce::File(path))), "Pascal library is loaded in the process");
     plugin->releaseResources();
     return 0;
 }
 
 //==============================================================================
-int broken(juce::AudioPluginFormatManager& manager, const juce::String& format, const juce::String& path, bool tamper)
+int broken(juce::AudioPluginFormatManager& manager, const juce::String& format, const juce::String& path,
+           const juce::String& mode, const juce::File& replacement)
 {
     // Work on a private copy of the bundle so the build output stays intact.
     const auto source = juce::File(path);
     const auto copy = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                          .getChildFile("pascaljuce_" + juce::String(tamper ? "tampered" : "missing") + "_"
+                          .getChildFile("pascaljuce_" + mode + "_"
                                         + juce::String(juce::Time::currentTimeMillis()))
                           .getChildFile(source.getFileName());
     copy.getParentDirectory().createDirectory();
@@ -327,12 +380,17 @@ int broken(juce::AudioPluginFormatManager& manager, const juce::String& format, 
 
     const auto library = pascalLibraryIn(copy);
     check(library.existsAsFile(), "Pascal library present in the copy");
-    if (tamper)
+    if (mode == "tampered")
     {
         juce::MemoryBlock bytes;
         library.loadFileAsData(bytes);
         static_cast<char*>(bytes.getData())[bytes.getSize() / 2] ^= 0x5A; // one flipped byte
         check(library.replaceWithData(bytes.getData(), bytes.getSize()), "one byte of the library modified");
+    }
+    else if (mode == "replaced")
+    {
+        // Another plug-in's library: well-formed, exports the entry point, but not the one that was built.
+        check(replacement.existsAsFile() && replacement.copyFileTo(library), "library replaced by " + replacement.getFileName());
     }
     else
     {
@@ -389,7 +447,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 4)
     {
-        std::printf("usage: plugin_host_test <synth|probe|missing|tampered> <VST3|LV2> <bundle path>\n");
+        std::printf("usage: plugin_host_test <synth|probe|missing|tampered|replaced> <VST3|LV2> <bundle path> [replacement library]\n");
         return 2;
     }
 
@@ -408,8 +466,10 @@ int main(int argc, char* argv[])
         result = synth(manager, formatName, path);
     else if (scenario == "probe")
         result = probe(manager, formatName, path);
-    else if (scenario == "missing" || scenario == "tampered")
-        result = broken(manager, formatName, path, scenario == "tampered");
+    else if (scenario == "missing" || scenario == "tampered" || scenario == "replaced")
+        result = broken(manager, formatName, path, scenario,
+                        argc > 4 ? juce::File::getCurrentWorkingDirectory().getChildFile(juce::String::fromUTF8(argv[4]))
+                                 : juce::File());
     else
         std::printf("unknown scenario\n");
 

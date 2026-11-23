@@ -27,11 +27,21 @@ const
 {$IFDEF MSWINDOWS}
   JuceCAudioLib = 'juce_c_audio.dll';
 {$ELSE}
-  {$IF DEFINED(DARWIN) OR DEFINED(MACOS)}
-  JuceCAudioLib = 'juce_c_audio.dylib';
+  {$IFDEF FPC}
+  { Free Pascal links Unix libraries by name (-ljuce_c_audio): the file is
+    libjuce_c_audio.so (Linux) or libjuce_c_audio.dylib (macOS). Pass its
+    folder with -Fl, and give the program an rpath (see README.md). }
+  JuceCAudioLib = 'juce_c_audio';
+  {$IFDEF DARWIN}
+    {$LINKLIB juce_c_audio} { name the library for the Darwin linker explicitly }
+  {$ENDIF}
   {$ELSE}
-  JuceCAudioLib = 'juce_c_audio.so';
-  {$IFEND}
+    {$IF DEFINED(MACOS)}
+  JuceCAudioLib = 'libjuce_c_audio.dylib';
+    {$ELSE}
+  JuceCAudioLib = 'libjuce_c_audio.so';
+    {$IFEND}
+  {$ENDIF}
 {$ENDIF}
 
   JUCE_C_AUDIO_ABI_VERSION = 4;

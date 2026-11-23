@@ -115,6 +115,24 @@ struct ScopedFpMask
    #if defined(_M_IX86)
     unsigned int saved87 = 0;
    #endif
+#elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+    // AArch64: FPCR bits 8-12 and 15 enable traps. They are cleared for the
+    // call; rounding mode and FZ stay as they are, and the whole register is
+    // restored afterwards.
+    static constexpr uint64_t trapEnableBits = 0x9F00u;
+    static uint64_t readFpcr() noexcept { uint64_t v; asm volatile("mrs %0, fpcr" : "=r"(v)); return v; }
+    static void writeFpcr(uint64_t v) noexcept { asm volatile("msr fpcr, %0" : : "r"(v)); }
+    ScopedFpMask() noexcept : saved(readFpcr())
+    {
+        if ((saved & trapEnableBits) != 0)
+            writeFpcr(saved & ~trapEnableBits);
+    }
+    ~ScopedFpMask() noexcept
+    {
+        if (readFpcr() != saved)
+            writeFpcr(saved);
+    }
+    uint64_t saved;
 #endif
 };
 
@@ -2578,10 +2596,22 @@ juce_c_result juce_c_audio_file_writer_create(const char* path, const char* form
 
         // Dry run into memory, so a rejected configuration never touches an existing file.
         {
-            std::unique_ptr<juce::OutputStream> probe = std::make_unique<juce::MemoryOutputStream>();
-            // On success the writer takes (and frees) the stream; on failure it stays in probe.
-            const auto test = format->createWriterFor(probe, options);
-            if (test == nullptr)
+            // The probe stream is owned here whatever the outcome, and freed exactly once.
+            struct ProbeStream final : juce::MemoryOutputStream
+            {
+                explicit ProbeStream(bool& d) : destroyed(d) {}
+                ~ProbeStream() override { destroyed = true; }
+                bool& destroyed;
+            };
+            bool probeDestroyed = false;
+            auto* const probeStream = new ProbeStream(probeDestroyed);
+            std::unique_ptr<juce::OutputStream> probe(probeStream);
+            auto test = format->createWriterFor(probe, options);
+            const bool rejected = test == nullptr;
+            test.reset();
+            if (rejected && probe == nullptr && ! probeDestroyed)
+                delete probeStream;
+            if (rejected)
                 return fail(JUCE_C_INVALID_ARGUMENT, format->getFormatName() + " cannot write "
                                                          + juce::String(channel_count) + " channel(s) at "
                                                          + juce::String(sample_rate) + " Hz, " + juce::String(bits) + "-bit");

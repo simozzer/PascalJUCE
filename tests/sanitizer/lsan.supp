@@ -1,0 +1,36 @@
+# LeakSanitizer suppressions for the Linux AddressSanitizer build
+# (CMakeLists.txt passes this file in LSAN_OPTIONS to every test).
+#
+# The X11 client libraries, which JUCE loads for windows and menus, keep
+# per-display, locale, input-method and resource-database state until the
+# process exits. The GUI test programs link them in sanitizer builds so they
+# are never unloaded and their frames can be matched here. Suppressions name
+# the X11/XCB entry points that create that state, not whole libraries, so a
+# leak elsewhere that merely passes through libX11 is still reported.
+leak:XOpenDisplay
+leak:_XConnectXCB
+leak:xcb_connect
+leak:xcb_get_extension_data
+leak:xcb_prefetch_extension_data
+leak:XInitThreads
+leak:XInitExtension
+leak:XAddExtension
+leak:XrmInitialize
+leak:XrmGetStringDatabase
+leak:XrmGetFileDatabase
+leak:_XrmInternalStringToQuark
+leak:XrmStringToQuark
+leak:XGetDefault
+leak:XSetLocaleModifiers
+leak:XSupportsLocale
+leak:_XlcCreateLC
+leak:_XlcDefaultLoader
+leak:_XlcCreateLocaleDataBase
+leak:_XOpenLC
+leak:XOpenIM
+leak:_XimOpenIM
+leak:_XimLocalOpenIM
+leak:XCreateIC
+leak:XkbGetMap
+leak:XkbUseExtension
+leak:XInternAtom
