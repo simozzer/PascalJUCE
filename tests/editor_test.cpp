@@ -308,7 +308,7 @@ int main()
               "custom Pascal editor created");
         if (editor == nullptr)
             return 1;
-        check(editor->getWidth() == 480 && editor->getHeight() == 210, "size set by the Pascal editor: "
+        check(editor->getWidth() == 480 && editor->getHeight() == 300, "size set by the Pascal editor: "
                                                                           + juce::String(editor->getWidth()) + " x "
                                                                           + juce::String(editor->getHeight()));
         pump();

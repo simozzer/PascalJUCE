@@ -32,6 +32,7 @@ type
     Gain: TJuceKnob;
     OutMeter: TJuceMeter;
     OutLabel: TJuceLabel;
+    OutScope: TJuceScope;
     HelpLabel: TJuceLabel;
   end;
 

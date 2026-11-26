@@ -2,7 +2,7 @@ object SynthEditorForm: TSynthEditorForm
   Left = 0
   Top = 0
   Caption = 'Pascal Synth editor (design only)'
-  ClientHeight = 210
+  ClientHeight = 300
   ClientWidth = 480
   Color = 2367518
   Font.Charset = DEFAULT_CHARSET
@@ -15,7 +15,7 @@ object SynthEditorForm: TSynthEditorForm
     Left = 6
     Top = 6
     Width = 468
-    Height = 198
+    Height = 288
     Caption = 'PASCAL SYNTH'
     Color = -13618117
     GradientColor = -14473685
@@ -72,6 +72,13 @@ object SynthEditorForm: TSynthEditorForm
       Caption = 'OUT'
       FontSize = 11.000000000000000000
       Color = -6643542
+    end
+    object OutScope: TJuceScope
+      Left = 16
+      Top = 196
+      Width = 436
+      Height = 80
+      Hint = 'The output, triggered on a rising zero crossing'
     end
     object HelpLabel: TJuceLabel
       Left = 16

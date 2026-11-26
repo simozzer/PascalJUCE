@@ -82,6 +82,8 @@ type
     Volume: TJuceSlider;
     KeyboardBox: TJucePanel;
     Keyboard: TJuceKeyboard;
+    ScopeBox: TJucePanel;
+    Scope: TJuceScope;
   end;
 
 var

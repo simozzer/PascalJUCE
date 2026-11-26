@@ -1,16 +1,16 @@
 object SynthEditorForm: TSynthEditorForm
   Left = 300
-  Height = 210
+  Height = 300
   Top = 200
   Width = 480
   Caption = 'Pascal Synth editor (design only)'
-  ClientHeight = 210
+  ClientHeight = 300
   ClientWidth = 480
   Color = 2367518
   LCLVersion = '4.8.0.0'
   object MainPanel: TJucePanel
     Left = 6
-    Height = 198
+    Height = 288
     Top = 6
     Width = 468
     Caption = 'PASCAL SYNTH'
@@ -69,6 +69,13 @@ object SynthEditorForm: TSynthEditorForm
       Caption = 'OUT'
       FontSize = 11
       Color = -6643542
+    end
+    object OutScope: TJuceScope
+      Left = 16
+      Height = 80
+      Hint = 'The output, triggered on a rising zero crossing'
+      Top = 196
+      Width = 436
     end
     object HelpLabel: TJuceLabel
       Left = 16

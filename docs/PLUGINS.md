@@ -144,6 +144,8 @@ Host services on `TJucePlugin`:
   continuous changes
 - `SetLatencySamples`
 - `SetMeter`: publish a level for the editor; any thread, real-time safe
+- `ScopeWrite`: send samples to the editor's oscilloscopes (`TJuceScope`)
+  instead of the output; see [Oscilloscopes](#oscilloscopes)
 - `Log`
 
 Called from inside `Prepare`, `Process`, `Reset` or the state methods,
@@ -263,9 +265,9 @@ var
 
 begin
   inherited Create(APlugin);
-  SetSize(480, 210);
+  SetSize(480, 300);
   Panel := TJucePanel.Create(Root);
-  Panel.SetBounds(6, 6, 468, 198);
+  Panel.SetBounds(6, 6, 468, 288);
   Panel.Caption := 'PASCAL SYNTH';
   Panel.Color := $FF30343B;
   Panel.GradientColor := $FF23262B;
@@ -286,6 +288,7 @@ begin
   Caption.Caption := 'OUT';
   Caption.FontSize := 11;
   Caption.Color := Theme.TextDim;
+  TJuceScope.Create(Panel).SetBounds(16, 196, 436, 80); { the output }
   { ... and the help line, a second TJuceLabel }
 end;
 ```
@@ -308,6 +311,7 @@ Code and forms mix freely: load a form, then add or change controls in code.
 | `TJuceDisplay` | a text readout: `Caption` on a plate, in its own `FontName` (e.g. `'Lucida Console'`), `FontSize`, `Bold` and colours; set `Caption` from code | none |
 | `TJuceComboBox` | a drop-down: bound to a choice parameter it lists the parameter's choices (a patch menu); unbound, its `Items` | click for the menu (the current choice ticked), wheel |
 | `TJuceKeyboard` | a piano keyboard, `FirstNote`..`LastNote`, the C keys labelled (`OctaveForMiddleC`); `SetNoteLit` lights keys from code (e.g. notes the host plays, published as meters) | click and drag to play: `OnNoteOn` / `OnNoteOff` |
+| `TJuceScope` | an oscilloscope of the plug-in's output, no code needed: `Channel` (`jscLeft`, `jscRight`, `jscMix`), `TimeMs` across the width, `Gain`, `Trigger` (`jstRising`, `jstFalling` at `TriggerLevel`, or `jstFree`), `ShowGrid` with `GridX` × `GridY` divisions, `LineWidth`, `LineColor`, `GridColor`; see [Oscilloscopes](#oscilloscopes) | none |
 
 Every control has `Left`, `Top`, `Width`, `Height`, `Visible`, `Enabled`,
 `Caption`, `Hint` (tooltip) and `OnContextMenu`. Controls that hold a value
@@ -412,6 +416,44 @@ about JUCE, so the same control can later be drawn on other surfaces.
   JUCE's own). They are sent when the editor opens and before every menu;
   after changing the theme later, call `ThemeChanged`.
 
+### Oscilloscopes
+
+Put a `TJuceScope` on the panel and it shows the plug-in's output. While a
+scope is open, the Pascal side of the wrapper copies the output channels
+into a ring buffer after every `Process` call (32768 samples per channel,
+allocated when the first scope opens, written lock-free). The scope reads
+the newest samples on the editor's timer. With nothing open, the cost is
+one interlocked read per block.
+
+`Trigger` makes a steady wave stand still. Each sweep starts at the latest
+point where the signal rises (or falls) through `TriggerLevel` and still
+has `TimeMs` of samples after it, placed to a fraction of a sample so the
+trace doesn't jitter. With no crossing (silence, a DC offset) or with
+`jstFree`, it shows the newest samples. When the host stops processing, the
+last sweep stays on screen. When the sweep holds more samples than the
+scope is wide in pixels, each pixel column is drawn from its lowest to its
+highest sample, so nothing is lost at long `TimeMs`. `TimeMs` is limited
+to 8191 samples (about 170 ms at 48 kHz).
+
+To show another signal, such as one oscillator or the signal before the
+filter, set `ScopeManual := True` in the plug-in's constructor and call
+`ScopeWrite(Left, Right, Count)` from `Process`. `Right = nil` sends `Left`
+to both channels. Skip the work when `ScopeActive` is `False`:
+
+```pascal
+procedure TMySynth.Process(const Ctx: TJuceProcessContext);
+begin
+  ...
+  if ScopeActive then
+    ScopeWrite(PJuceSampleArray(@FOscBuffer[0]), nil, Ctx.NumSamples);
+end;
+```
+
+In code, `ShowSamples(Samples, Count, Span)` puts samples of your own on a
+scope, with the same triggering. In the form designer, a scope shows a
+sample wave (a 220 Hz tone), so you can judge `TimeMs`, `Gain` and the
+colours while you lay out the panel.
+
 ### Meters the editor predicts
 
 Meters come from `Process`, so a panel that shows DSP state through them
@@ -483,7 +525,7 @@ How it fits together:
   **PascalJUCE** page on the component palette with `TJuceKnob`,
   `TJuceSlider`, `TJuceSwitch`, `TJuceButton`, `TJuceLed`, `TJuceLabel`,
   `TJuceMeter`, `TJucePanel`, `TJuceDisplay`, `TJuceComboBox`,
-  `TJuceKeyboard`, `TJuceLink`, `TJuceImageResource` and `TJuceThemeResource`. They have the same
+  `TJuceKeyboard`, `TJuceLink`, `TJuceScope`, `TJuceImageResource` and `TJuceThemeResource`. They have the same
   class names as the run-time controls, so the saved form names the run-time
   classes directly.
 - Each designer control owns an instance of the real run-time control and

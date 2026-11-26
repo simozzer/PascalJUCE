@@ -229,6 +229,7 @@ var
   Wave: TJuceSwitch;
   Meter: TJuceMeter;
   Caption: TJuceLabel;
+  Scope: TJuceScope;
 
   procedure AddKnob(const Name, Id, Title, Tip: string; X: Integer);
   var
@@ -243,11 +244,11 @@ var
   end;
 
 begin
-  Ed.SetSize(480, 210);
+  Ed.SetSize(480, 300);
   Ed.Root.SetBounds(0, 0, Ed.Width, Ed.Height);
   Panel := TJucePanel.Create(Ed.Root);
   Panel.Name := 'MainPanel';
-  Panel.SetBounds(6, 6, 468, 198);
+  Panel.SetBounds(6, 6, 468, 288);
   Panel.Caption := 'PASCAL SYNTH';
   Panel.Color := $FF30343B;
   Panel.GradientColor := $FF23262B;
@@ -273,6 +274,10 @@ begin
   Caption.Caption := 'OUT';
   Caption.FontSize := 11;
   Caption.Color := Ed.Theme.TextDim;
+  Scope := TJuceScope.Create(Panel);
+  Scope.Name := 'OutScope';
+  Scope.SetBounds(16, 196, 436, 80);
+  Scope.Hint := 'The output, triggered on a rising zero crossing';
   Caption := TJuceLabel.Create(Panel);
   Caption.Name := 'HelpLabel';
   Caption.SetBounds(16, 170, 300, 18);
@@ -301,7 +306,7 @@ begin
     BuildSynthInCode(Code);
     JuceLoadLayoutResource(FromRes, 'TSynthEditorForm');
     CheckEquals(480, FromRes.Width, 'ClientWidth sets the editor width');
-    CheckEquals(210, FromRes.Height, 'ClientHeight sets the editor height');
+    CheckEquals(300, FromRes.Height, 'ClientHeight sets the editor height');
     CheckEquals(480, FromRes.Root.Width, 'root follows the editor size');
     Check(FromRes.Theme.Background = $FF1E2024, 'form Color ($0024201E) is the theme background');
     CheckEquals(1, FromRes.Root.ControlCount, 'one top-level control');

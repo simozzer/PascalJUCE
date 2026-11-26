@@ -750,15 +750,33 @@ object Mz101EditorForm: TMz101EditorForm
     Left = 1215
     Height = 345
     Top = 549
-    Width = 999
+    Width = 639
     CornerRadius = 4
     object Keyboard: TJuceKeyboard
       Left = 12
       Height = 297
       Top = 36
-      Width = 975
+      Width = 615
       FirstNote = 41
       OctaveForMiddleC = 4
+    end
+  end
+  object ScopeBox: TJucePanel
+    Left = 1869
+    Height = 345
+    Top = 549
+    Width = 345
+    Caption = 'SCOPE'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Scope: TJuceScope
+      Left = 12
+      Height = 297
+      Hint = 'The output, triggered on a rising zero crossing'
+      Top = 36
+      Width = 321
     end
   end
   object Theme: TJuceThemeResource

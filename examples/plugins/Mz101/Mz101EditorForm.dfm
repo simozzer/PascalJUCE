@@ -784,18 +784,37 @@ object Mz101EditorForm: TMz101EditorForm
   object KeyboardBox: TJucePanel
     Left = 810
     Top = 366
-    Width = 666
+    Width = 426
     Height = 230
     BorderWidth = 1
     CornerRadius = 4
     object Keyboard: TJuceKeyboard
       Left = 8
       Top = 24
-      Width = 650
+      Width = 410
       Height = 198
       FirstNote = 41
       LastNote = 72
       OctaveForMiddleC = 4
+    end
+  end
+  object ScopeBox: TJucePanel
+    Left = 1246
+    Top = 366
+    Width = 230
+    Height = 230
+    Caption = 'SCOPE'
+    BorderWidth = 1
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Scope: TJuceScope
+      Left = 8
+      Top = 24
+      Width = 214
+      Height = 198
+      Hint = 'The output, triggered on a rising zero crossing'
     end
   end
 end

@@ -218,7 +218,7 @@ const juce::Point<float> holdButton { 374 + 24, 426 + 20 };
 const juce::Point<float> transRest { 520 + 36, 426 + 20 };
 const juce::Point<int> transRestLed { 520 + 36, 426 + 8 };
 const juce::Point<float> patchBox { 1256 + 110, 12 + 13 };
-const juce::Point<float> keyC4 { 818 + 11 * (650.0f / 19.0f) + 17.0f, 390 + 180 };
+const juce::Point<float> keyC4 { 818 + 11 * (410.0f / 19.0f) + 10.0f, 390 + 180 };
 constexpr float rateX = 14 + 8 + 21;              // MODULATOR RATE fader's centre
 constexpr float syncX = 14 + 50 + 18;             // SYNC switch's slot
 const juce::Point<float> projectLink { 1230, 12 + 13 };
