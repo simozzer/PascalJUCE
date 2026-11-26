@@ -23,6 +23,20 @@ compare or get stuck. Its Pascal code and form are exactly the ones below.
 Only its `CMakeLists.txt` differs (it builds as *Tiny Synth Example*), so it
 doesn't clash with the copy you make in `plugins\TinySynth`.
 
+> **Building the finished example instead of your own copy?** Its target
+> names say `TinySynthExample`, not `TinySynth`, and its bundles go to a
+> different folder:
+>
+> ```powershell
+> cmake --build --preset windows-x64-clang-release --target TinySynthExample_All TinySynthExample_ParameterList
+> ```
+>
+> Look for the bundles in
+> `build\x64-clang\examples\plugins\TinySynth\TinySynthExample_artefacts\Release\`
+> (for example `VST3\Tiny Synth Example.vst3`). The `TinySynth_*` targets and
+> paths in the steps below only exist once you've made `plugins\TinySynth`
+> yourself.
+
 The tutorial is written for **Windows** and the 64-bit Lazarus. On Linux or
 macOS the Pascal code is the same; only the build commands differ (see
 [Building on Linux or macOS](#building-on-linux-or-macos)).
@@ -555,6 +569,13 @@ change to your Pascal code, a few seconds. (A plain `cmake --build --preset
 windows-x64-clang-release` builds everything in PascalJUCE, your plug-in
 included.)
 
+If the build stops with `MSB1009: Project file does not exist` and
+`TinySynth_All.vcxproj`, CMake has no `TinySynth` target. Either
+`plugins\TinySynth` doesn't exist yet, or you ran only the second command.
+Create the folder (steps 1 to 4), then run both commands again. If you wanted
+the finished example, use the `TinySynthExample_*` targets shown
+[at the top](#tutorial-build-a-simple-synth-with-lazarus).
+
 You'll find them in
 `build\x64-clang\plugins\TinySynth\TinySynth_artefacts\Release\`:
 
@@ -759,7 +780,8 @@ plugins\TinySynth\
 | What you see | What to do |
 |---|---|
 | `Can't find unit JucePlugin` in Lazarus | set *Other unit files* to `..\..\pascal` (step 2) |
-| CMake doesn't build TinySynth / no `TinySynth_All` target | run `cmake --preset windows-x64-clang` again so it finds the new folder |
+| CMake doesn't build TinySynth / no `TinySynth_All` target / `MSB1009: Project file does not exist` | check `plugins\TinySynth` exists, then run `cmake --preset windows-x64-clang` again so it finds the new folder. The finished example in `examples\plugins\TinySynth` is a different target: `TinySynthExample_All` and `TinySynthExample_ParameterList` |
+| Can't find the `.vst3` you built | your copy: `build\x64-clang\plugins\TinySynth\TinySynth_artefacts\Release\VST3\`; the finished example: `build\x64-clang\examples\plugins\TinySynth\TinySynthExample_artefacts\Release\VST3\` |
 | `Free Pascal (fpc) not found` | point CMake at it: `cmake --preset windows-x64-clang -DFPC_EXECUTABLE=C:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe` (your path) |
 | The window says *refused to load: parameter "…"* | a parameter declaration is wrong: a duplicate id, min ≥ max, or a default outside the range |
 | No sound in the Standalone | *Options*: check the output device, and tick your keyboard under *Active MIDI inputs* |
