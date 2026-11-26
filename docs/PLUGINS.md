@@ -21,6 +21,10 @@ compiling, hashing and copying.
 
 ## Quick start
 
+New to plug-ins? [Tutorial: build a simple synth with
+Lazarus](TUTORIAL_LAZARUS_SYNTH.md) walks through one from an empty folder,
+with the designed panel.
+
 1. Copy `examples/plugins/PascalSynth` to `plugins/MySynth`. Everything under
    `plugins/` is built automatically.
 2. In `plugins/MySynth/CMakeLists.txt`, rename the target and set:

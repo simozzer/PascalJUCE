@@ -10,7 +10,8 @@ There are two parts:
    controls (knobs, sliders, switches, buttons, meters), built in code or
    **designed visually in the Lazarus or Delphi form designer** and loaded
    from the embedded .lfm/.dfm at run time. See
-   **[docs/PLUGINS.md](docs/PLUGINS.md)**.
+   **[docs/PLUGINS.md](docs/PLUGINS.md)**, or start with the step-by-step
+   **[tutorial: build a simple synth with Lazarus](docs/TUTORIAL_LAZARUS_SYNTH.md)**.
 
 ```
 include/juce_c_audio.h        C API for apps (the contract)
@@ -28,6 +29,7 @@ plugin/                       C++ plug-in wrapper + its C ABI (juce_c_plugin.h)
 cmake/PascalJUCE.cmake        pascaljuce_add_plugin()
 examples/console_demo/        device listing + MIDI-controlled sine demo
 examples/plugins/PascalSynth/ template instrument (VST3/LV2/Standalone)
+examples/plugins/TinySynth/   the finished synth of docs/TUTORIAL_LAZARUS_SYNTH.md
 plugins/                      your plug-ins go here (built automatically)
 tests/                        C, Pascal and plug-in-hosting tests
 external/JUCE                 JUCE 8.0.17-security checkout (downloaded if missing)

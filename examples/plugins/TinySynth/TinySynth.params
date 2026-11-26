@@ -1,0 +1,8 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+wave	choice	Waveform		0	1	0	1	Saw|Square
+cutoff	float	Cutoff		0	100	60	0	
+resonance	float	Resonance	%	0	100	20	0	
+attack	float	Attack	ms	1	2000	5	0	
+release	float	Release	ms	1	3000	300	0	
+volume	float	Volume	dB	-48	0	-12	0	

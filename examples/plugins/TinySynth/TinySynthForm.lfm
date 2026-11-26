@@ -1,0 +1,83 @@
+object TinySynthForm: TTinySynthForm
+  Left = 300
+  Height = 220
+  Top = 200
+  Width = 620
+  Caption = 'Tiny Synth (design only)'
+  ClientHeight = 220
+  ClientWidth = 620
+  Color = 2367518
+  LCLVersion = '4.8.0.0'
+  object MainPanel: TJucePanel
+    Left = 6
+    Height = 208
+    Top = 6
+    Width = 608
+    Caption = 'TINY SYNTH'
+    Color = -13618117
+    GradientColor = -14473685
+    object Wave: TJuceSwitch
+      Left = 16
+      Height = 64
+      Hint = 'Oscillator waveform'
+      Top = 60
+      Width = 110
+      Caption = 'WAVE'
+      ParameterId = 'wave'
+      Positions = 2
+      Labels = 'Saw|Square'
+    end
+    object Cutoff: TJuceKnob
+      Left = 136
+      Height = 104
+      Hint = 'Filter cutoff'
+      Top = 44
+      Width = 76
+      Caption = 'CUTOFF'
+      ParameterId = 'cutoff'
+    end
+    object Resonance: TJuceKnob
+      Left = 218
+      Height = 104
+      Hint = 'Filter resonance'
+      Top = 44
+      Width = 76
+      Caption = 'RES'
+      ParameterId = 'resonance'
+    end
+    object Attack: TJuceKnob
+      Left = 300
+      Height = 104
+      Hint = 'Attack time'
+      Top = 44
+      Width = 76
+      Caption = 'ATTACK'
+      ParameterId = 'attack'
+    end
+    object Release: TJuceKnob
+      Left = 382
+      Height = 104
+      Hint = 'Release time'
+      Top = 44
+      Width = 76
+      Caption = 'RELEASE'
+      ParameterId = 'release'
+    end
+    object Volume: TJuceKnob
+      Left = 464
+      Height = 104
+      Hint = 'Output level'
+      Top = 44
+      Width = 76
+      Caption = 'VOLUME'
+      ParameterId = 'volume'
+    end
+    object OutMeter: TJuceMeter
+      Left = 566
+      Height = 132
+      Hint = 'Output level'
+      Top = 36
+      Width = 14
+    end
+  end
+end
