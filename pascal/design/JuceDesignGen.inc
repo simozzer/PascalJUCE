@@ -32,6 +32,10 @@
     procedure SetTJuceLedPosition(Index: Integer; Value: TJuceLedPosition);
     function GetTJuceAlign(Index: Integer): TJuceAlign;
     procedure SetTJuceAlign(Index: Integer; Value: TJuceAlign);
+    function GetTJuceScopeChannel(Index: Integer): TJuceScopeChannel;
+    procedure SetTJuceScopeChannel(Index: Integer; Value: TJuceScopeChannel);
+    function GetTJuceScopeTrigger(Index: Integer): TJuceScopeTrigger;
+    procedure SetTJuceScopeTrigger(Index: Integer; Value: TJuceScopeTrigger);
 {$ENDIF}
 
 {$IFDEF JUCE_DESIGN_CLASSES}
@@ -214,6 +218,25 @@
     property Underline: Boolean index 62 read GetBoolean write SetBoolean default True;
   end;
 
+  TJuceScope = class(TJuceDesignControl)
+  protected
+    class function RuntimeClass: TJuceControlClass; override;
+  published
+    property Channel: TJuceScopeChannel index 63 read GetTJuceScopeChannel write SetTJuceScopeChannel default jscMix;
+    property Trigger: TJuceScopeTrigger index 64 read GetTJuceScopeTrigger write SetTJuceScopeTrigger default jstRising;
+    property TriggerLevel: Single index 65 read GetSingle write SetSingle {$IFDEF FPC}default 0{$ENDIF};
+    property TimeMs: Single index 66 read GetSingle write SetSingle {$IFDEF FPC}default 20{$ENDIF};
+    property Gain: Single index 67 read GetSingle write SetSingle {$IFDEF FPC}default 1{$ENDIF};
+    property LineWidth: Single index 68 read GetSingle write SetSingle {$IFDEF FPC}default 1.5{$ENDIF};
+    property ShowGrid: Boolean index 69 read GetBoolean write SetBoolean default True;
+    property GridX: Integer index 70 read GetInteger write SetInteger default 8;
+    property GridY: Integer index 71 read GetInteger write SetInteger default 4;
+    property Color: TJuceColor index 40 read GetCardinal write SetCardinal default 0;
+    property LineColor: TJuceColor index 72 read GetCardinal write SetCardinal default 0;
+    property GridColor: TJuceColor index 73 read GetCardinal write SetCardinal default 0;
+    property CornerRadius: Single index 36 read GetSingle write SetSingle {$IFDEF FPC}default 3{$ENDIF};
+  end;
+
 {$ENDIF}
 
 {$IFDEF JUCE_DESIGN_THEME}
@@ -254,7 +277,7 @@
 
 {$IFDEF JUCE_DESIGN_IMPLEMENTATION}
 const
-  JuceDesignPropNames: array[0..62] of string = ('ParameterId', 'DefaultValue', 'Style', 'FilmstripImage',
+  JuceDesignPropNames: array[0..73] of string = ('ParameterId', 'DefaultValue', 'Style', 'FilmstripImage',
     'FilmstripFrames', 'FilmstripHorizontal', 'ShowValue', 'Bipolar', 'StartAngle', 'EndAngle', 'Sensitivity',
     'FineFactor', 'ArcColor', 'TrackColor', 'BodyColor', 'PointerColor', 'TextColor', 'JumpToClick',
     'ValueBubble', 'Orientation', 'ThumbColor', 'FillColor', 'Ticks', 'MajorTicks', 'Positions', 'Labels',
@@ -262,8 +285,9 @@ const
     'Flat', 'BorderColor', 'CornerRadius', 'Lit', 'MeterIndex', 'Threshold', 'Color', 'FontSize', 'Bold',
     'Alignment', 'MinDb', 'DecayDb', 'GradientColor', 'GradientVertical', 'BorderWidth', 'BackgroundImage',
     'HeaderHeight', 'CaptionAlign', 'CaptionSeparator', 'FontName', 'Items', 'FirstNote', 'LastNote',
-    'OctaveForMiddleC', 'ShowLabels', 'KeyDownColor', 'HoverColor', 'Url', 'Underline');
-  JuceDesignClassList: array[0..11] of TJuceDesignControlClass = (TJuceKnob, TJuceSlider, TJuceSwitch, TJuceButton, TJuceLed, TJuceLabel, TJuceMeter, TJucePanel, TJuceDisplay, TJuceComboBox, TJuceKeyboard, TJuceLink);
+    'OctaveForMiddleC', 'ShowLabels', 'KeyDownColor', 'HoverColor', 'Url', 'Underline', 'Channel', 'Trigger',
+    'TriggerLevel', 'TimeMs', 'Gain', 'LineWidth', 'ShowGrid', 'GridX', 'GridY', 'LineColor', 'GridColor');
+  JuceDesignClassList: array[0..12] of TJuceDesignControlClass = (TJuceKnob, TJuceSlider, TJuceSwitch, TJuceButton, TJuceLed, TJuceLabel, TJuceMeter, TJucePanel, TJuceDisplay, TJuceComboBox, TJuceKeyboard, TJuceLink, TJuceScope);
   JuceDesignThemeNames: array[0..32] of string = ('Background', 'Panel', 'PanelBorder', 'Text', 'TextDim',
     'Accent', 'Track', 'KnobBody', 'KnobPointer', 'ButtonFace', 'LedOn', 'LedOff', 'MeterLow', 'MeterMid',
     'MeterHigh', 'MeterBack', 'FontName', 'FontSize', 'TooltipBackground', 'TooltipText', 'TooltipBorder',
@@ -413,6 +437,28 @@ begin
   PropertyChanged;
 end;
 
+function TJuceDesignControl.GetTJuceScopeChannel(Index: Integer): TJuceScopeChannel;
+begin
+  Result := TJuceScopeChannel(Integer(JuceDesignGetOrd(FCtl, JuceDesignPropNames[Index])));
+end;
+
+procedure TJuceDesignControl.SetTJuceScopeChannel(Index: Integer; Value: TJuceScopeChannel);
+begin
+  JuceDesignSetOrd(FCtl, JuceDesignPropNames[Index], Ord(Value));
+  PropertyChanged;
+end;
+
+function TJuceDesignControl.GetTJuceScopeTrigger(Index: Integer): TJuceScopeTrigger;
+begin
+  Result := TJuceScopeTrigger(Integer(JuceDesignGetOrd(FCtl, JuceDesignPropNames[Index])));
+end;
+
+procedure TJuceDesignControl.SetTJuceScopeTrigger(Index: Integer; Value: TJuceScopeTrigger);
+begin
+  JuceDesignSetOrd(FCtl, JuceDesignPropNames[Index], Ord(Value));
+  PropertyChanged;
+end;
+
 class function TJuceKnob.RuntimeClass: TJuceControlClass;
 begin
   Result := JuceControls.TJuceKnob;
@@ -471,6 +517,11 @@ end;
 class function TJuceLink.RuntimeClass: TJuceControlClass;
 begin
   Result := JuceControls.TJuceLink;
+end;
+
+class function TJuceScope.RuntimeClass: TJuceControlClass;
+begin
+  Result := JuceControls.TJuceScope;
 end;
 
 {$ENDIF}

@@ -259,7 +259,9 @@ var
   Ref, DiffImg: TFPMemoryImage;
   X, Y, D, DX, DY, Sum: Integer;
   A, E, N: TFPColor;
-  TextMask: array of Boolean;
+  TextMask, LiveMask: array of Boolean;
+  Live: TJuceControl;
+  I: Integer;
   InText, OutText, All: TDiffStats;
   IsText: Boolean;
   Saved: TJuceTextRenderer;
@@ -311,6 +313,19 @@ begin
             for DX := -2 to 2 do
               if (X + DX >= 0) and (Y + DY >= 0) and (X + DX < Actual.Width) and (Y + DY < Actual.Height) then
                 TextMask[(Y + DY) * Actual.Width + X + DX] := True;
+    { a scope's screen shows a sample wave in the designer and the live signal
+      (silence here) in the plug-in: it is not compared, only its frame }
+    SetLength(LiveMask, Actual.Width * Actual.Height);
+    for I := 0 to Form.ComponentCount - 1 do
+      if (Form.Components[I] is TJuceDesignControl)
+        and (TJuceDesignControl(Form.Components[I]).Runtime is JuceControls.TJuceScope) then
+      begin
+        Live := TJuceDesignControl(Form.Components[I]).Runtime;
+        for Y := Round(Live.AbsoluteY) + 2 to Round(Live.AbsoluteY) + Live.Height - 3 do
+          for X := Round(Live.AbsoluteX) + 2 to Round(Live.AbsoluteX) + Live.Width - 3 do
+            if (X >= 0) and (Y >= 0) and (X < Actual.Width) and (Y < Actual.Height) then
+              LiveMask[Y * Actual.Width + X] := True;
+      end;
     FillChar(InText, SizeOf(InText), 0);
     FillChar(OutText, SizeOf(OutText), 0);
     FillChar(All, SizeOf(All), 0);
@@ -320,6 +335,13 @@ begin
       begin
         A := Actual.Colors[X, Y];
         E := Ref.Colors[X, Y];
+        N.Alpha := $FFFF;
+        if LiveMask[Y * Actual.Width + X] then
+        begin
+          N.Red := 0; N.Green := 0; N.Blue := E.Blue div 2; { shown blue in the diff: not compared }
+          DiffImg.Colors[X, Y] := N;
+          Continue;
+        end;
         D := MaxDiff(A, E, Sum);
         IsText := TextMask[Y * Actual.Width + X];
         AddDiff(All, D, Sum);
@@ -373,7 +395,7 @@ procedure TestWysiwyg;
 begin
   CompareWysiwyg('PascalSynth', SynthDir, 'SynthEditorForm.lfm',
     RootDir + 'tests' + PathDelim + 'data' + PathDelim + 'ui' + PathDelim + 'pascalsynth_default.png',
-    'pascalsynth_designer', TSynthEditorForm, 480, 210);
+    'pascalsynth_designer', TSynthEditorForm, 480, 300);
 end;
 
 function Mz101Dir: string;

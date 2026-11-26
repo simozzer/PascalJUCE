@@ -120,6 +120,10 @@ type
     function ParamText(Index: Integer; Normalised: Single): string; override;
     function ParamUnits(Index: Integer): string; override;
     function ParamChoices(Index: Integer): string; override;
+    { Scopes show a sample wave (a 220 Hz tone with a few harmonics). }
+    function ScopeRead(Channel: Integer; var Dest: array of Single; Count: Integer;
+      out Stamp: Integer): Integer; override;
+    function ScopeSampleRate: Double; override;
     property Params: TJuceParamList read FParams;
     property FormRoot: TComponent read FFormRoot;
     { Device pixels per logical pixel (the form's design PPI / 96). }
@@ -1060,6 +1064,26 @@ begin
   Result := '';
   if (Index >= 0) and (Index < FParams.Count) and (FParams.Item(Index).Kind = jpkChoice) then
     Result := FParams.Item(Index).Choices;
+end;
+
+function TJuceDesignEditor.ScopeRead(Channel: Integer; var Dest: array of Single; Count: Integer;
+  out Stamp: Integer): Integer;
+var
+  I: Integer;
+  Ph: Double;
+begin
+  Stamp := 1;
+  Result := Min(Count, Min(Length(Dest), JUCE_SCOPE_MAX_READ));
+  for I := 0 to Result - 1 do
+  begin
+    Ph := 2 * Pi * 220 * I / ScopeSampleRate;
+    Dest[I] := 0.55 * (Sin(Ph) + Sin(2 * Ph) / 2 + Sin(3 * Ph) / 3 + Sin(4 * Ph) / 4);
+  end;
+end;
+
+function TJuceDesignEditor.ScopeSampleRate: Double;
+begin
+  Result := 48000;
 end;
 
 function TJuceDesignEditor.ParamUnits(Index: Integer): string;

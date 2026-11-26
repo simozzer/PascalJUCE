@@ -1307,6 +1307,169 @@ begin
   CheckEquals(0, FE.BadHandles, 'no stray handles');
 end;
 
+{ One block of Count samples through the plug-in's Process (which leaves
+  them alone), so the glue captures them for scopes. }
+procedure ProcessAudio(const L, R: array of Single; Count, Outputs: Integer);
+var
+  Ctx: TJuceProcessContext;
+  Chans: array[0..1] of PJuceSampleArray;
+begin
+  Chans[0] := PJuceSampleArray(@L[0]);
+  Chans[1] := PJuceSampleArray(@R[0]);
+  FillChar(Ctx, SizeOf(Ctx), 0);
+  Ctx.StructSize := SizeOf(Ctx);
+  Ctx.NumSamples := Count;
+  Ctx.Channels := PJuceChannelArray(@Chans[0]);
+  Ctx.NumChannels := Outputs;
+  Ctx.NumOutputChannels := Outputs;
+  PlugVT.Process(Inst, @Ctx);
+end;
+
+procedure TestScope;
+const
+  Big = JUCE_SCOPE_CAPACITY + 5000;
+var
+  S: TJuceScope;
+  E: TTestEditor;
+  P: TJucePlugin;
+  Wave, Flat, L, R, Got: array of Single;
+  I, N, Stamp, Stamp2: Integer;
+  Ok: Boolean;
+begin
+  Suite('Oscilloscope');
+  P := TJucePlugin(Inst);
+
+  { the trigger, on samples given directly: a sine of period 100 }
+  SetLength(Wave, 1000);
+  for I := 0 to High(Wave) do
+    Wave[I] := Sin(2 * Pi * (I + 0.3) / 100);
+  S := TJuceScope.Create(nil);
+  try
+    S.ShowSamples(Wave, Length(Wave), 200);
+    Check(S.Triggered, 'rising trigger found');
+    CheckEquals(201, S.SampleCount, 'a sweep and the sample before the crossing');
+    Check((S.Sample(0) < 0) and (S.Sample(1) >= 0), 'the sweep starts at a rising zero crossing');
+    Ok := True;
+    for I := 0 to S.SampleCount - 1 do
+      if Abs(S.Sample(I) - Wave[799 + I]) > 1e-6 then
+        Ok := False; { crossings at 100, 200, ...: 800 is the latest that leaves 200 after it }
+    Check(Ok, 'the latest crossing with a whole sweep after it');
+    S.Trigger := jstFalling;
+    S.ShowSamples(Wave, Length(Wave), 200);
+    Check(S.Triggered and (S.Sample(0) > 0) and (S.Sample(1) <= 0), 'falling trigger');
+    S.Trigger := jstFree;
+    S.ShowSamples(Wave, Length(Wave), 200);
+    Check(not S.Triggered, 'free-running: no trigger');
+    CheckEquals(200, S.SampleCount, 'free-running: the newest 200');
+    CheckEquals(Wave[999], S.Sample(199), 1e-6, 'newest last');
+    S.Trigger := jstRising;
+    SetLength(Flat, 300);
+    for I := 0 to High(Flat) do
+      Flat[I] := 0.5;
+    Flat[10] := NaNValue;
+    S.ShowSamples(Flat, Length(Flat), 100);
+    Check(not S.Triggered, 'no crossing: free-running');
+    CheckEquals(100, S.SampleCount, '(the newest samples)');
+    S.ShowSamples(Flat, 20, 100);
+    CheckEquals(19, S.SampleCount, 'a span longer than the samples: all but one (kept for the trigger search)');
+    S.ShowSamples(Flat, 1, 100);
+    CheckEquals(0, S.SampleCount, 'one sample: nothing to draw');
+    for I := 0 to 30 do
+      Flat[I] := NaNValue;
+    S.ShowSamples(Flat, 40, 39);
+    CheckEquals(0.0, S.Sample(0), 0, 'NaN shown as silence');
+    S.TimeMs := 10;
+    CheckEquals(480, S.SweepLength, '10 ms at 48 kHz (no editor: the default rate)');
+    S.TimeMs := 0;
+    CheckEquals(960, S.SweepLength, 'no time: 20 ms');
+    S.TimeMs := 1E9;
+    CheckEquals(JUCE_SCOPE_MAX_READ div 2 - 1, S.SweepLength, 'capped');
+  finally
+    S.Free;
+  end;
+
+  { the plug-in's output, end to end }
+  ResetFake;
+  Check(not P.ScopeActive, 'no scope open: nothing captured');
+  E := OpenEditor;
+  S := TJuceScope.Create(E.Root);
+  S.SetBounds(10, 150, 200, 80);
+  S.Channel := jscLeft;
+  S.TimeMs := 2; { 96 samples at 48 kHz }
+  Check(P.ScopeActive, 'a scope in an open editor turns capture on');
+  SetLength(L, 512);
+  SetLength(R, 512);
+  for I := 0 to 511 do
+  begin
+    L[I] := 0.8 * Sin(2 * Pi * (I + 0.5) / 48);
+    R[I] := -L[I];
+  end;
+  ProcessAudio(L, R, 512, 2);
+  EdVT.Timer(Ed);
+  CheckEquals(97, S.SampleCount, 'the output arrives in the scope');
+  Check(S.Triggered and (S.Sample(0) < 0) and (S.Sample(1) >= 0), 'triggered on the left channel');
+  { it reads the newest 2 * 96 + 2 samples (318..511); the latest rising crossing
+    with 96 after it is at 384, so the sweep starts at 383 }
+  CheckEquals(L[383 + 50], S.Sample(50), 1e-6, 'the left samples');
+  S.Channel := jscRight;
+  EdVT.Timer(Ed);
+  CheckEquals(L[383 + 50], S.Sample(50), 1e-6, 'no new audio: the last sweep is held');
+  ProcessAudio(L, R, 512, 2);
+  EdVT.Timer(Ed);
+  Check(S.Triggered and (S.Sample(0) < 0) and (S.Sample(1) >= 0), 'the right channel, triggered');
+  S.Channel := jscMix;
+  ProcessAudio(L, R, 512, 2);
+  EdVT.Timer(Ed);
+  CheckEquals(0.0, S.Sample(50), 1e-6, 'mix of +x and -x is silence');
+  PaintOnce;
+
+  { a mono output feeds both channels }
+  S.Channel := jscRight;
+  ProcessAudio(L, R, 512, 1);
+  EdVT.Timer(Ed);
+  Check(S.Triggered and (Abs(S.Sample(50) - L[383 + 50]) < 1e-6), 'mono: right = left');
+
+  { ScopeRead directly: the newest samples, oldest first; a block bigger than the ring keeps the newest }
+  SetLength(Got, 100);
+  CheckEquals(100, E.ScopeRead(JUCE_SCOPE_LEFT, Got, 100, Stamp), 'ScopeRead returns what was asked');
+  CheckEquals(L[511], Got[99], 1e-6, 'newest last');
+  CheckEquals(L[412], Got[0], 1e-6, 'oldest first');
+  SetLength(L, Big);
+  SetLength(R, Big);
+  for I := 0 to Big - 1 do
+  begin
+    L[I] := I / Big;
+    R[I] := 0;
+  end;
+  ProcessAudio(L, R, Big, 2);
+  CheckEquals(100, E.ScopeRead(JUCE_SCOPE_LEFT, Got, 100, Stamp2), 'after a huge block');
+  Check(Stamp2 <> Stamp, 'the stamp moves with new audio');
+  CheckEquals(L[Big - 1], Got[99], 1e-6, 'a huge block: its newest samples kept');
+  CheckEquals(L[Big - 100], Got[0], 1e-6, '(in order)');
+  N := E.ScopeRead(JUCE_SCOPE_LEFT, Got, JUCE_SCOPE_MAX_READ * 2, Stamp);
+  CheckEquals(100, N, 'never more than Dest holds');
+
+  { ScopeManual: the glue leaves the feed to Process }
+  P.ScopeManual := True;
+  ProcessAudio(L, R, 512, 2);
+  E.ScopeRead(JUCE_SCOPE_LEFT, Got, 10, Stamp);
+  CheckEquals(Stamp2, Stamp, 'manual: the output is not captured');
+  P.ScopeWrite(PJuceSampleArray(@R[0]), nil, 10);
+  E.ScopeRead(JUCE_SCOPE_LEFT, Got, 10, Stamp);
+  Check(Stamp <> Stamp2, 'manual: ScopeWrite feeds it');
+  CheckEquals(0.0, Got[9], 0, '(what was written)');
+  P.ScopeManual := False;
+
+  { closing: capture stops; a scope removed from the editor detaches once }
+  S.Free;
+  Check(not P.ScopeActive, 'the scope freed: capture off');
+  S := TJuceScope.Create(E.Root);
+  S.SetBounds(10, 150, 200, 80);
+  Check(P.ScopeActive, 'a second scope on');
+  CloseEditor;
+  Check(not P.ScopeActive, 'editor closed: capture off');
+end;
+
 procedure TestManyEditors;
 var
   I: Integer;
@@ -1367,6 +1530,7 @@ begin
   TestHoverMenusLifetime;
   TestTree;
   TestScalingLookLinks;
+  TestScope;
   TestManyEditors;
 
   PlugVT.Destroy(Inst);

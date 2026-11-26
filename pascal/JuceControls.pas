@@ -17,6 +17,9 @@
     TJuceDisplay a text readout set from code
     TJuceComboBox a drop-down of a choice parameter's choices (or its own items)
     TJuceKeyboard a piano keyboard: OnNoteOn / OnNoteOff, keys lit by code
+    TJuceScope   an oscilloscope of the plug-in's output (or of what Process
+                 sends with TJucePlugin.ScopeWrite), triggered so a steady
+                 wave stands still
 
   Bound controls (ParameterId) open a host gesture for every drag, so hosts
   record one undo step per edit and automation writes correctly. A right
@@ -502,13 +505,86 @@ type
     property OnNoteOff: TJuceNoteEvent read FOnNoteOff write FOnNoteOff;
   end;
 
+  { = JUCE_SCOPE_LEFT, JUCE_SCOPE_RIGHT, JUCE_SCOPE_MIX }
+  TJuceScopeChannel = (jscLeft, jscRight, jscMix);
+  { Where a sweep starts: where the signal rises (or falls) through
+    TriggerLevel, so a steady wave stands still; or free-running (the newest
+    samples, as for noise or a drone). }
+  TJuceScopeTrigger = (jstRising, jstFalling, jstFree);
+
+  { An oscilloscope. While it is open the plug-in's output is captured after
+    each Process call and drawn TimeMs wide, refreshed on the editor's timer;
+    it holds the last sweep while no audio arrives. To show another signal,
+    see TJucePlugin.ScopeManual / ScopeWrite. }
+  TJuceScope = class(TJuceControl)
+  private
+    FChannel: TJuceScopeChannel;
+    FTrigger: TJuceScopeTrigger;
+    FTriggerLevel, FTimeMs, FGain, FLineWidth, FCornerRadius: Single;
+    FShowGrid: Boolean;
+    FGridX, FGridY: Integer;
+    FColor, FLineColor, FGridColor: TJuceColor;
+    FFeed: TJuceEditor;       { the editor we called ScopeAttach on }
+    FRead: array of Single;   { scratch for ScopeRead }
+    FSweep: array of Single;  { what is drawn }
+    FCount: Integer;          { samples in FSweep }
+    FSpan: Integer;           { samples across the width }
+    FPhase: Single;           { where the trigger fell between FSweep[0] and [1] }
+    FTriggered: Boolean;
+    FStamp: Integer;
+    FHaveStamp: Boolean;
+    procedure Refresh(Force: Boolean);
+    function SampleY(V, Mid, Half: Single): Single;
+  protected
+    procedure Paint(Canvas: TJuceCanvas); override;
+    function NeedsTimer: Boolean; override;
+    procedure Tick; override;
+    procedure Attached; override;
+    procedure Detached; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    { Samples across the width: TimeMs at the plug-in's sample rate (48 kHz
+      if unknown), 16..JUCE_SCOPE_MAX_READ div 2 - 1. }
+    function SweepLength: Integer;
+    { Show Span samples of Samples[0..Count-1] (the newest last), from the
+      latest trigger point that leaves a whole sweep (Tick does this with
+      the plug-in's feed; call it to show samples of your own). }
+    procedure ShowSamples(const Samples: array of Single; Count, Span: Integer);
+    { Samples in the sweep shown, and one of them (0 outside). }
+    function SampleCount: Integer;
+    function Sample(Index: Integer): Single;
+    { The sweep shown started at a trigger point. }
+    property Triggered: Boolean read FTriggered;
+  published
+    property Channel: TJuceScopeChannel read FChannel write FChannel default jscMix;
+    property Trigger: TJuceScopeTrigger read FTrigger write FTrigger default jstRising;
+    { The level the trigger looks for (full scale = 1). }
+    property TriggerLevel: Single read FTriggerLevel write FTriggerLevel;
+    { Milliseconds across the width (20 = one cycle of a 50 Hz wave). }
+    property TimeMs: Single read FTimeMs write FTimeMs;
+    { Vertical zoom: 1 = full scale fills the height. }
+    property Gain: Single read FGain write FGain;
+    property LineWidth: Single read FLineWidth write FLineWidth;
+    property ShowGrid: Boolean read FShowGrid write FShowGrid default True;
+    { Grid divisions across and down. }
+    property GridX: Integer read FGridX write FGridX default 8;
+    property GridY: Integer read FGridY write FGridY default 4;
+    { The screen; 0 = the theme's meter background. }
+    property Color: TJuceColor read FColor write FColor default 0;
+    { The trace; 0 = the theme's accent. }
+    property LineColor: TJuceColor read FLineColor write FLineColor default 0;
+    { 0 = the theme's dim text, faint. }
+    property GridColor: TJuceColor read FGridColor write FGridColor default 0;
+    property CornerRadius: Single read FCornerRadius write FCornerRadius;
+  end;
+
 const
   { Every ready-made control class. The layout loader (JuceLayout) accepts
     these by class name, and the design-time packages mirror exactly these
     (tools/gen_design_props.dpr reads their published properties). }
-  JuceControlClasses: array[0..11] of TJuceControlClass =
+  JuceControlClasses: array[0..12] of TJuceControlClass =
     (TJuceKnob, TJuceSlider, TJuceSwitch, TJuceButton, TJuceLed, TJuceLabel, TJuceMeter, TJucePanel,
-     TJuceDisplay, TJuceComboBox, TJuceKeyboard, TJuceLink);
+     TJuceDisplay, TJuceComboBox, TJuceKeyboard, TJuceLink, TJuceScope);
 
 { Registers the control classes with Classes.RegisterClasses (FindClass). }
 procedure JuceRegisterControls;
@@ -2460,6 +2536,284 @@ begin
   { never leave a note hanging when the window closes }
   ReleaseNote;
   FHoverNote := -1;
+end;
+
+{ ---------------------------------------------------------------------------- }
+{ TJuceScope                                                                   }
+{ ---------------------------------------------------------------------------- }
+
+{ A sample fit to draw and to compare: NaN and infinities are silence, and
+  the rest is kept within +-1000 so the arithmetic below cannot overflow. }
+function ScopeClean(V: Single): Single;
+begin
+  if IsNan(V) or IsInfinite(V) then
+    Result := 0
+  else if V > 1000 then
+    Result := 1000
+  else if V < -1000 then
+    Result := -1000
+  else
+    Result := V;
+end;
+
+constructor TJuceScope.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  Width := 240;
+  Height := 120;
+  FChannel := jscMix;
+  FTrigger := jstRising;
+  FTimeMs := 20;
+  FGain := 1;
+  FLineWidth := 1.5;
+  FCornerRadius := 3;
+  FShowGrid := True;
+  FGridX := 8;
+  FGridY := 4;
+end;
+
+function TJuceScope.NeedsTimer: Boolean;
+begin
+  Result := True;
+end;
+
+procedure TJuceScope.Attached;
+var
+  Ed: TJuceEditor;
+begin
+  Ed := Editor;
+  if (Ed <> nil) and (FFeed = nil) then
+  begin
+    Ed.ScopeAttach;
+    FFeed := Ed;
+  end;
+  Refresh(True); { the designer attaches before each paint: this shows its sample wave }
+end;
+
+procedure TJuceScope.Detached;
+begin
+  if FFeed <> nil then
+  begin
+    FFeed.ScopeDetach;
+    FFeed := nil;
+  end;
+  FHaveStamp := False;
+end;
+
+function TJuceScope.SweepLength: Integer;
+var
+  Ed: TJuceEditor;
+  Rate, Ms: Double;
+begin
+  Rate := 0;
+  Ed := Editor;
+  if Ed <> nil then
+    Rate := Ed.ScopeSampleRate;
+  if IsNan(Rate) or (Rate < 1000) or (Rate > 1.0E6) then
+    Rate := 48000;
+  Ms := FTimeMs;
+  if IsNan(Ms) or (Ms <= 0) then
+    Ms := 20
+  else if Ms > 10000 then
+    Ms := 10000;
+  Result := EnsureRange(Round(Ms * Rate / 1000), 16, JUCE_SCOPE_MAX_READ div 2 - 1);
+end;
+
+procedure TJuceScope.Refresh(Force: Boolean);
+var
+  Ed: TJuceEditor;
+  Span, Total, Got, Stamp: Integer;
+begin
+  Ed := Editor;
+  if Ed = nil then
+    Exit;
+  Span := SweepLength;
+  Total := Min(2 * Span + 2, JUCE_SCOPE_MAX_READ); { a sweep, and as much again to find a trigger in }
+  if Length(FRead) < Total then
+    SetLength(FRead, Total);
+  Got := Ed.ScopeRead(Ord(FChannel), FRead, Total, Stamp);
+  if Got <= 0 then
+    Exit;
+  if not Force and FHaveStamp and (Stamp = FStamp) then
+    Exit; { no new audio: hold the last sweep }
+  FStamp := Stamp;
+  FHaveStamp := True;
+  ShowSamples(FRead, Got, Span);
+  Invalidate;
+end;
+
+procedure TJuceScope.Tick;
+begin
+  Refresh(False);
+end;
+
+procedure TJuceScope.ShowSamples(const Samples: array of Single; Count, Span: Integer);
+var
+  I, Start, N: Integer;
+  Level, A, B: Single;
+begin
+  Count := Min(Count, Length(Samples));
+  FTriggered := False;
+  FPhase := 0;
+  if (Count < 2) or (Span < 1) then
+  begin
+    FCount := 0;
+    FSpan := 0;
+    Exit;
+  end;
+  Span := Min(Span, Count - 1);
+  { free-running, or no trigger point found: the newest Span samples }
+  Start := Count - Span;
+  N := Span;
+  Level := ScopeClean(FTriggerLevel);
+  if FTrigger <> jstFree then
+    { the latest crossing that still leaves Span samples after it }
+    for I := Count - Span downto 1 do
+    begin
+      A := ScopeClean(Samples[I - 1]);
+      B := ScopeClean(Samples[I]);
+      if ((FTrigger = jstRising) and (A < Level) and (B >= Level))
+        or ((FTrigger = jstFalling) and (A > Level) and (B <= Level)) then
+      begin
+        Start := I - 1;
+        N := Span + 1;
+        FPhase := (Level - A) / (B - A); { between the two: no jitter from whole-sample steps }
+        FTriggered := True;
+        Break;
+      end;
+    end;
+  if Length(FSweep) < N then
+    SetLength(FSweep, N);
+  for I := 0 to N - 1 do
+    FSweep[I] := ScopeClean(Samples[Start + I]);
+  FCount := N;
+  FSpan := Span;
+end;
+
+function TJuceScope.SampleCount: Integer;
+begin
+  Result := FCount;
+end;
+
+function TJuceScope.Sample(Index: Integer): Single;
+begin
+  if (Index >= 0) and (Index < FCount) then
+    Result := FSweep[Index]
+  else
+    Result := 0;
+end;
+
+function TJuceScope.SampleY(V, Mid, Half: Single): Single;
+var
+  G: Single;
+begin
+  G := FGain;
+  if IsNan(G) or (G <= 0) then
+    G := 1
+  else if G > 1000 then
+    G := 1000;
+  V := V * G;
+  if V > 1.1 then { a little past the edge, so a clipped wave shows as clipped }
+    V := 1.1
+  else if V < -1.1 then
+    V := -1.1;
+  Result := Mid - V * Half;
+end;
+
+procedure TJuceScope.Paint(Canvas: TJuceCanvas);
+var
+  Th: TJuceTheme;
+  R, Plot: TJuceRect;
+  Grid: TJuceColor;
+  I, Cols, C, K, K0, K1: Integer;
+  X, Mid, Half, Lo, Hi, Thick: Single;
+begin
+  Th := Theme;
+  R := BoundsRect;
+  Canvas.SetColor(Pick(FColor, Th.MeterBack));
+  Canvas.FillRoundRect(R, FCornerRadius);
+  Plot := JuceInset(R, 2);
+  if (Plot.W <= 0) or (Plot.H <= 0) then
+    Exit;
+  Thick := FLineWidth;
+  if IsNan(Thick) or (Thick < 0.5) then
+    Thick := 0.5
+  else if Thick > 8 then
+    Thick := 8;
+  Mid := Plot.Y + Plot.H / 2;
+  Half := Max(Plot.H / 2 - Thick / 2, 1);
+
+  if FShowGrid then
+  begin
+    Grid := Pick(FGridColor, JuceWithAlpha(Th.TextDim, 0.2));
+    Canvas.SetColor(Grid);
+    if (FGridX > 1) and (FGridX <= 100) then
+      for I := 1 to FGridX - 1 do
+      begin
+        X := Plot.X + Plot.W * I / FGridX;
+        Canvas.DrawLine(X, Plot.Y, X, Plot.Y + Plot.H, 1);
+      end;
+    if (FGridY > 1) and (FGridY <= 100) then
+      for I := 1 to FGridY - 1 do
+        Canvas.DrawLine(Plot.X, Plot.Y + Plot.H * I / FGridY, Plot.X + Plot.W, Plot.Y + Plot.H * I / FGridY, 1);
+    Canvas.DrawLine(Plot.X, Mid, Plot.X + Plot.W, Mid, 1); { the zero line, a shade brighter }
+  end;
+
+  Canvas.SaveState;
+  try
+    if Canvas.ClipRect(Plot) then
+    begin
+      Canvas.SetColor(Pick(FLineColor, Th.Accent));
+      Canvas.BeginPath;
+      if (FCount < 2) or (FSpan <= 0) then
+      begin
+        Canvas.MoveTo(Plot.X, Mid); { nothing yet: silence }
+        Canvas.LineTo(Plot.X + Plot.W, Mid);
+      end
+      else if FCount > 2 * Plot.W then
+      begin
+        { more samples than pixels: each column from its lowest to its highest }
+        Cols := Max(1, Trunc(Plot.W));
+        for C := 0 to Cols - 1 do
+        begin
+          K0 := EnsureRange(Trunc(C * FSpan / Cols + FPhase), 0, FCount - 1);
+          K1 := EnsureRange(Trunc((C + 1) * FSpan / Cols + FPhase), K0 + 1, FCount);
+          Lo := FSweep[K0];
+          Hi := Lo;
+          for K := K0 + 1 to K1 - 1 do
+            if FSweep[K] < Lo then
+              Lo := FSweep[K]
+            else if FSweep[K] > Hi then
+              Hi := FSweep[K];
+          X := Plot.X + (C + 0.5) * Plot.W / Cols;
+          if C = 0 then
+            Canvas.MoveTo(X, SampleY(Hi, Mid, Half))
+          else
+            Canvas.LineTo(X, SampleY(Hi, Mid, Half));
+          Canvas.LineTo(X, SampleY(Lo, Mid, Half));
+        end;
+      end
+      else
+        for K := 0 to FCount - 1 do
+        begin
+          X := Plot.X + (K - FPhase) * Plot.W / FSpan;
+          if K = 0 then
+            Canvas.MoveTo(X, SampleY(FSweep[K], Mid, Half))
+          else
+            Canvas.LineTo(X, SampleY(FSweep[K], Mid, Half));
+        end;
+      Canvas.StrokePath(Thick, jljRound, jlcRound);
+    end;
+  finally
+    Canvas.RestoreState;
+  end;
+
+  if Caption <> '' then
+  begin
+    Canvas.SetFont(Th.FontName, Th.FontSize, []);
+    Canvas.SetColor(Th.TextDim);
+    Canvas.DrawText(Caption, JuceInset(R, 4), jaLeft, jvaTop);
+  end;
 end;
 
 procedure JuceRegisterControls;

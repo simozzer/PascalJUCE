@@ -58,6 +58,15 @@ const
   JCP_EDITOR_MAX_SIZE = 4096;
   JCP_MAX_METERS = 64;
 
+  { Oscilloscope feed (TJucePlugin.ScopeWrite, TJuceEditorBase.ScopeRead):
+    samples kept per channel, and the most one ScopeRead returns. }
+  JUCE_SCOPE_CAPACITY = 32768;
+  JUCE_SCOPE_MAX_READ = JUCE_SCOPE_CAPACITY div 2;
+  { ScopeRead channels }
+  JUCE_SCOPE_LEFT = 0;
+  JUCE_SCOPE_RIGHT = 1;
+  JUCE_SCOPE_MIX = 2;   { (left + right) / 2 }
+
   JCP_MOUSE_MOVE = 0;
   JCP_MOUSE_DOWN = 1;
   JCP_MOUSE_DRAG = 2;
@@ -444,6 +453,19 @@ type
     procedure EndGesture(Index: Integer);
     { A value published from Process with TJucePlugin.SetMeter. }
     function Meter(Index: Integer): Single; virtual;
+    { Oscilloscope feed (see TJucePlugin.ScopeWrite). Each open scope calls
+      ScopeAttach once and ScopeDetach once: while any is attached, the
+      plug-in's output is captured. ScopeRead copies the newest Count samples
+      (at most JUCE_SCOPE_MAX_READ) of a JUCE_SCOPE_* channel, oldest first,
+      into Dest and returns how many it copied: 0 with no plug-in or before
+      the first ScopeAttach, silence until audio arrives. Stamp changes
+      whenever new audio has arrived. ScopeRead and ScopeSampleRate
+      are virtual so that the designer can show a sample wave. }
+    procedure ScopeAttach;
+    procedure ScopeDetach;
+    function ScopeRead(Channel: Integer; var Dest: array of Single; Count: Integer;
+      out Stamp: Integer): Integer; virtual;
+    function ScopeSampleRate: Double; virtual;
 
     { Images: PNG or JPEG bytes; returns a handle > 0 or 0. Freed with the editor.
       (JuceUI.TJuceEditor.AddImage is the usual way in.) }
@@ -473,11 +495,19 @@ type
     FMaxBlockSize: Integer;
     FProcessErrors: Integer;
     FProcessCount: Integer;
+    { oscilloscope ring: JUCE_SCOPE_CAPACITY left samples, then as many right;
+      allocated by the first ScopeAttach, freed with the plug-in }
+    FScopeBuf: PSingle;
+    FScopeWritten: Integer;  { samples written, modulo 2^30 (interlocked) }
+    FScopeUsers: Integer;    { attached scopes (interlocked) }
+    FScopeManual: Boolean;
     function HostHas(Field: Pointer): Boolean;
     function GetProcessCount: Integer;
+    procedure ScopeCapture(const Ctx: TJuceProcessContext);
   public
     { Runs on the host's main thread. Allocate here or in Prepare. }
     constructor Create; virtual;
+    destructor Destroy; override;
     { Called before playback starts, and whenever rate/block size change.
       AMaxBlockSize is the host's expected maximum; always honour
       Ctx.NumSamples in Process. }
@@ -520,6 +550,16 @@ type
     { Any thread, real-time safe: publish a value (e.g. an output peak) for the
       editor to show. Index 0..JCP_MAX_METERS - 1. }
     procedure SetMeter(Index: Integer; Value: Single);
+    { Oscilloscope feed (JuceControls.TJuceScope). While a scope is open, the
+      outputs are captured after every Process call, so a scope shows the
+      plug-in's output with no code of yours. To show something else (one
+      oscillator, the signal before the filter), set ScopeManual in the
+      constructor and call ScopeWrite from Process. Audio thread only (one
+      writer), real-time safe; Right = nil writes Left to both channels.
+      Does nothing while no scope is open (see ScopeActive). }
+    procedure ScopeWrite(Left, Right: PJuceSampleArray; Count: Integer);
+    { A scope is open: worth preparing samples for ScopeWrite. }
+    function ScopeActive: Boolean;
     { Not real-time safe. }
     procedure Log(const Msg: string);
 
@@ -527,6 +567,8 @@ type
     property MaxBlockSize: Integer read FMaxBlockSize;
     { Exceptions caught in Process so far. }
     property ProcessErrors: Integer read FProcessErrors;
+    { True: the outputs are not captured for scopes; Process calls ScopeWrite. }
+    property ScopeManual: Boolean read FScopeManual write FScopeManual;
     { Process calls so far (wraps around; compare for change only). Any
       thread: the editor uses it to tell whether the meters have been
       published since it last looked (see TJuceEditor.PredictMeter). }
@@ -897,11 +939,92 @@ end;
 { TJucePlugin                                                                  }
 { ---------------------------------------------------------------------------- }
 
+{ Interlocked access to the fields shared with the audio thread: full
+  barriers, so samples written before AtomicStore are seen after AtomicLoad. }
+function AtomicLoad(var Target: Integer): Integer;
+begin
+  {$IFDEF FPC}
+  Result := InterlockedCompareExchange(Target, 0, 0);
+  {$ELSE}
+  Result := AtomicCmpExchange(Target, 0, 0);
+  {$ENDIF}
+end;
+
+procedure AtomicStore(var Target: Integer; Value: Integer);
+begin
+  {$IFDEF FPC}
+  InterlockedExchange(Target, Value);
+  {$ELSE}
+  AtomicExchange(Target, Value);
+  {$ENDIF}
+end;
+
+const
+  ScopeMask = JUCE_SCOPE_CAPACITY - 1;
+  ScopeWrap = $3FFFFFFF;                  { stamps run modulo 2^30: never overflow }
+  ScopeChunk = JUCE_SCOPE_CAPACITY div 4; { samples published at a time }
+
 constructor TJucePlugin.Create;
 begin
   inherited Create;
   FHostApi := GCreatingApi;
   FHost := GCreatingHost;
+end;
+
+destructor TJucePlugin.Destroy;
+begin
+  if FScopeBuf <> nil then
+    FreeMem(FScopeBuf);
+  FScopeBuf := nil;
+  inherited Destroy;
+end;
+
+function TJucePlugin.ScopeActive: Boolean;
+begin
+  Result := AtomicLoad(FScopeUsers) > 0;
+end;
+
+procedure TJucePlugin.ScopeWrite(Left, Right: PJuceSampleArray; Count: Integer);
+var
+  Buf: PJuceSampleArray;
+  W, Done, N, I, P: Integer;
+begin
+  if (Left = nil) or (Count <= 0) or not ScopeActive then
+    Exit;
+  Buf := PJuceSampleArray(FScopeBuf); { set before the first ScopeAttach published FScopeUsers }
+  if Buf = nil then
+    Exit;
+  if Right = nil then
+    Right := Left;
+  W := FScopeWritten; { this thread is the only writer }
+  Done := 0;
+  if Count > JUCE_SCOPE_CAPACITY then
+    Done := Count - JUCE_SCOPE_CAPACITY; { only the newest fit }
+  while Done < Count do
+  begin
+    N := Min(Count - Done, ScopeChunk);
+    for I := 0 to N - 1 do
+    begin
+      P := (W + I) and ScopeMask;
+      Buf^[P] := Left^[Done + I];
+      Buf^[JUCE_SCOPE_CAPACITY + P] := Right^[Done + I];
+    end;
+    W := (W + N) and ScopeWrap;
+    AtomicStore(FScopeWritten, W); { publishes the samples just written }
+    Inc(Done, N);
+  end;
+end;
+
+procedure TJucePlugin.ScopeCapture(const Ctx: TJuceProcessContext);
+var
+  Right: PJuceSampleArray;
+begin
+  if Ctx.NumOutputChannels <= 0 then
+    Exit;
+  Right := nil;
+  if Ctx.NumOutputChannels > 1 then
+    Right := Ctx.Channel(1);
+  ScopeWrite(Ctx.Channel(0), Right, Min(Ctx.NumSamples, High(TJuceSampleArray) + 1));
 end;
 
 { True if the wrapper's host API is big enough to contain Field (a field of
@@ -1285,6 +1408,75 @@ begin
     Result := 0;
 end;
 
+procedure TJuceEditorBase.ScopeAttach;
+begin
+  if FPlugin = nil then
+    Exit;
+  if FPlugin.FScopeBuf = nil then { message thread, and no scope yet: the audio thread doesn't look }
+    FPlugin.FScopeBuf := AllocMem(2 * JUCE_SCOPE_CAPACITY * SizeOf(Single));
+  {$IFDEF FPC}
+  InterlockedIncrement(FPlugin.FScopeUsers);
+  {$ELSE}
+  AtomicIncrement(FPlugin.FScopeUsers);
+  {$ENDIF}
+end;
+
+procedure TJuceEditorBase.ScopeDetach;
+begin
+  if (FPlugin = nil) or (AtomicLoad(FPlugin.FScopeUsers) <= 0) then
+    Exit;
+  {$IFDEF FPC}
+  InterlockedDecrement(FPlugin.FScopeUsers);
+  {$ELSE}
+  AtomicDecrement(FPlugin.FScopeUsers);
+  {$ENDIF}
+end;
+
+function TJuceEditorBase.ScopeRead(Channel: Integer; var Dest: array of Single; Count: Integer;
+  out Stamp: Integer): Integer;
+var
+  Buf: PJuceSampleArray;
+  W1, W2, Start, I, K, Attempt: Integer;
+begin
+  Result := 0;
+  Stamp := 0;
+  if (FPlugin = nil) or (FPlugin.FScopeBuf = nil) then
+    Exit;
+  Count := Min(Count, Min(Length(Dest), JUCE_SCOPE_MAX_READ));
+  if Count <= 0 then
+    Exit;
+  Buf := PJuceSampleArray(FPlugin.FScopeBuf);
+  for Attempt := 1 to 3 do
+  begin
+    W1 := AtomicLoad(FPlugin.FScopeWritten);
+    Stamp := W1;
+    Start := W1 - Count;
+    for I := 0 to Count - 1 do
+    begin
+      K := (Start + I) and ScopeMask;
+      case Channel of
+        JUCE_SCOPE_RIGHT: Dest[I] := Buf^[JUCE_SCOPE_CAPACITY + K];
+        JUCE_SCOPE_MIX: Dest[I] := 0.5 * (Buf^[K] + Buf^[JUCE_SCOPE_CAPACITY + K]);
+      else
+        Dest[I] := Buf^[K];
+      end;
+    end;
+    { The writer may be filling up to one chunk past what it has published:
+      the copy is whole if none of that wrapped round onto what was read. }
+    W2 := AtomicLoad(FPlugin.FScopeWritten);
+    if ((W2 - W1) and ScopeWrap) + ScopeChunk + Count <= JUCE_SCOPE_CAPACITY then
+      Exit(Count);
+  end;
+end;
+
+function TJuceEditorBase.ScopeSampleRate: Double;
+begin
+  if FPlugin <> nil then
+    Result := FPlugin.SampleRate
+  else
+    Result := 0;
+end;
+
 function TJuceEditorBase.CreateImage(Data: Pointer; Size: Integer): Integer;
 begin
   if (FApi <> nil) and (Data <> nil) and (Size > 0) then
@@ -1406,6 +1598,12 @@ begin
       Inc(P.FProcessErrors);
     SilenceOutputs(Context^);
   end;
+  { the output, for open scopes (a pointer check and an interlocked read when none is) }
+  if not P.FScopeManual then
+    try
+      P.ScopeCapture(Context^);
+    except
+    end;
   { after Process has published its meters (interlocked: wraps, never raises) }
   {$IFDEF FPC}
   InterlockedIncrement(P.FProcessCount);
