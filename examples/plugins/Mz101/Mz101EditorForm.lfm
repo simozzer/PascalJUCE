@@ -1,0 +1,798 @@
+object Mz101EditorForm: TMz101EditorForm
+  Left = 466
+  Height = 915
+  Top = 286
+  Width = 2235
+  Caption = 'Mz101 Pascal editor (design only)'
+  ClientHeight = 915
+  ClientWidth = 2235
+  Color = 2301983
+  DesignTimePPI = 144
+  LCLVersion = '4.8.0.0'
+  object NameStrip: TJucePanel
+    Left = 0
+    Height = 6
+    Top = 0
+    Width = 2235
+    Color = -3000273
+    BorderWidth = 0
+    CornerRadius = 0
+  end
+  object Title: TJuceLabel
+    Left = 24
+    Height = 54
+    Top = 12
+    Width = 180
+    Caption = 'Mz101'
+    FontSize = 28
+    Bold = True
+    Alignment = jaLeft
+  end
+  object Subtitle: TJuceLabel
+    Left = 168
+    Height = 57
+    Top = 12
+    Width = 450
+    Caption = 'MONOPHONIC SYNTHESIZER'
+    FontSize = 12
+    Alignment = jaLeft
+    Color = -6644575
+  end
+  object ProjectLink: TJuceLink
+    Left = 1230
+    Height = 39
+    Hint = 'The project''s page: the latest version and what''s new in it, the source, and where to report a problem. Opens in your browser.'
+    Top = 18
+    Width = 630
+    Caption = 'Mz101 Pascal 0.3.0  -  github.com/simozzer/Mz101'
+    FontSize = 13
+    Bold = True
+    Alignment = jaRight
+    Color = -9785089
+    Url = 'https://github.com/simozzer/Mz101'
+  end
+  object PatchBox: TJuceComboBox
+    Left = 1884
+    Height = 39
+    Hint = 'Factory patches. Your own edits are saved with the project.'
+    Top = 18
+    Width = 330
+    ParameterId = 'patch'
+    FontSize = 16
+  end
+  object ModulatorBox: TJucePanel
+    Left = 21
+    Height = 450
+    Top = 81
+    Width = 483
+    Caption = 'MODULATOR'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object LfoRate: TJuceSlider
+      Left = 12
+      Height = 402
+      Hint = 'MOD RATE'#10'Speed of the modulator (LFO): 0.1 to 30 Hz, or with SYNC on HOST a note length from 4 bars to 1/32. With CLOCK on INT it is also the arpeggio and sequencer''s tempo: one step per cycle.'#10'MIDI CC 76. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'RATE'
+      ParameterId = 'lfoRate'
+      DefaultValue = 0.5
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object LfoSync: TJuceSwitch
+      Left = 75
+      Height = 402
+      Hint = 'MOD SYNC'#10'FREE: the modulator runs at RATE in hertz, as on the original. HOST: it locks to your DAW''s tempo and timeline, and RATE picks a note length. In the standalone app HOST falls back to FREE.'#10'MIDI CC 108. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'SYNC'
+      ParameterId = 'lfoSync'
+      Orientation = joVertical
+      Labels = 'FREE|HOST'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object LfoWave: TJuceSwitch
+      Left = 174
+      Height = 402
+      Hint = 'MOD WAVEFORM'#10'The modulator''s shape. RANDOM is a new random level on each clock; NOISE is the noise generator.'#10'MIDI CC 14. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'WAVE'
+      ParameterId = 'lfoWave'
+      Positions = 4
+      Orientation = joVertical
+      Labels = 'TRI|SQR|RAND|NOISE'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object ClockSource: TJuceSwitch
+      Left = 273
+      Height = 402
+      Hint = 'CLOCK'#10'What steps the arpeggio and sequencer: the modulator (INT), or your DAW''s tempo and transport (HOST) - the EXT CLK jack. In the standalone app HOST falls back to INT.'#10'MIDI CC 106. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'CLOCK'
+      ParameterId = 'clockSource'
+      Orientation = joVertical
+      Labels = 'INT|HOST'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object ClockDiv: TJuceSwitch
+      Left = 372
+      Height = 402
+      Hint = 'CLOCK DIVISION'#10'With the clock on HOST: the length of each step, from quarter notes to 32nds (T = triplets).'#10'MIDI CC 107. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'DIV'
+      ParameterId = 'clockDiv'
+      DefaultValue = 0.600000023841858
+      Positions = 6
+      Orientation = joVertical
+      Labels = '1/4|1/8|1/8T|1/16|1/16T|1/32'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+  end
+  object VcoBox: TJucePanel
+    Left = 534
+    Height = 450
+    Top = 81
+    Width = 348
+    Caption = 'VCO'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object VcoMod: TJuceSlider
+      Left = 12
+      Height = 402
+      Hint = 'VCO MOD'#10'How much the modulator moves the oscillator''s pitch: vibrato, trills, sirens.'#10'MIDI CC 77. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'MOD'
+      ParameterId = 'vcoMod'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Range: TJuceSwitch
+      Left = 75
+      Height = 402
+      Hint = 'VCO RANGE'#10'Oscillator octave, as organ footage: 16'' is lowest, 2'' highest.'#10'MIDI CC 15. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'RANGE'
+      ParameterId = 'range'
+      DefaultValue = 0.333333343267441
+      Positions = 4
+      Orientation = joVertical
+      Labels = '16''|8''|4''|2'''
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object Pw: TJuceSlider
+      Left = 174
+      Height = 402
+      Hint = 'PULSE WIDTH'#10'Pulse width - or how far PWM moves it. 0 is a square (50%); 10 narrows it to nothing.'#10'MIDI CC 16. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'PW / PWM'
+      ParameterId = 'pw'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object PwmSource: TJuceSwitch
+      Left = 237
+      Height = 402
+      Hint = 'PWM SOURCE'#10'What sets the pulse width: the modulator (LFO), the PW slider alone (MAN), or the envelope (ENV).'#10'MIDI CC 17. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'PWM'
+      ParameterId = 'pwmSource'
+      DefaultValue = 0.5
+      Positions = 3
+      Orientation = joVertical
+      Labels = 'LFO|MAN|ENV'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+  end
+  object MixerBox: TJucePanel
+    Left = 912
+    Height = 450
+    Top = 81
+    Width = 375
+    Caption = 'SOURCE MIXER'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Pulse: TJuceSlider
+      Left = 12
+      Height = 402
+      Hint = 'PULSE LEVEL'#10'Level of the pulse wave into the filter.'#10'MIDI CC 18. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'PULSE'
+      ParameterId = 'pulse'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Saw: TJuceSlider
+      Left = 75
+      Height = 402
+      Hint = 'SAW LEVEL'#10'Level of the sawtooth into the filter.'#10'MIDI CC 19. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'SAW'
+      ParameterId = 'saw'
+      DefaultValue = 1
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Sub: TJuceSlider
+      Left = 138
+      Height = 402
+      Hint = 'SUB LEVEL'#10'Level of the sub oscillator, locked to the main one below it.'#10'MIDI CC 20. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'SUB OSC'
+      ParameterId = 'sub'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object SubType: TJuceSwitch
+      Left = 201
+      Height = 402
+      Hint = 'SUB WAVEFORM'#10'Sub oscillator: square one octave down, square two down, or narrow pulse two down.'#10'MIDI CC 21. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'SUB'
+      ParameterId = 'subType'
+      Positions = 3
+      Orientation = joVertical
+      Labels = '-1 OCT|-2 OCT|-2 PW'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object Noise: TJuceSlider
+      Left = 300
+      Height = 402
+      Hint = 'NOISE LEVEL'#10'Level of white noise into the filter.'#10'MIDI CC 22. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'NOISE'
+      ParameterId = 'noise'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+  end
+  object VcfBox: TJucePanel
+    Left = 1317
+    Height = 450
+    Top = 81
+    Width = 339
+    Caption = 'VCF'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Cutoff: TJuceSlider
+      Left = 12
+      Height = 402
+      Hint = 'VCF FREQ'#10'Filter cutoff, 10 Hz to 20 kHz. Lower is darker.'#10'MIDI CC 74. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'FREQ'
+      ParameterId = 'cutoff'
+      DefaultValue = 0.600000023841858
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Res: TJuceSlider
+      Left = 75
+      Height = 402
+      Hint = 'VCF RES'#10'Filter resonance. Emphasises the cutoff; near the top the filter whistles on its own.'#10'MIDI CC 71. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'RES'
+      ParameterId = 'res'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object VcfEnv: TJuceSlider
+      Left = 138
+      Height = 402
+      Hint = 'VCF ENV'#10'How far the envelope opens the filter on each note.'#10'MIDI CC 23. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'ENV'
+      ParameterId = 'vcfEnv'
+      DefaultValue = 0.400000005960464
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object VcfMod: TJuceSlider
+      Left = 201
+      Height = 402
+      Hint = 'VCF MOD'#10'How much the modulator moves the filter cutoff.'#10'MIDI CC 24. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'MOD'
+      ParameterId = 'vcfMod'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object VcfKybd: TJuceSlider
+      Left = 264
+      Height = 402
+      Hint = 'VCF KYBD'#10'How much the cutoff follows the keyboard. 10 tracks it exactly - play a whistling filter in tune.'#10'MIDI CC 25. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'KYBD'
+      ParameterId = 'vcfKybd'
+      DefaultValue = 0.5
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+  end
+  object VcaBox: TJucePanel
+    Left = 1686
+    Height = 450
+    Top = 81
+    Width = 123
+    Caption = 'VCA'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object VcaMode: TJuceSwitch
+      Left = 12
+      Height = 402
+      Hint = 'VCA MODE'#10'What shapes the volume: the envelope (ENV), or simply on while a key is held (GATE).'#10'MIDI CC 26. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'MODE'
+      ParameterId = 'vcaMode'
+      Orientation = joVertical
+      Labels = 'ENV|GATE'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+  end
+  object EnvBox: TJucePanel
+    Left = 1839
+    Height = 450
+    Top = 81
+    Width = 375
+    Caption = 'ENV'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Attack: TJuceSlider
+      Left = 12
+      Height = 402
+      Hint = 'ENV ATTACK'#10'Envelope attack time, 1.5 ms to 4 s.'#10'MIDI CC 73. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'A'
+      ParameterId = 'attack'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Decay: TJuceSlider
+      Left = 75
+      Height = 402
+      Hint = 'ENV DECAY'#10'Envelope decay time down to the sustain level, 2 ms to 10 s.'#10'MIDI CC 75. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'D'
+      ParameterId = 'decay'
+      DefaultValue = 0.400000005960464
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Sustain: TJuceSlider
+      Left = 138
+      Height = 402
+      Hint = 'ENV SUSTAIN'#10'Level the envelope holds at while a key stays down.'#10'MIDI CC 79. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'S'
+      ParameterId = 'sustain'
+      DefaultValue = 0.5
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Release: TJuceSlider
+      Left = 201
+      Height = 402
+      Hint = 'ENV RELEASE'#10'Envelope release time after the key is let go, 2 ms to 10 s.'#10'MIDI CC 72. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'R'
+      ParameterId = 'release'
+      DefaultValue = 0.200000002980232
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object EnvTrig: TJuceSwitch
+      Left = 264
+      Height = 402
+      Hint = 'ENV TRIGGER'#10'When the envelope restarts: every new key (G+T), only after all keys are up (GATE), or on every modulator cycle (LFO).'#10'MIDI CC 27. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'TRIG'
+      ParameterId = 'envTrig'
+      Positions = 3
+      Orientation = joVertical
+      Labels = 'G+T|GATE|LFO'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+  end
+  object PortamentoBox: TJucePanel
+    Left = 21
+    Height = 345
+    Top = 549
+    Width = 186
+    Caption = 'PORTAMENTO'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object PortaMode: TJuceSwitch
+      Left = 12
+      Height = 297
+      Hint = 'PORTAMENTO'#10'Glide between notes: never, only when keys overlap (AUTO), or always.'#10'MIDI CC 65. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'MODE'
+      ParameterId = 'portaMode'
+      Positions = 3
+      Orientation = joVertical
+      Labels = 'OFF|AUTO|ON'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object PortaTime: TJuceSlider
+      Left = 111
+      Height = 297
+      Hint = 'PORTAMENTO TIME'#10'Glide time, up to 5 s.'#10'MIDI CC 5. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'TIME'
+      ParameterId = 'portaTime'
+      DefaultValue = 0.300000011920929
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+  end
+  object BenderBox: TJucePanel
+    Left = 219
+    Height = 345
+    Top = 549
+    Width = 213
+    Caption = 'BENDER'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object BendVco: TJuceSlider
+      Left = 12
+      Height = 297
+      Hint = 'BENDER VCO'#10'How far the pitch wheel bends the oscillator, up to an octave.'#10'MIDI CC 28. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'VCO'
+      ParameterId = 'bendVco'
+      DefaultValue = 0.200000002980232
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object BendVcf: TJuceSlider
+      Left = 75
+      Height = 297
+      Hint = 'BENDER VCF'#10'How far the pitch wheel moves the filter cutoff.'#10'MIDI CC 29. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'VCF'
+      ParameterId = 'bendVcf'
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object ModDepth: TJuceSlider
+      Left = 138
+      Height = 297
+      Hint = 'BENDER MOD'#10'How much vibrato the mod wheel (CC 1) brings in.'#10'MIDI CC 30. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'MOD'
+      ParameterId = 'modDepth'
+      DefaultValue = 0.300000011920929
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+  end
+  object ArpeggioBox: TJucePanel
+    Left = 444
+    Height = 345
+    Top = 549
+    Width = 207
+    Caption = 'ARPEGGIO'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object ArpMode: TJuceSwitch
+      Left = 12
+      Height = 297
+      Hint = 'ARPEGGIO'#10'Arpeggiator: plays the held keys in turn, at the modulator''s rate.'#10'MIDI CC 102. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'MODE'
+      ParameterId = 'arpMode'
+      Positions = 4
+      Orientation = joVertical
+      Labels = 'OFF|UP|U&D|DOWN'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object ArpHold: TJuceButton
+      Left = 117
+      Height = 60
+      Hint = 'HOLD'#10'Keeps the arpeggio or sequence running after the keys are let go. Also the sustain pedal.'#10'MIDI CC 64. Right-click to learn another.'
+      Top = 90
+      Width = 72
+      Caption = 'HOLD'
+      ParameterId = 'arpHold'
+      LedPosition = jlpTop
+      Flat = True
+      CornerRadius = 3
+    end
+  end
+  object SequencerBox: TJucePanel
+    Left = 663
+    Height = 345
+    Top = 549
+    Width = 243
+    Caption = 'SEQUENCER'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object SeqMode: TJuceSwitch
+      Left = 12
+      Height = 297
+      Hint = 'SEQUENCER'#10'PLAY runs the sequence while a key is held (the key transposes it). LOAD records a new one.'#10'MIDI CC 103. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'MODE'
+      ParameterId = 'seqMode'
+      Positions = 3
+      Orientation = joVertical
+      Labels = 'OFF|PLAY|LOAD'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+    object TransRest: TJuceButton
+      Left = 117
+      Height = 60
+      Hint = 'KEY TRANSPOSE: press, then a key - the shift from middle C moves the VCO. In LOAD: enter a rest'
+      Top = 90
+      Width = 108
+      Caption = 'TRANS/REST'
+      Mode = jbmMomentary
+      LedPosition = jlpTop
+      LedMeterIndex = 0
+      Flat = True
+      CornerRadius = 3
+    end
+    object Legato: TJuceButton
+      Left = 117
+      Height = 60
+      Hint = 'In LOAD: tie the next note to this one - no new envelope, and it glides with portamento AUTO'
+      Top = 165
+      Width = 108
+      Caption = 'LEGATO'
+      Mode = jbmMomentary
+      LedPosition = jlpTop
+      LedMeterIndex = 1
+      Flat = True
+      CornerRadius = 3
+    end
+    object StepReadout: TJuceDisplay
+      Left = 117
+      Height = 42
+      Top = 282
+      Width = 108
+      Caption = '0 STEPS'
+      Color = -16119286
+      TextColor = -2333089
+      FontName = 'Lucida Console'
+      FontSize = 12
+      Bold = True
+    end
+  end
+  object KeyBox: TJucePanel
+    Left = 918
+    Height = 345
+    Top = 549
+    Width = 123
+    Caption = 'KEY'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Transpose: TJuceSwitch
+      Left = 12
+      Height = 297
+      Hint = 'TRANSPOSE'#10'Moves the keyboard down an octave (L), or up one (H).'#10'MIDI CC 104. Right-click to learn another.'
+      Top = 36
+      Width = 99
+      Caption = 'TRANS'
+      ParameterId = 'transpose'
+      DefaultValue = 0.5
+      Positions = 3
+      Orientation = joVertical
+      Labels = 'L|M|H'
+      LeverColor = -15592942
+      Style = jswSlide
+    end
+  end
+  object MasterBox: TJucePanel
+    Left = 1053
+    Height = 345
+    Top = 549
+    Width = 150
+    Caption = 'MASTER'
+    CornerRadius = 4
+    HeaderHeight = 24
+    CaptionAlign = jaCenter
+    CaptionSeparator = True
+    object Tune: TJuceSlider
+      Left = 12
+      Height = 297
+      Hint = 'TUNE'#10'Fine tuning, +-50 cents.'#10'MIDI CC 105. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'TUNE'
+      ParameterId = 'tune'
+      DefaultValue = 0.5
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+    object Volume: TJuceSlider
+      Left = 75
+      Height = 297
+      Hint = 'VOLUME'#10'Output level.'#10'MIDI CC 7. Right-click to learn another.'
+      Top = 36
+      Width = 63
+      Caption = 'VOL'
+      ParameterId = 'volume'
+      DefaultValue = 0.699999988079071
+      ShowValue = False
+      ThumbColor = -2565932
+      Style = jslFader
+      JumpToClick = True
+      ValueBubble = jvbDragAndHover
+    end
+  end
+  object KeyboardBox: TJucePanel
+    Left = 1215
+    Height = 345
+    Top = 549
+    Width = 999
+    CornerRadius = 4
+    object Keyboard: TJuceKeyboard
+      Left = 12
+      Height = 297
+      Top = 36
+      Width = 975
+      FirstNote = 41
+      OctaveForMiddleC = 4
+    end
+  end
+  object Theme: TJuceThemeResource
+    Background = -14737373
+    Panel = -13947856
+    PanelBorder = -12829117
+    Text = -1447450
+    TextDim = -6644575
+    Accent = -3000273
+    Track = -16448251
+    KnobBody = -11907239
+    KnobPointer = -723465
+    ButtonFace = -15329770
+    LedOn = -2133654
+    LedOff = -12970220
+    MeterLow = -12596374
+    MeterMid = -1521600
+    MeterHigh = -1029574
+    MeterBack = -16119286
+    FontSize = 11
+    TooltipBackground = -15658476
+    TooltipText = -1447450
+    TooltipBorder = -3000273
+    MenuBackground = -13947856
+    MenuText = -1447450
+    MenuHighlight = -3000273
+    MenuHighlightText = 0
+    MenuHeader = 0
+    BubbleBackground = -13947856
+    BubbleText = -1447450
+    BubbleBorder = -12829117
+    BubbleFontSize = 15
+    Link = -9785089
+    Left = 12
+    Top = 12
+  end
+end

@@ -1,0 +1,1007 @@
+# Mz101 equivalence scenarios: read by both render_cpp.cpp (the original C++ engine) and
+# render_pas.dpr (the Pascal port). Each renders to <name>.f32 (raw little-endian floats).
+#
+#   scenario NAME RATE        new engine, prepare(RATE), pending settings = defaults
+#   set ID VALUE              change a pending setting (parameter IDs as in Params.cpp)
+#   patch NAME                pending settings = defaults + factory preset NAME
+#   apply                     engine.setSettings(pending)
+#   on N / off N              note on / off
+#   bend V / mod V            pitch bend -1..1 / mod lever 0..1
+#   keytranspose / legato / allnotesoff
+#   host AVAIL PLAYING PPQ BPM
+#   ppq V                     the running host position used by hostrun
+#   render SAMPLES [BLOCK]    render, in blocks of BLOCK (default: one block)
+#   hostrun SAMPLES BLOCK PLAYING BPM   per block: host 1 PLAYING ppq BPM, render, advance ppq
+#   end
+
+scenario single_note 48000
+apply
+on 48
+render 24000
+off 48
+render 24000
+end
+
+scenario single_note_441 44100
+set res 5
+apply
+on 60
+render 22050 512
+off 60
+render 22050 512
+end
+
+scenario single_note_96k 96000
+set pulse 6
+set sub 4
+apply
+on 45
+render 48000 480
+off 45
+render 24000 480
+end
+
+scenario single_note_192k 192000
+apply
+on 57
+render 48000
+off 57
+render 48000
+end
+
+scenario legato_auto_porta 48000
+set portaMode 1
+set portaTime 4
+set envTrig 1
+apply
+on 48
+render 12000
+on 55
+render 12000
+off 48
+render 6000
+on 60
+render 12000
+off 55
+render 12000
+off 60
+render 12000
+end
+
+scenario porta_on 48000
+set portaMode 2
+set portaTime 6
+apply
+on 40
+render 9600
+off 40
+render 2400
+on 64
+render 19200
+off 64
+render 9600
+end
+
+scenario sub_osc 48000
+set saw 0
+set sub 10
+set subType 0
+apply
+on 36
+render 12000
+set subType 1
+apply
+render 12000
+set subType 2
+set pulse 7
+set pwmSource 2
+set pw 8
+apply
+render 12000
+off 36
+render 6000
+end
+
+scenario pwm_lfo 48000
+set saw 0
+set pulse 10
+set pw 7
+set pwmSource 0
+set lfoRate 6
+apply
+on 52
+render 48000
+off 52
+render 9600
+end
+
+scenario lfo_vibrato_mod 48000
+set vcoMod 3
+set lfoRate 6.5
+set modDepth 8
+apply
+on 60
+render 9600
+mod 0.8
+render 19200
+mod 0
+render 9600
+off 60
+render 4800
+end
+
+scenario lfo_square_random_noise 48000
+set lfoRate 7
+set vcfMod 6
+set lfoWave 1
+apply
+on 57
+render 14400
+set lfoWave 2
+apply
+render 14400
+set lfoWave 3
+set vcoMod 2
+apply
+render 14400
+off 57
+render 4800
+end
+
+scenario pitch_bend 48000
+set bendVco 10
+set bendVcf 5
+apply
+on 57
+render 4800
+bend 0.25
+render 2400
+bend 0.5
+render 2400
+bend 1
+render 4800
+bend -1
+render 4800
+bend 0
+render 4800
+off 57
+render 4800
+end
+
+scenario envtrig_lfo_gate_vca 48000
+set envTrig 2
+set lfoRate 7.5
+set decay 2
+set sustain 2
+apply
+on 50
+render 24000
+set vcaMode 1
+set noise 4
+apply
+render 12000
+off 50
+render 6000
+end
+
+scenario key_transpose 48000
+apply
+keytranspose
+on 67
+render 2400
+off 67
+render 2400
+on 60
+render 12000
+off 60
+render 4800
+end
+
+scenario all_notes_off 48000
+apply
+on 50
+render 6000
+allnotesoff
+render 12000
+end
+scenario filter_sweep_res 48000
+set res 9
+set vcfEnv 0
+set cutoff 0
+apply
+on 43
+set cutoff 0.0
+apply
+render 480
+set cutoff 0.25
+apply
+render 480
+set cutoff 0.50
+apply
+render 480
+set cutoff 0.75
+apply
+render 480
+set cutoff 1.0
+apply
+render 480
+set cutoff 1.25
+apply
+render 480
+set cutoff 1.50
+apply
+render 480
+set cutoff 1.75
+apply
+render 480
+set cutoff 2.0
+apply
+render 480
+set cutoff 2.25
+apply
+render 480
+set cutoff 2.50
+apply
+render 480
+set cutoff 2.75
+apply
+render 480
+set cutoff 3.0
+apply
+render 480
+set cutoff 3.25
+apply
+render 480
+set cutoff 3.50
+apply
+render 480
+set cutoff 3.75
+apply
+render 480
+set cutoff 4.0
+apply
+render 480
+set cutoff 4.25
+apply
+render 480
+set cutoff 4.50
+apply
+render 480
+set cutoff 4.75
+apply
+render 480
+set cutoff 5.0
+apply
+render 480
+set cutoff 5.25
+apply
+render 480
+set cutoff 5.50
+apply
+render 480
+set cutoff 5.75
+apply
+render 480
+set cutoff 6.0
+apply
+render 480
+set cutoff 6.25
+apply
+render 480
+set cutoff 6.50
+apply
+render 480
+set cutoff 6.75
+apply
+render 480
+set cutoff 7.0
+apply
+render 480
+set cutoff 7.25
+apply
+render 480
+set cutoff 7.50
+apply
+render 480
+set cutoff 7.75
+apply
+render 480
+set cutoff 8.0
+apply
+render 480
+set cutoff 8.25
+apply
+render 480
+set cutoff 8.50
+apply
+render 480
+set cutoff 8.75
+apply
+render 480
+set cutoff 9.0
+apply
+render 480
+set cutoff 9.25
+apply
+render 480
+set cutoff 9.50
+apply
+render 480
+set cutoff 9.75
+apply
+render 480
+set cutoff 10.0
+apply
+render 480
+set cutoff 10.0
+apply
+render 480
+set cutoff 9.75
+apply
+render 480
+set cutoff 9.50
+apply
+render 480
+set cutoff 9.25
+apply
+render 480
+set cutoff 9.0
+apply
+render 480
+set cutoff 8.75
+apply
+render 480
+set cutoff 8.50
+apply
+render 480
+set cutoff 8.25
+apply
+render 480
+set cutoff 8.0
+apply
+render 480
+set cutoff 7.75
+apply
+render 480
+set cutoff 7.50
+apply
+render 480
+set cutoff 7.25
+apply
+render 480
+set cutoff 7.0
+apply
+render 480
+set cutoff 6.75
+apply
+render 480
+set cutoff 6.50
+apply
+render 480
+set cutoff 6.25
+apply
+render 480
+set cutoff 6.0
+apply
+render 480
+set cutoff 5.75
+apply
+render 480
+set cutoff 5.50
+apply
+render 480
+set cutoff 5.25
+apply
+render 480
+set cutoff 5.0
+apply
+render 480
+set cutoff 4.75
+apply
+render 480
+set cutoff 4.50
+apply
+render 480
+set cutoff 4.25
+apply
+render 480
+set cutoff 4.0
+apply
+render 480
+set cutoff 3.75
+apply
+render 480
+set cutoff 3.50
+apply
+render 480
+set cutoff 3.25
+apply
+render 480
+set cutoff 3.0
+apply
+render 480
+set cutoff 2.75
+apply
+render 480
+set cutoff 2.50
+apply
+render 480
+set cutoff 2.25
+apply
+render 480
+set cutoff 2.0
+apply
+render 480
+set cutoff 1.75
+apply
+render 480
+set cutoff 1.50
+apply
+render 480
+set cutoff 1.25
+apply
+render 480
+set cutoff 1.0
+apply
+render 480
+set cutoff 0.75
+apply
+render 480
+set cutoff 0.50
+apply
+render 480
+set cutoff 0.25
+apply
+render 480
+set cutoff 0.0
+apply
+render 480
+off 43
+render 4800
+end
+
+scenario self_oscillation 48000
+set saw 0
+set res 10
+set cutoff 5
+set vcfKybd 10
+set vcaMode 1
+apply
+on 48
+render 24000
+on 60
+render 24000
+off 60
+off 48
+render 4800
+end
+
+scenario arp_up_internal 48000
+set arpMode 1
+set lfoRate 8
+apply
+on 60
+on 64
+on 67
+render 57600 64
+off 64
+render 19200 64
+off 60
+off 67
+render 9600 64
+end
+
+scenario arp_updown_hold 48000
+set arpMode 2
+set arpHold 1
+set lfoRate 7.5
+apply
+on 48
+on 55
+on 60
+on 63
+render 4800 128
+off 48
+off 55
+off 60
+off 63
+render 48000 128
+set arpHold 0
+apply
+render 9600 128
+end
+
+scenario arp_down_host_clock 48000
+set arpMode 3
+set clockSource 1
+set clockDiv 3
+apply
+on 60
+on 64
+on 67
+hostrun 96000 512 1 120
+end
+
+scenario arp_host_triplets_stop 44100
+set arpMode 1
+set clockSource 1
+set clockDiv 2
+apply
+on 50
+on 53
+on 57
+hostrun 66150 441 1 90
+hostrun 22050 441 0 90
+ppq 7.25
+hostrun 44100 441 1 90
+end
+
+scenario seq_load_play_internal 48000
+set seqMode 2
+set lfoRate 8
+apply
+on 60
+render 512 64
+off 60
+render 512 64
+keytranspose
+on 64
+render 512 64
+off 64
+render 512 64
+legato
+on 67
+render 512 64
+off 67
+render 512 64
+on 60
+render 512 64
+on 62
+render 512 64
+off 60
+off 62
+render 512 64
+set seqMode 1
+apply
+on 65
+render 72000 64
+off 65
+render 9600 64
+end
+
+scenario seq_host_clock_tied 48000
+set seqMode 2
+apply
+on 48
+render 480
+off 48
+render 480
+on 51
+render 480
+on 55
+render 480
+off 51
+off 55
+render 480
+keytranspose
+render 480
+on 58
+render 480
+off 58
+render 480
+set seqMode 1
+set clockSource 1
+set clockDiv 4
+set portaMode 1
+apply
+on 60
+hostrun 96000 256 1 128
+off 60
+hostrun 9600 256 1 128
+end
+
+scenario lfo_sync_host 48000
+set lfoSync 1
+set lfoRate 8.6666667
+set vcfMod 7
+set vcoMod 1
+set arpMode 1
+apply
+host 1 1 0 120
+render 1536 512
+on 60
+on 64
+hostrun 48000 512 1 120
+hostrun 24000 512 0 120
+ppq 3.5
+hostrun 24000 512 1 140
+end
+
+scenario standalone_no_host 48000
+set clockSource 1
+set lfoSync 1
+set arpMode 1
+set lfoRate 8
+apply
+host 0 0 0 120
+on 60
+on 67
+render 48000 256
+end
+
+scenario tune_transpose_range 48000
+set tune 37
+set transpose 2
+set range 3
+apply
+on 50
+render 9600
+set transpose 0
+set range 0
+set tune -50
+apply
+render 9600
+off 50
+render 4800
+end
+
+scenario patch_init 48000
+patch Init
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_rubber_bass 48000
+patch Rubber Bass
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_acid_line 48000
+patch Acid Line
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_sub_thump 48000
+patch Sub Thump
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_pwm_lead 48000
+patch PWM Lead
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_arp_bleeps 48000
+patch Arp Bleeps
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_noise_snare 48000
+patch Noise Snare
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_siren 48000
+patch Siren
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_random_filter 48000
+patch Random Filter
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+
+scenario patch_resonance_whistle 48000
+patch Resonance Whistle
+apply
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 48
+render 5400 256
+off 48
+render 1800 256
+on 43
+render 5400 256
+off 43
+render 1800 256
+on 39
+render 5400 256
+off 39
+render 1800 256
+on 41
+render 5400 256
+off 41
+render 1800 256
+on 36
+render 5400 256
+off 36
+render 1800 256
+on 36
+on 43
+render 9600 256
+off 43
+render 4800 256
+off 36
+render 24000 256
+end
+

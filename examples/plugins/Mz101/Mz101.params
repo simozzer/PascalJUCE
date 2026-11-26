@@ -1,0 +1,41 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+lfoRate	float	Mod Rate		0	10	5	0	
+lfoSync	choice	Mod Sync		0	1	0	1	Free|Host
+lfoWave	choice	Mod Waveform		0	3	0	1	Triangle|Square|Random|Noise
+clockSource	choice	Clock		0	1	0	1	Int|Host
+clockDiv	choice	Clock Division		0	5	3	1	1/4|1/8|1/8T|1/16|1/16T|1/32
+vcoMod	float	VCO Mod		0	10	0	0	
+range	choice	VCO Range		0	3	1	1	16'|8'|4'|2'
+pw	float	Pulse Width		0	10	0	0	
+pwmSource	choice	PWM Source		0	2	1	1	LFO|Man|Env
+pulse	float	Pulse Level		0	10	0	0	
+saw	float	Saw Level		0	10	10	0	
+sub	float	Sub Level		0	10	0	0	
+subType	choice	Sub Waveform		0	2	0	1	-1 Oct|-2 Oct|-2 Pulse
+noise	float	Noise Level		0	10	0	0	
+cutoff	float	VCF Freq		0	10	6	0	
+res	float	VCF Res		0	10	0	0	
+vcfEnv	float	VCF Env		0	10	4	0	
+vcfMod	float	VCF Mod		0	10	0	0	
+vcfKybd	float	VCF Kybd		0	10	5	0	
+vcaMode	choice	VCA Mode		0	1	0	1	Env|Gate
+attack	float	Env Attack		0	10	0	0	
+decay	float	Env Decay		0	10	4	0	
+sustain	float	Env Sustain		0	10	5	0	
+release	float	Env Release		0	10	2	0	
+envTrig	choice	Env Trigger		0	2	0	1	Gate+Trig|Gate|LFO
+portaMode	choice	Portamento		0	2	0	1	Off|Auto|On
+portaTime	float	Portamento Time		0	10	3	0	
+bendVco	float	Bender VCO		0	10	2	0	
+bendVcf	float	Bender VCF		0	10	0	0	
+modDepth	float	Bender Mod		0	10	3	0	
+arpMode	choice	Arpeggio		0	3	0	1	Off|Up|Up&Down|Down
+seqMode	choice	Sequencer		0	2	0	1	Off|Play|Load
+arpHold	bool	Hold		0	1	0	1	
+transpose	choice	Transpose		0	2	1	1	Low|Mid|High
+tune	float	Tune		-50	50	0	0	
+volume	float	Volume		0	10	7	0	
+patch	choice	Patch		0	9	0	1	Init|Rubber Bass|Acid Line|Sub Thump|PWM Lead|Arp Bleeps|Noise Snare|Siren|Random Filter|Resonance Whistle
+keyTranspose	bool	Key Transpose / Rest		0	1	0	1	
+legato	bool	Legato		0	1	0	1	

@@ -32,3 +32,5 @@ Exceptions inside this repository:
 - examples/plugins/PascalSynth (the template) is under MIT No Attribution
   (MIT-0, licenses/MIT-0.txt): copy it into your own project without keeping
   any notice.
+- examples/plugins/Mz101 is under the GNU AGPL v3 (licenses/AGPL-3.0.txt),
+  like the Mz101 project it is ported from.
