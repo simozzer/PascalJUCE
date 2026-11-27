@@ -606,9 +606,11 @@ var
   T: TJuceColor;
 begin
   PaintButtonBackground(Canvas, Width, Height, FIsOn, FLit, Hovered and Enabled, FDown and Hovered);
-  // a TextButton that is on writes in textColourOnId, which the look makes the window's
+  // The C++ writes an "on" TextButton in textColourOnId, the window's colour, which is
+  // almost invisible on the faint tint its look fills it with: here it writes in the
+  // button's own colour, brightened, instead.
   if FIsOn then
-    T := ColWindow
+    T := JBrighter(FLit, 0.35)
   else
     T := FTextOff;
   PaintButtonText(Canvas, Width, Height, Caption, T, Enabled);
