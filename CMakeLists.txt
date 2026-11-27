@@ -449,6 +449,30 @@ if(TARGET Mz101)
     set_tests_properties(mz101_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
 endif()
 
+# scope_test: the Scope example (an effect), its window offscreen, the same way.
+if(TARGET Scope)
+    juce_add_console_app(scope_test PRODUCT_NAME "scope_test")
+    target_sources(scope_test PRIVATE tests/scope_test.cpp plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(scope_test PRIVATE plugin plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/Scope/Scope_pascal/hash/$<CONFIG>")
+    target_compile_definitions(scope_test PRIVATE # an effect: _editor_wrapper_defs is for instruments
+        JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
+        PASCALJUCE_PLUGIN_KIND=1 PASCALJUCE_EDITOR_TEST_HOOKS=1 JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+        JucePlugin_Name="Scope" PASCALJUCE_PLUGIN_LIBRARY="Scope_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        PASCALJUCE_HAS_LIBRARY_HASH=1)
+    target_link_libraries(scope_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(scope_test Scope_PascalLibrary Scope_PascalHash)
+    add_custom_command(TARGET scope_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/Scope/Scope_pascal/$<CONFIG>/Scope_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                "$<TARGET_FILE_DIR:scope_test>"
+        VERBATIM)
+    add_test(NAME scope_test COMMAND scope_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(scope_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
 #-------------------------------------------------------------------------------
 # Plug-in hosting tests: load the built bundles through JUCE's VST3/LV2 hosts.
 if(TARGET PascalSynth AND TARGET ProbeEffect)
@@ -477,6 +501,11 @@ if(TARGET PascalSynth AND TARGET ProbeEffect)
         add_dependencies(plugin_host_test PascalSynth_LV2_Manifest ProbeEffect_LV2_Manifest)
         add_test(NAME plugin_host_synth_lv2 COMMAND plugin_host_test synth LV2 "${_synth}/LV2/Pascal Synth.lv2")
         add_test(NAME plugin_host_probe_lv2 COMMAND plugin_host_test probe LV2 "${_probe}/LV2/Probe Effect.lv2")
+    endif()
+    if(TARGET Scope_VST3)
+        set(_scope "${CMAKE_BINARY_DIR}/examples/plugins/Scope/Scope_artefacts/$<CONFIG>")
+        add_dependencies(plugin_host_test Scope_VST3)
+        add_test(NAME plugin_host_scope_vst3 COMMAND plugin_host_test scope VST3 "${_scope}/VST3/Scope.vst3")
     endif()
 endif()
 

@@ -9,6 +9,8 @@
       probe     the ProbeEffect test plug-in: in-place effect processing,
                 parameters, MIDI output, exception containment, latency,
                 tail, custom state blob
+      scope     the Scope example: an effect with no parameters, audio passed
+                through with its window open, state round-trip
       missing   a copy of the bundle without its Pascal library: must load,
                 stay silent, show the error editor and preserve state
       tampered  a copy of the bundle whose Pascal library was modified after
@@ -441,13 +443,63 @@ int broken(juce::AudioPluginFormatManager& manager, const juce::String& format, 
     copy.getParentDirectory().deleteRecursively();
     return 0;
 }
+//==============================================================================
+// The Scope example through the real bundle: an effect with no parameters
+// whose audio passes through, its window, its state. (scope_test renders it.)
+int scope(juce::AudioPluginFormatManager& manager, const juce::String& format, const juce::String& path)
+{
+    auto plugin = load(manager, format, path);
+    check(plugin != nullptr, "plug-in loads");
+    if (plugin == nullptr)
+        return 1;
+    check(plugin->getName() == "Scope", "name = \"" + plugin->getName() + "\"");
+    // The VST3 wrapper adds the host's bypass switch; the plug-in declares none of its own.
+    bool onlyBypass = true;
+    for (auto* p : plugin->getParameters())
+        onlyBypass = onlyBypass && p == plugin->getBypassParameter();
+    check(! plugin->acceptsMidi() && onlyBypass,
+          "an effect with no parameters of its own (" + juce::String(plugin->getParameters().size()) + " incl. bypass)");
+    prepare(*plugin, 2, 2);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(plugin->createEditorAndMakeActive());
+    check(editor != nullptr && editor->getWidth() > 0, "editor opens");
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+    bool unchanged = true;
+    for (int block = 0; block < 20; ++block)
+    {
+        for (int ch = 0; ch < 2; ++ch)
+            for (int s = 0; s < blockSize; ++s)
+                buffer.setSample(ch, s, 0.5f * std::sin(0.05f * (float) (s + ch * 7)));
+        plugin->processBlock(buffer, midi);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int s = 0; s < blockSize; ++s)
+                unchanged = unchanged && buffer.getSample(ch, s) == 0.5f * std::sin(0.05f * (float) (s + ch * 7));
+    }
+    check(unchanged, "the audio passes through unchanged, with the window open");
+    editor.reset();
+
+    juce::MemoryBlock state;
+    plugin->getStateInformation(state);
+    auto second = load(manager, format, path);
+    check(second != nullptr, "second instance loads");
+    if (second != nullptr)
+    {
+        second->setStateInformation(state.getData(), (int) state.getSize());
+        juce::MemoryBlock again;
+        second->getStateInformation(again);
+        check(again == state, "state round-trips");
+    }
+    plugin->releaseResources();
+    return 0;
+}
 } // namespace
 
 int main(int argc, char* argv[])
 {
     if (argc < 4)
     {
-        std::printf("usage: plugin_host_test <synth|probe|missing|tampered|replaced> <VST3|LV2> <bundle path> [replacement library]\n");
+        std::printf("usage: plugin_host_test <synth|probe|scope|missing|tampered|replaced> <VST3|LV2> <bundle path> [replacement library]\n");
         return 2;
     }
 
@@ -466,6 +518,8 @@ int main(int argc, char* argv[])
         result = synth(manager, formatName, path);
     else if (scenario == "probe")
         result = probe(manager, formatName, path);
+    else if (scenario == "scope")
+        result = scope(manager, formatName, path);
     else if (scenario == "missing" || scenario == "tampered" || scenario == "replaced")
         result = broken(manager, formatName, path, scenario,
                         argc > 4 ? juce::File::getCurrentWorkingDirectory().getChildFile(juce::String::fromUTF8(argv[4]))
