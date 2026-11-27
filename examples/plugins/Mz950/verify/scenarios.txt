@@ -1,0 +1,810 @@
+# Mz950 audio equivalence scenarios: read by both render_cpp.cpp (the original C++ engine,
+# disk reader and synth) and render_pas.dpr (the Pascal port). Each renders to <name>.f32
+# (raw little-endian floats, interleaved left/right unless rendered mono).
+#
+#   scenario NAME RATE           a new engine at RATE
+#   disk FILE                    load an image from the disks folder (the library's .hfe, and
+#                                rich.img: the disk check's constructed disk, with S900-blank
+#                                filter envelopes, alternating loops and overlapping keygroups)
+#   synth N                      render synth preset N to a disk and load it (keeps the
+#                                current disk's settings, as the plug-in's re-render does)
+#   synthtext TEXT               the same for a recipe given as text (fromText)
+#   program N                    the Nth programme on the disk -> buildPatch -> trySetPatch
+#   edit KG PARAM VALUE          setKeygroupParam on the current programme (PARAM is the
+#                                KeygroupParam ordinal), then rebuild the patch reusing the
+#                                last one's sounds and send it - so held notes adopt it
+#   crossfade 0|1                force the programme's positional crossfade (header byte 21)
+#   nopatch                      send no patch at all
+#   trim NAME VALUE              an AtomicTrims value (or gain), stored as a float
+#   bendrange / glidetime / widecents / widespread V,  wideoffset 0|1
+#   on N VEL [AT]  off N [AT]  wheel V [AT]  pressure V [AT]  bend V [AT]
+#   glide 0|1 [AT]  voices N [AT]  wide 0|1 [AT]  alloff [AT]
+#   transport BPM PPQ PLAYING QPB   setTransport before every block, ppq advancing while playing
+#   render SAMPLES [BLOCK] [mono]
+#   end
+#
+# Only whole numbers and dyadic fractions (0.5, 0.125, ...) appear, so strtod and Pascal's
+# Val read every value the same.
+#
+# KeygroupParam ordinals: 0 HighKey 1 LowKey 2 VelocitySwitch 3 VcaAttack 4 VcaDecay
+# 5 VcaSustain 6 VcaRelease 7 VelToFilter 8 KeyToFilter 9 VelToAttack 10 VelToRelease
+# 11 VelToLoudness 12 WarpVelocity 13 WarpDepth 14 WarpTime 15 LfoDelay 16 LfoRate 17 LfoDepth
+# 18 LfoAftertouch 19 LfoModwheel 20 OutputPort 21 VcfAmount 22 VcfAttack 23 VcfDecay
+# 24 VcfSustain 25 VcfRelease 26 Zone1Fine 27 Zone1Transpose 28 Zone1Filter 29 Zone1Loudness
+# 30 Zone2Fine 31 Zone2Transpose 32 Zone2Filter 33 Zone2Loudness 34 ConstantPitch 35 LfoDesync
+# 36 OneShot 37 VelocityReleaseOn
+
+# ----------------------------------------------------------------- single notes, four rates
+
+scenario bass_single_44k 44100
+disk BASS.hfe
+program 0
+on 36 100
+render 22050 512
+off 36
+render 22050 512
+end
+
+scenario bass_single_48k 48000
+disk BASS.hfe
+program 0
+on 36 100
+render 24000 480
+off 36
+render 24000 480
+end
+
+scenario bass_single_96k 96000
+disk BASS.hfe
+program 0
+on 36 100
+render 48000 1024
+off 36
+render 48000 1024
+end
+
+scenario bass_single_192k 192000
+disk BASS.hfe
+program 0
+on 36 100
+render 96000 2048
+off 36
+render 96000 2048
+end
+
+# --------------------------------------------- odd block sizes and sample-accurate events
+
+scenario odd_blocks_1 48000
+disk KEYS.hfe
+program 0
+on 60 90 3
+on 64 70 17
+render 4000 1
+off 60 5
+render 6000 7
+off 64
+render 6000 33
+end
+
+scenario odd_blocks_mixed 44100
+disk STRINGS.hfe
+program 0
+on 55 127 100
+on 62 40 299
+render 20000 333
+off 55 12
+off 62 250
+render 20000 1023
+on 67 64 999
+render 10000 31
+end
+
+scenario mono_buffer 48000
+disk PADS.hfe
+program 0
+on 48 100
+on 60 80
+render 24000 256 mono
+off 48
+off 60
+render 24000 256 mono
+end
+
+# ------------------------------------------------------------ voice stealing and velocity
+
+scenario steal_eleven 48000
+trim gain 0.125
+disk PIANO.hfe
+program 0
+on 48 30
+on 52 50
+on 55 70
+on 59 90
+on 62 110
+on 64 127
+on 67 64
+on 71 1
+render 4800 512
+on 72 100
+on 74 100
+on 76 100
+render 9600 512
+off 48
+off 52
+on 79 80
+render 9600 300
+alloff
+render 9600 300
+end
+
+scenario velocity_ladder 48000
+disk BASS.hfe
+program 8
+on 36 1
+render 4000 128
+on 38 32 64
+render 4000 128
+on 40 64
+render 4000 128
+on 41 96
+render 4000 128
+on 43 127
+render 12000 128
+alloff
+render 8000 128
+end
+
+scenario retrigger_same_key 48000
+disk KEYS.hfe
+program 3
+on 60 100
+render 2000 200
+on 60 60
+render 2000 200
+off 60
+render 12000 200
+end
+
+# ----------------------------------------------------------------- pitch bend and wheels
+
+scenario bend_and_wheel 48000
+disk LEADS.hfe
+program 0
+bendrange 12
+on 60 100
+render 4800 256
+bend 16383
+render 4800 256
+bend 0 100
+render 4800 256
+bend 8192
+wheel 127
+pressure 127
+edit 0 19 99
+edit 0 18 50
+render 9600 256
+wheel 0
+render 4800 256
+off 60
+render 9600 256
+end
+
+scenario modwheel_at_strike 44100
+disk LEADS.hfe
+program 0
+edit 0 19 99
+edit 0 17 20
+wheel 100
+pressure 64
+on 64 110
+render 22050 441
+off 64
+render 11025 441
+end
+
+# --------------------------------------------------------------------- every trim, moving
+
+scenario trims_filter_env 48000
+disk BASS.hfe
+program 0
+trim cutoff -40
+trim amount 30
+on 36 100
+render 9600 512
+trim cutoff 25.5
+trim amount -50
+trim vcfAttack 40
+trim vcfDecay 60
+trim vcfSustain -30
+trim vcfRelease 50
+render 9600 512
+off 36
+render 19200 512
+end
+
+scenario trims_vca 48000
+disk PADS.hfe
+program 0
+trim vcaAttack 30
+trim vcaDecay 40
+trim vcaSustain -45
+trim vcaRelease 35
+on 60 100
+render 24000 512
+trim vcaSustain 20
+trim vcaRelease -60
+off 60
+render 24000 512
+on 62 100
+trim vcaAttack -99
+trim vcaDecay -99
+trim vcaSustain -99
+render 9600 512
+end
+
+scenario trims_lfo_shapes 48000
+disk STRINGS.hfe
+program 0
+trim lfoDepth 99
+trim lfoRate 60
+trim lfoDelay -99
+trim lfoToFilter 99
+on 60 100
+render 9600 256
+trim lfoShape 1
+render 9600 256
+trim lfoShape 2
+render 9600 256
+trim lfoShape 3
+render 9600 256
+trim lfoRate 99
+render 9600 64
+trim lfoRate -99
+trim lfoDepth 40
+render 9600 256
+end
+
+scenario trims_velocity 48000
+disk KEYS.hfe
+program 8
+trim velToFilter 99
+trim velToLoudness 99
+on 60 20
+on 64 120
+render 12000 512
+trim velToFilter 0
+trim velToLoudness -50
+on 67 20
+render 12000 512
+end
+
+scenario resonance_sweep 48000
+disk LEADS.hfe
+program 0
+trim resonance 50
+on 48 100
+render 9600 128
+trim resonance 85
+trim cutoff -20
+render 9600 128
+trim resonance 95
+render 19200 128
+trim resonance 100
+trim cutoff 30
+render 9600 128
+off 48
+render 9600 128
+end
+
+scenario resonance_96k 96000
+disk BASS.hfe
+program 0
+trim resonance 99
+on 36 127
+render 48000 1000
+end
+
+scenario gain_and_clip 48000
+disk DRUMS.hfe
+program 0
+trim gain 4
+on 36 127
+on 38 127
+on 42 127
+on 46 127
+render 24000 512
+trim gain 0.25
+on 36 127
+render 24000 512
+end
+
+# ------------------------------------------------------------------------- tempo sync
+
+scenario lfo_sync_playing 48000
+disk STRINGS.hfe
+program 0
+trim lfoDepth 80
+trim lfoSync 1
+trim lfoSyncDiv 11
+trim lfoShape 3
+transport 125 3.5 1 3
+on 60 100
+render 24000 500
+trim lfoSyncDiv 2
+trim lfoShape 2
+render 24000 500
+end
+
+scenario lfo_sync_stopped 44100
+disk STRINGS.hfe
+program 0
+trim lfoDepth 60
+trim lfoToFilter 50
+trim lfoSync 1
+trim lfoSyncDiv 0
+transport 90 0 0 4
+on 60 100
+render 22050 300
+end
+
+scenario shared_lfo 48000
+trim gain 0.125
+disk KEYS.hfe
+program 6
+edit 0 35 0
+edit 1 35 0
+edit 2 35 0
+edit 0 17 60
+edit 1 17 60
+edit 0 16 70
+on 48 100
+render 2400 256
+on 60 100
+on 72 100
+render 24000 256
+trim lfoRate 50
+trim lfoShape 3
+render 24000 256
+end
+
+# ---------------------------------------------------------------- glide, mono, polyphony
+
+scenario glide_poly 48000
+disk LEADS.hfe
+program 0
+glide 1
+glidetime 0.25
+on 48 100
+render 4800 256
+off 48
+on 60 100
+render 9600 256
+on 55 100
+render 9600 256
+off 60 10
+off 55 20
+on 67 100
+render 9600 256
+glide 0
+off 67
+on 72 100
+render 9600 256
+end
+
+scenario mono_legato 48000
+disk LEADS.hfe
+program 0
+voices 1
+glide 1
+glidetime 0.125
+on 48 100
+render 4800 256
+on 55 90
+render 4800 256
+on 60 80
+render 4800 256
+off 60
+render 4800 256
+off 55
+render 4800 256
+off 48
+render 9600 256
+on 50 100
+render 2400 256
+glidetime 0
+on 62 100
+render 9600 256
+end
+
+scenario mono_drums_through 48000
+disk DRUMS.hfe
+program 0
+voices 1
+on 60 100
+on 36 120
+render 4800 512
+on 62 100
+on 38 120
+render 9600 512
+off 62
+render 9600 512
+end
+
+scenario voices_three 48000
+trim gain 0.125
+disk PIANO.hfe
+program 0
+voices 3
+on 48 100
+on 52 100
+on 55 100
+on 59 100
+render 9600 512
+voices 8
+on 62 100
+on 64 100
+render 9600 512
+alloff
+render 4800 512
+end
+
+# --------------------------------------------------------------------------------- wide
+
+scenario wide_poly 48000
+disk PADS.hfe
+program 0
+wide 1
+widecents 25
+widespread 1
+on 48 100
+on 55 100
+on 60 100
+render 9600 512
+on 64 100
+on 67 100
+render 9600 512
+widecents 50
+widespread 0.25
+render 9600 512
+off 48
+off 55
+render 9600 512
+end
+
+scenario wide_mono_glide 48000
+disk LEADS.hfe
+program 0
+wide 1
+voices 1
+glide 1
+glidetime 0.0625
+wideoffset 0
+on 48 100
+render 4800 256
+on 60 100
+render 4800 256
+off 60
+render 4800 256
+off 48
+render 9600 256
+end
+
+scenario wide_mono_buffer 44100
+disk STRINGS.hfe
+program 0
+wide 1
+on 60 100
+render 22050 512 mono
+end
+
+# --------------------------------------------------------------------- disk features
+
+scenario drums_kit 48000
+trim gain 0.125
+disk DRUMS.hfe
+program 0
+on 36 127
+render 2400 128
+on 38 100 50
+on 42 80 70
+render 2400 128
+on 46 60
+on 49 127
+render 12000 128
+off 36
+off 38
+render 12000 128
+end
+
+scenario drums_velocity_zones 48000
+disk DRUMS.hfe
+program 1
+on 36 20
+render 4800 512
+on 36 120
+render 4800 512
+on 38 64
+on 38 65
+render 9600 512
+end
+
+scenario split_layers 48000
+disk BASS.hfe
+program 7
+on 30 100
+on 70 100
+render 12000 512
+off 30
+off 70
+render 12000 512
+end
+
+scenario warp_edits 48000
+disk LEADS.hfe
+program 0
+edit 0 13 -40
+on 60 100
+render 9600 256
+off 60
+edit 0 12 50
+edit 0 14 30
+on 62 30
+render 9600 256
+edit 0 13 50
+on 64 127
+render 9600 256
+end
+
+scenario output_ports 48000
+disk KEYS.hfe
+program 6
+edit 0 20 9
+edit 1 20 10
+edit 2 20 3
+on 40 100
+on 60 100
+on 80 100
+render 24000 512
+end
+
+scenario edits_under_held_note 48000
+disk PADS.hfe
+program 0
+on 60 100
+render 4800 512
+edit 0 28 30
+render 4800 512
+edit 0 27 5
+edit 0 26 8
+render 4800 512
+edit 0 5 20
+edit 0 21 -30
+edit 0 23 70
+render 4800 512
+edit 0 1 61
+render 4800 512
+off 60
+render 9600 512
+end
+
+scenario release_velocity 48000
+disk KEYS.hfe
+program 0
+edit 0 37 1
+edit 0 10 25
+edit 0 9 99
+edit 0 3 70
+on 60 1
+on 64 127
+render 9600 512
+off 60
+off 64
+render 24000 512
+edit 0 10 -25
+on 67 1
+render 4800 512
+off 67
+render 24000 512
+end
+
+scenario oneshot_constant 48000
+disk BASS.hfe
+program 4
+edit 0 34 1
+edit 0 36 1
+on 36 100
+on 60 100
+render 4800 512
+off 36
+off 60
+render 19200 512
+end
+
+scenario high_notes_fold 48000
+trim gain 0.125
+disk BASS.hfe
+program 0
+on 100 100
+on 110 100
+on 120 100
+on 127 100
+render 9600 512
+end
+
+scenario rich_crossfade 48000
+trim gain 0.125
+disk rich.img
+program 0
+crossfade 1
+on 25 100
+on 45 100
+on 65 100
+render 9600 512
+on 22 1
+on 28 127
+render 9600 512
+off 25
+off 45
+off 65
+render 24000 512
+end
+
+scenario rich_no_crossfade 48000
+trim gain 0.125
+disk rich.img
+program 0
+on 25 100
+on 45 100
+on 65 100
+render 9600 512
+end
+
+scenario rich_blank_vcf_alt_loops 44100
+trim gain 0.125
+disk rich.img
+program 1
+trim amount 40
+trim vcfDecay 50
+trim vcfSustain -60
+on 48 100
+on 60 100
+on 72 100
+render 44100 441
+off 48
+off 60
+off 72
+render 22050 441
+end
+
+scenario programme_change_held 48000
+disk KEYS.hfe
+program 0
+on 60 100
+render 4800 512
+program 1
+render 4800 512
+on 64 100
+render 4800 512
+nopatch
+render 4800 512
+program 2
+on 67 100
+render 4800 512
+end
+
+# ----------------------------------------------------------------------- the synth's disks
+
+scenario synth_preset_0 48000
+synth 0
+program 0
+on 48 100
+on 60 100
+render 24000 512
+off 48
+off 60
+render 12000 512
+end
+
+scenario synth_preset_1 48000
+synth 1
+program 0
+on 55 100
+render 24000 512
+off 55
+render 12000 512
+end
+
+scenario synth_preset_2 48000
+trim gain 0.125
+synth 2
+program 0
+on 36 127
+on 38 100
+on 42 90
+on 60 100
+render 24000 512
+end
+
+scenario synth_preset_3 44100
+synth 3
+program 0
+on 52 100
+on 64 80
+render 22050 441
+end
+
+scenario synth_preset_4 48000
+synth 4
+program 0
+on 60 100
+render 24000 512
+end
+
+scenario synth_preset_5 48000
+synth 5
+program 0
+on 36 110
+on 40 110
+on 72 100
+render 24000 512
+end
+
+scenario synth_preset_6 96000
+synth 6
+program 0
+on 60 100
+render 48000 1024
+end
+
+scenario synth_preset_7 48000
+trim gain 0.125
+synth 7
+program 0
+on 48 100
+on 67 100
+render 24000 512
+end
+
+scenario synth_preset_8 48000
+synth 8
+program 0
+on 60 100
+render 24000 512
+end
+
+scenario synth_preset_9 48000
+synth 9
+program 0
+on 40 100
+on 46 100
+on 52 100
+render 24000 512
+end
+
+scenario synth_rerender_held 48000
+synth 0
+program 0
+on 60 100
+render 9600 512
+edit 0 28 40
+render 4800 512
+synth 3
+render 9600 512
+synth 0
+render 9600 512
+end
+
+# A hand-written recipe: three oscillators (FM bell, ring, pink noise) and the kit, detuned.
+scenario synth_text_recipe 48000
+trim gain 0.25
+synthtext name=TEXT_TEST o0=12,90,0,7,25,60,40 o1=14,70,1,-12,0,40,20 o2=19,30,0,0,0,50,0 drums=1 d0=1,-3,80,70,10 d1=1,2,60,99,0 d2=0,0,99,99,0 d3=1,0,40,50,-10 d4=1,0,99,99,0 d5=1,5,70,80,0 d6=1,-7,99,99,5 d7=1,0,99,99,0 d8=1,12,50,60,0 voice=70,60,45,5,35,70,40,10,50,30,20,-15,40,60,10,20
+program 0
+on 36 120
+on 42 90
+on 57 100
+on 64 100
+render 24000 512
+off 57
+off 64
+render 12000 512
+end

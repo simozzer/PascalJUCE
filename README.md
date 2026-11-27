@@ -35,6 +35,7 @@ examples/plugins/Mz101/       Mz101_Pascal: the Mz101 SH-101 emulation, ported (
 examples/plugins/Mz303/       Mz303_Pascal: the Mz303 TB-303 emulation, ported (GNU AGPL v3)
 examples/plugins/Mz808/       Mz808_Pascal: the Mz808 TR-808 emulation, ported (GNU AGPL v3)
 examples/plugins/Mz909/       Mz909_Pascal: the Mz909 TR-909 emulation, ported (GNU AGPL v3)
+examples/plugins/Mz950/       Mz950_Pascal: the Mz950 (VirtualS950) Akai S950 sampler, ported (GNU AGPL v3)
 plugins/                      your plug-ins go here (built automatically)
 tests/                        C, Pascal and plug-in-hosting tests
 external/JUCE                 JUCE 8.0.17-security checkout (downloaded if missing)
@@ -154,7 +155,7 @@ every push, with longer fuzz runs.
 | `lazarus_package_*`, `lcl_design_test` | the Lazarus packages build (with `lazbuild`, private config, nothing installed); the design-time controls render the PascalSynth form like JUCE does (pixel comparison), and what the designer saves loads back with every property intact |
 | `fuzz_editor_scenario`, `fuzz_editor` | the editor API against a C++ library that calls it with hostile arguments, wrong threads and stale handles; then random calls in every callback |
 | `plugin_host_*` | the built VST3/LV2 bundles loaded through JUCE's hosting: instrument, effect, MIDI out, state, missing, tampered and replaced libraries |
-| `mz101_editor_test`, `mz303_editor_test`, `mz808_editor_test`, `mz909_editor_test` | the Mz*_Pascal panels (designed forms) offscreen: rendering against reference PNGs, knobs and faders by mouse, MIDI learn end to end, lights, the keyboard, scaling. Each example's `verify/build_verify.cmd` also checks its engine sample for sample against the original C++ one |
+| `mz101_editor_test`, `mz303_editor_test`, `mz808_editor_test`, `mz909_editor_test`, `mz950_editor_test` | the Mz*_Pascal panels (designed forms; Mz950_Pascal's built in code, with its file dialogs and synth render) offscreen: rendering against reference PNGs, knobs and faders by mouse, MIDI learn end to end, lights, the keyboard, scaling. Each example's `verify/build_verify.cmd` also checks its engine sample for sample against the original C++ one |
 | `scope_test` | the Scope example's window offscreen: audio passed through, the trace, TIME and TRIGGER set with the mouse and saved, damaged state ignored |
 | `library_integrity_*` | every copy of each Pascal library in the bundles has the SHA-256 the wrapper records (and, on macOS, a valid signature) |
 | `pe_flags_*` (Windows), `hardening_*` (Linux, macOS) | the shipped binaries carry the exploit mitigations in SECURITY.md (checked with the PE header, `readelf` or `otool`) |

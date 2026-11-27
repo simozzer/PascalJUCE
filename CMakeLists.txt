@@ -516,6 +516,28 @@ if(TARGET Mz909)
     set_tests_properties(mz909_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
 endif()
 
+# mz950_editor_test: the Mz950_Pascal panel (built in code: three tabs, the keygroup strip, the envelope shapes, the synth page, the file dialogs, MIDI learn), offscreen, the same way. Its source and reference images live with the example.
+if(TARGET Mz950)
+    set(_mz950 "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/Mz950")
+    juce_add_console_app(mz950_editor_test PRODUCT_NAME "mz950_editor_test")
+    target_sources(mz950_editor_test PRIVATE "${_mz950}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mz950_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/Mz950/Mz950_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mz950_editor_test PRIVATE ${_editor_wrapper_defs}
+        JucePlugin_Name="Mz950_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:Mz950,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZ950_VERIFY_DIR="${_mz950}/verify")
+    target_link_libraries(mz950_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mz950_editor_test Mz950_PascalLibrary Mz950_PascalHash)
+    add_custom_command(TARGET mz950_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz950/Mz950_pascal/$<CONFIG>/$<TARGET_PROPERTY:Mz950,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mz950_editor_test>"
+        VERBATIM)
+    add_test(NAME mz950_editor_test COMMAND mz950_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mz950_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
 # scope_test: the Scope example (an effect), its window offscreen, the same way.
 if(TARGET Scope)
     juce_add_console_app(scope_test PRODUCT_NAME "scope_test")
@@ -596,7 +618,7 @@ if(PASCALJUCE_ASAN_DIR)
     endif()
     foreach(_cfg IN LISTS _configs)
         foreach(_dir "bin/${_cfg}" "plugin_host_test_artefacts/${_cfg}" "fuzz_plugin_state_artefacts/${_cfg}"
-                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}" "mz808_editor_test_artefacts/${_cfg}" "mz909_editor_test_artefacts/${_cfg}"
+                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}" "mz808_editor_test_artefacts/${_cfg}" "mz909_editor_test_artefacts/${_cfg}" "mz950_editor_test_artefacts/${_cfg}"
                      "examples/plugins/PascalSynth/PascalSynth_artefacts/${_cfg}/Standalone")
             file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/${_dir}")
             file(COPY "${PASCALJUCE_ASAN_DIR}/clang_rt.asan_dynamic-x86_64.dll" DESTINATION "${CMAKE_BINARY_DIR}/${_dir}")
