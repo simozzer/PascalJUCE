@@ -1,0 +1,2614 @@
+# MzPCF equivalence scenarios: read by both render_cpp.cpp (the original C++ engine, built
+# from the MzPCF repository's Source/PCF) and render_pas.dpr (the Pascal port). Each
+# scenario writes <name>.f32 (raw little-endian floats); the two must be identical, bit for
+# bit (render_pas --compare). Generated, but edit it as you like.
+#
+#   scenario NAME RATE [mono]  a new engine, prepare(RATE); settings = the defaults; input a
+#                              110 Hz saw (the right channel 165 Hz, from half way); no
+#                              timeline. mono: the right channel is null, as for a mono bus
+#   set ID VALUE               a pending parameter, as the host holds it (parameter IDs as
+#                              in Params.cpp; pattern 1..32, mode 0 LP / 1 BP)
+#   apply                      engine.setSettings(the pending settings, read as the C++
+#                              params::Reader reads them)
+#   input KIND [ARG]           saw HZ | noise | impulse PERIOD | dc VALUE | silence | tiny
+#                              (denormals, alternating in sign)
+#   gain G                     scale the input
+#   transport PLAYING PPQ BPM  the host's timeline at the top of the next block; while
+#                              playing, each block moves it on by its length
+#   tempo BPM / seek PPQ       change the tempo / jump (a loop), keeping the rest
+#   notimeline                 no timeline: as stopped, position 0, 120 BPM
+#   render SAMPLES BLOCK       render in blocks of BLOCK: setHostClock(timeline) then
+#                              process, every block, as processBlock does
+#   sweep ID FROM TO SAMPLES BLOCK
+#                              render, setting ID (and applying) at the top of each block,
+#                              from FROM to TO in even steps - a knob turned while playing
+#   prepare RATE / reset       prepare again (the host changing its rate) / reset()
+#   ftz 0|1                    flush denormals to zero (1, the default: the plug-in runs
+#                              under juce::ScopedNoDenormals) or not
+#   levels                     every pattern's level on every step, out-of-range ones too
+#   clock PLAYING PPQ BPM PERQ SAMPLES BLOCK RATE
+#                              the StepClock alone (as MzPCG and MzPCD run it, at 2, 4 or 8
+#                              steps a beat): per block whether it plays and its samples
+#                              per step, then the sample and number of every step struck
+#   envelope DECAY LEVEL SAMPLES EVERY RATE
+#                              the Envelope alone, struck to LEVEL every EVERY samples
+#   end
+#
+# Every block appends the left channel, the right one (stereo), then step() and envelope().
+
+# The 32 patterns, every level of every step (and patterns and steps out of range).
+scenario levels 48000
+levels
+end
+
+# The step clock alone: 2, 4 and 8 steps a beat, every rate, starting on a step, in one,
+# in a pre-roll, at odd tempi, in odd blocks; stopped, no tempo, a non-finite position.
+scenario clock_44100_2_1 44100
+clock 1 0 120 2 132300 512 44100
+end
+scenario clock_44100_2_2 44100
+clock 1 0.1234 133.7 2 132300 333 44100
+end
+scenario clock_44100_2_3 44100
+clock 1 -1.3 87.25 2 132300 64 44100
+end
+scenario clock_44100_2_4 44100
+clock 1 7.999999999 174 2 20000 1 44100
+end
+scenario clock_44100_4_5 44100
+clock 1 0 120 4 132300 512 44100
+end
+scenario clock_44100_4_6 44100
+clock 1 0.1234 133.7 4 132300 333 44100
+end
+scenario clock_44100_4_7 44100
+clock 1 -1.3 87.25 4 132300 64 44100
+end
+scenario clock_44100_4_8 44100
+clock 1 7.999999999 174 4 20000 1 44100
+end
+scenario clock_44100_8_9 44100
+clock 1 0 120 8 132300 512 44100
+end
+scenario clock_44100_8_10 44100
+clock 1 0.1234 133.7 8 132300 333 44100
+end
+scenario clock_44100_8_11 44100
+clock 1 -1.3 87.25 8 132300 64 44100
+end
+scenario clock_44100_8_12 44100
+clock 1 7.999999999 174 8 20000 1 44100
+end
+scenario clock_48000_2_13 48000
+clock 1 0 120 2 144000 512 48000
+end
+scenario clock_48000_2_14 48000
+clock 1 0.1234 133.7 2 144000 333 48000
+end
+scenario clock_48000_2_15 48000
+clock 1 -1.3 87.25 2 144000 64 48000
+end
+scenario clock_48000_2_16 48000
+clock 1 7.999999999 174 2 20000 1 48000
+end
+scenario clock_48000_4_17 48000
+clock 1 0 120 4 144000 512 48000
+end
+scenario clock_48000_4_18 48000
+clock 1 0.1234 133.7 4 144000 333 48000
+end
+scenario clock_48000_4_19 48000
+clock 1 -1.3 87.25 4 144000 64 48000
+end
+scenario clock_48000_4_20 48000
+clock 1 7.999999999 174 4 20000 1 48000
+end
+scenario clock_48000_8_21 48000
+clock 1 0 120 8 144000 512 48000
+end
+scenario clock_48000_8_22 48000
+clock 1 0.1234 133.7 8 144000 333 48000
+end
+scenario clock_48000_8_23 48000
+clock 1 -1.3 87.25 8 144000 64 48000
+end
+scenario clock_48000_8_24 48000
+clock 1 7.999999999 174 8 20000 1 48000
+end
+scenario clock_96000_2_25 96000
+clock 1 0 120 2 288000 512 96000
+end
+scenario clock_96000_2_26 96000
+clock 1 0.1234 133.7 2 288000 333 96000
+end
+scenario clock_96000_2_27 96000
+clock 1 -1.3 87.25 2 288000 64 96000
+end
+scenario clock_96000_2_28 96000
+clock 1 7.999999999 174 2 20000 1 96000
+end
+scenario clock_96000_4_29 96000
+clock 1 0 120 4 288000 512 96000
+end
+scenario clock_96000_4_30 96000
+clock 1 0.1234 133.7 4 288000 333 96000
+end
+scenario clock_96000_4_31 96000
+clock 1 -1.3 87.25 4 288000 64 96000
+end
+scenario clock_96000_4_32 96000
+clock 1 7.999999999 174 4 20000 1 96000
+end
+scenario clock_96000_8_33 96000
+clock 1 0 120 8 288000 512 96000
+end
+scenario clock_96000_8_34 96000
+clock 1 0.1234 133.7 8 288000 333 96000
+end
+scenario clock_96000_8_35 96000
+clock 1 -1.3 87.25 8 288000 64 96000
+end
+scenario clock_96000_8_36 96000
+clock 1 7.999999999 174 8 20000 1 96000
+end
+scenario clock_192000_2_37 192000
+clock 1 0 120 2 576000 512 192000
+end
+scenario clock_192000_2_38 192000
+clock 1 0.1234 133.7 2 576000 333 192000
+end
+scenario clock_192000_2_39 192000
+clock 1 -1.3 87.25 2 576000 64 192000
+end
+scenario clock_192000_2_40 192000
+clock 1 7.999999999 174 2 20000 1 192000
+end
+scenario clock_192000_4_41 192000
+clock 1 0 120 4 576000 512 192000
+end
+scenario clock_192000_4_42 192000
+clock 1 0.1234 133.7 4 576000 333 192000
+end
+scenario clock_192000_4_43 192000
+clock 1 -1.3 87.25 4 576000 64 192000
+end
+scenario clock_192000_4_44 192000
+clock 1 7.999999999 174 4 20000 1 192000
+end
+scenario clock_192000_8_45 192000
+clock 1 0 120 8 576000 512 192000
+end
+scenario clock_192000_8_46 192000
+clock 1 0.1234 133.7 8 576000 333 192000
+end
+scenario clock_192000_8_47 192000
+clock 1 -1.3 87.25 8 576000 64 192000
+end
+scenario clock_192000_8_48 192000
+clock 1 7.999999999 174 8 20000 1 192000
+end
+scenario clock_stopped 48000
+clock 0 0 120 4 48000 512 48000
+end
+scenario clock_zero_tempo 48000
+clock 1 0 0 4 48000 512 48000
+end
+scenario clock_nan_position 48000
+clock 1 nan 120 4 48000 512 48000
+end
+scenario clock_inf_position 48000
+clock 1 inf 120 4 48000 512 48000
+end
+scenario clock_far 48000
+clock 1 1099511627776 999 8 96000 4096 48000
+end
+scenario clock_slowest 44100
+clock 1 -0.25 1 4 441000 4096 44100
+end
+scenario clock_one_hz 1
+clock 1 0 600 4 400 3 1
+end
+
+# The envelope alone: every decay, struck often and seldom, at every rate.
+scenario envelope_44100_0 44100
+envelope 0 1 88200 6300 44100
+end
+scenario envelope_44100_0.35 44100
+envelope 0.35 1 88200 6300 44100
+end
+scenario envelope_44100_0.7 44100
+envelope 0.7 1 88200 6300 44100
+end
+scenario envelope_44100_1 44100
+envelope 1 1 88200 6300 44100
+end
+scenario envelope_48000_0 48000
+envelope 0 1 96000 6857 48000
+end
+scenario envelope_48000_0.35 48000
+envelope 0.35 1 96000 6857 48000
+end
+scenario envelope_48000_0.7 48000
+envelope 0.7 1 96000 6857 48000
+end
+scenario envelope_48000_1 48000
+envelope 1 1 96000 6857 48000
+end
+scenario envelope_96000_0 96000
+envelope 0 1 192000 13714 96000
+end
+scenario envelope_96000_0.35 96000
+envelope 0.35 1 192000 13714 96000
+end
+scenario envelope_96000_0.7 96000
+envelope 0.7 1 192000 13714 96000
+end
+scenario envelope_96000_1 96000
+envelope 1 1 192000 13714 96000
+end
+scenario envelope_192000_0 192000
+envelope 0 1 384000 27428 192000
+end
+scenario envelope_192000_0.35 192000
+envelope 0.35 1 384000 27428 192000
+end
+scenario envelope_192000_0.7 192000
+envelope 0.7 1 384000 27428 192000
+end
+scenario envelope_192000_1 192000
+envelope 1 1 384000 27428 192000
+end
+scenario envelope_partial_strikes 48000
+envelope 0.123 0.46666667 96000 1000 48000
+end
+scenario envelope_every_sample 48000
+envelope 0.5 0.6 4800 1 48000
+end
+scenario envelope_decay_out_of_range 48000
+envelope 7 1 48000 24000 48000
+end
+scenario envelope_decay_negative 48000
+envelope -3 1 48000 24000 48000
+end
+
+# Every pattern, low-pass and band-pass, a bar and a bit at 140 BPM (stereo, the knobs
+# moved off their defaults so each pattern sounds differently).
+scenario pattern_1_lp 48000
+input saw 55
+set pattern 1
+set mode 0
+set freq 0.120
+set q 0.224
+set amount 0.980
+set decay 0.078
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_2_lp 48000
+input saw 220
+set pattern 2
+set mode 0
+set freq 0.140
+set q 0.248
+set amount 0.960
+set decay 0.106
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_3_lp 48000
+input noise
+set pattern 3
+set mode 0
+set freq 0.160
+set q 0.272
+set amount 0.940
+set decay 0.134
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_4_lp 48000
+input saw 55
+set pattern 4
+set mode 0
+set freq 0.180
+set q 0.296
+set amount 0.920
+set decay 0.162
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_5_lp 48000
+input saw 220
+set pattern 5
+set mode 0
+set freq 0.200
+set q 0.320
+set amount 0.900
+set decay 0.190
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_6_lp 48000
+input noise
+set pattern 6
+set mode 0
+set freq 0.220
+set q 0.344
+set amount 0.880
+set decay 0.218
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_7_lp 48000
+input saw 55
+set pattern 7
+set mode 0
+set freq 0.240
+set q 0.368
+set amount 0.860
+set decay 0.246
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_8_lp 48000
+input saw 220
+set pattern 8
+set mode 0
+set freq 0.260
+set q 0.392
+set amount 0.840
+set decay 0.274
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_9_lp 48000
+input noise
+set pattern 9
+set mode 0
+set freq 0.280
+set q 0.416
+set amount 0.820
+set decay 0.302
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_10_lp 48000
+input saw 55
+set pattern 10
+set mode 0
+set freq 0.300
+set q 0.440
+set amount 0.800
+set decay 0.330
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_11_lp 48000
+input saw 220
+set pattern 11
+set mode 0
+set freq 0.320
+set q 0.464
+set amount 0.780
+set decay 0.358
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_12_lp 48000
+input noise
+set pattern 12
+set mode 0
+set freq 0.340
+set q 0.488
+set amount 0.760
+set decay 0.386
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_13_lp 48000
+input saw 55
+set pattern 13
+set mode 0
+set freq 0.360
+set q 0.512
+set amount 0.740
+set decay 0.414
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_14_lp 48000
+input saw 220
+set pattern 14
+set mode 0
+set freq 0.380
+set q 0.536
+set amount 0.720
+set decay 0.442
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_15_lp 48000
+input noise
+set pattern 15
+set mode 0
+set freq 0.400
+set q 0.560
+set amount 0.700
+set decay 0.470
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_16_lp 48000
+input saw 55
+set pattern 16
+set mode 0
+set freq 0.420
+set q 0.584
+set amount 0.680
+set decay 0.498
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_17_lp 48000
+input saw 220
+set pattern 17
+set mode 0
+set freq 0.440
+set q 0.608
+set amount 0.660
+set decay 0.526
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_18_lp 48000
+input noise
+set pattern 18
+set mode 0
+set freq 0.460
+set q 0.632
+set amount 0.640
+set decay 0.554
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_19_lp 48000
+input saw 55
+set pattern 19
+set mode 0
+set freq 0.480
+set q 0.656
+set amount 0.620
+set decay 0.582
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_20_lp 48000
+input saw 220
+set pattern 20
+set mode 0
+set freq 0.500
+set q 0.680
+set amount 0.600
+set decay 0.610
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_21_lp 48000
+input noise
+set pattern 21
+set mode 0
+set freq 0.520
+set q 0.704
+set amount 0.580
+set decay 0.638
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_22_lp 48000
+input saw 55
+set pattern 22
+set mode 0
+set freq 0.540
+set q 0.728
+set amount 0.560
+set decay 0.666
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_23_lp 48000
+input saw 220
+set pattern 23
+set mode 0
+set freq 0.560
+set q 0.752
+set amount 0.540
+set decay 0.694
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_24_lp 48000
+input noise
+set pattern 24
+set mode 0
+set freq 0.580
+set q 0.776
+set amount 0.520
+set decay 0.722
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_25_lp 48000
+input saw 55
+set pattern 25
+set mode 0
+set freq 0.600
+set q 0.800
+set amount 0.500
+set decay 0.750
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_26_lp 48000
+input saw 220
+set pattern 26
+set mode 0
+set freq 0.620
+set q 0.824
+set amount 0.480
+set decay 0.778
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_27_lp 48000
+input noise
+set pattern 27
+set mode 0
+set freq 0.640
+set q 0.848
+set amount 0.460
+set decay 0.806
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_28_lp 48000
+input saw 55
+set pattern 28
+set mode 0
+set freq 0.660
+set q 0.872
+set amount 0.440
+set decay 0.834
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_29_lp 48000
+input saw 220
+set pattern 29
+set mode 0
+set freq 0.680
+set q 0.896
+set amount 0.420
+set decay 0.862
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_30_lp 48000
+input noise
+set pattern 30
+set mode 0
+set freq 0.700
+set q 0.920
+set amount 0.400
+set decay 0.890
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_31_lp 48000
+input saw 55
+set pattern 31
+set mode 0
+set freq 0.720
+set q 0.944
+set amount 0.380
+set decay 0.918
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_32_lp 48000
+input saw 220
+set pattern 32
+set mode 0
+set freq 0.740
+set q 0.968
+set amount 0.360
+set decay 0.946
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_1_bp 48000
+input saw 55
+set pattern 1
+set mode 1
+set freq 0.120
+set q 0.224
+set amount 0.980
+set decay 0.078
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_2_bp 48000
+input saw 220
+set pattern 2
+set mode 1
+set freq 0.140
+set q 0.248
+set amount 0.960
+set decay 0.106
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_3_bp 48000
+input noise
+set pattern 3
+set mode 1
+set freq 0.160
+set q 0.272
+set amount 0.940
+set decay 0.134
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_4_bp 48000
+input saw 55
+set pattern 4
+set mode 1
+set freq 0.180
+set q 0.296
+set amount 0.920
+set decay 0.162
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_5_bp 48000
+input saw 220
+set pattern 5
+set mode 1
+set freq 0.200
+set q 0.320
+set amount 0.900
+set decay 0.190
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_6_bp 48000
+input noise
+set pattern 6
+set mode 1
+set freq 0.220
+set q 0.344
+set amount 0.880
+set decay 0.218
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_7_bp 48000
+input saw 55
+set pattern 7
+set mode 1
+set freq 0.240
+set q 0.368
+set amount 0.860
+set decay 0.246
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_8_bp 48000
+input saw 220
+set pattern 8
+set mode 1
+set freq 0.260
+set q 0.392
+set amount 0.840
+set decay 0.274
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_9_bp 48000
+input noise
+set pattern 9
+set mode 1
+set freq 0.280
+set q 0.416
+set amount 0.820
+set decay 0.302
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_10_bp 48000
+input saw 55
+set pattern 10
+set mode 1
+set freq 0.300
+set q 0.440
+set amount 0.800
+set decay 0.330
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_11_bp 48000
+input saw 220
+set pattern 11
+set mode 1
+set freq 0.320
+set q 0.464
+set amount 0.780
+set decay 0.358
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_12_bp 48000
+input noise
+set pattern 12
+set mode 1
+set freq 0.340
+set q 0.488
+set amount 0.760
+set decay 0.386
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_13_bp 48000
+input saw 55
+set pattern 13
+set mode 1
+set freq 0.360
+set q 0.512
+set amount 0.740
+set decay 0.414
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_14_bp 48000
+input saw 220
+set pattern 14
+set mode 1
+set freq 0.380
+set q 0.536
+set amount 0.720
+set decay 0.442
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_15_bp 48000
+input noise
+set pattern 15
+set mode 1
+set freq 0.400
+set q 0.560
+set amount 0.700
+set decay 0.470
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_16_bp 48000
+input saw 55
+set pattern 16
+set mode 1
+set freq 0.420
+set q 0.584
+set amount 0.680
+set decay 0.498
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_17_bp 48000
+input saw 220
+set pattern 17
+set mode 1
+set freq 0.440
+set q 0.608
+set amount 0.660
+set decay 0.526
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_18_bp 48000
+input noise
+set pattern 18
+set mode 1
+set freq 0.460
+set q 0.632
+set amount 0.640
+set decay 0.554
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_19_bp 48000
+input saw 55
+set pattern 19
+set mode 1
+set freq 0.480
+set q 0.656
+set amount 0.620
+set decay 0.582
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_20_bp 48000
+input saw 220
+set pattern 20
+set mode 1
+set freq 0.500
+set q 0.680
+set amount 0.600
+set decay 0.610
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_21_bp 48000
+input noise
+set pattern 21
+set mode 1
+set freq 0.520
+set q 0.704
+set amount 0.580
+set decay 0.638
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_22_bp 48000
+input saw 55
+set pattern 22
+set mode 1
+set freq 0.540
+set q 0.728
+set amount 0.560
+set decay 0.666
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_23_bp 48000
+input saw 220
+set pattern 23
+set mode 1
+set freq 0.560
+set q 0.752
+set amount 0.540
+set decay 0.694
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_24_bp 48000
+input noise
+set pattern 24
+set mode 1
+set freq 0.580
+set q 0.776
+set amount 0.520
+set decay 0.722
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_25_bp 48000
+input saw 55
+set pattern 25
+set mode 1
+set freq 0.600
+set q 0.800
+set amount 0.500
+set decay 0.750
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_26_bp 48000
+input saw 220
+set pattern 26
+set mode 1
+set freq 0.620
+set q 0.824
+set amount 0.480
+set decay 0.778
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_27_bp 48000
+input noise
+set pattern 27
+set mode 1
+set freq 0.640
+set q 0.848
+set amount 0.460
+set decay 0.806
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_28_bp 48000
+input saw 55
+set pattern 28
+set mode 1
+set freq 0.660
+set q 0.872
+set amount 0.440
+set decay 0.834
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_29_bp 48000
+input saw 220
+set pattern 29
+set mode 1
+set freq 0.680
+set q 0.896
+set amount 0.420
+set decay 0.862
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_30_bp 48000
+input noise
+set pattern 30
+set mode 1
+set freq 0.700
+set q 0.920
+set amount 0.400
+set decay 0.890
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_31_bp 48000
+input saw 55
+set pattern 31
+set mode 1
+set freq 0.720
+set q 0.944
+set amount 0.380
+set decay 0.918
+apply
+transport 1 0 140
+render 52000 512
+end
+scenario pattern_32_bp 48000
+input saw 220
+set pattern 32
+set mode 1
+set freq 0.740
+set q 0.968
+set amount 0.360
+set decay 0.946
+apply
+transport 1 0 140
+render 52000 512
+end
+
+# The defaults, mono and stereo, at every rate, in odd blocks.
+scenario defaults_44100_stereo_1 44100
+apply
+transport 1 0 120
+render 22050 1
+end
+scenario defaults_44100_stereo_7 44100
+apply
+transport 1 0 120
+render 88200 7
+end
+scenario defaults_44100_stereo_63 44100
+apply
+transport 1 0 120
+render 88200 63
+end
+scenario defaults_44100_stereo_64 44100
+apply
+transport 1 0 120
+render 88200 64
+end
+scenario defaults_44100_stereo_65 44100
+apply
+transport 1 0 120
+render 88200 65
+end
+scenario defaults_44100_stereo_333 44100
+apply
+transport 1 0 120
+render 88200 333
+end
+scenario defaults_44100_stereo_4096 44100
+apply
+transport 1 0 120
+render 88200 4096
+end
+scenario defaults_44100_mono_1 44100 mono
+apply
+transport 1 0 120
+render 22050 1
+end
+scenario defaults_44100_mono_7 44100 mono
+apply
+transport 1 0 120
+render 88200 7
+end
+scenario defaults_44100_mono_63 44100 mono
+apply
+transport 1 0 120
+render 88200 63
+end
+scenario defaults_44100_mono_64 44100 mono
+apply
+transport 1 0 120
+render 88200 64
+end
+scenario defaults_44100_mono_65 44100 mono
+apply
+transport 1 0 120
+render 88200 65
+end
+scenario defaults_44100_mono_333 44100 mono
+apply
+transport 1 0 120
+render 88200 333
+end
+scenario defaults_44100_mono_4096 44100 mono
+apply
+transport 1 0 120
+render 88200 4096
+end
+scenario defaults_48000_stereo_1 48000
+apply
+transport 1 0 120
+render 24000 1
+end
+scenario defaults_48000_stereo_7 48000
+apply
+transport 1 0 120
+render 96000 7
+end
+scenario defaults_48000_stereo_63 48000
+apply
+transport 1 0 120
+render 96000 63
+end
+scenario defaults_48000_stereo_64 48000
+apply
+transport 1 0 120
+render 96000 64
+end
+scenario defaults_48000_stereo_65 48000
+apply
+transport 1 0 120
+render 96000 65
+end
+scenario defaults_48000_stereo_333 48000
+apply
+transport 1 0 120
+render 96000 333
+end
+scenario defaults_48000_stereo_4096 48000
+apply
+transport 1 0 120
+render 96000 4096
+end
+scenario defaults_48000_mono_1 48000 mono
+apply
+transport 1 0 120
+render 24000 1
+end
+scenario defaults_48000_mono_7 48000 mono
+apply
+transport 1 0 120
+render 96000 7
+end
+scenario defaults_48000_mono_63 48000 mono
+apply
+transport 1 0 120
+render 96000 63
+end
+scenario defaults_48000_mono_64 48000 mono
+apply
+transport 1 0 120
+render 96000 64
+end
+scenario defaults_48000_mono_65 48000 mono
+apply
+transport 1 0 120
+render 96000 65
+end
+scenario defaults_48000_mono_333 48000 mono
+apply
+transport 1 0 120
+render 96000 333
+end
+scenario defaults_48000_mono_4096 48000 mono
+apply
+transport 1 0 120
+render 96000 4096
+end
+scenario defaults_96000_stereo_1 96000
+apply
+transport 1 0 120
+render 48000 1
+end
+scenario defaults_96000_stereo_7 96000
+apply
+transport 1 0 120
+render 192000 7
+end
+scenario defaults_96000_stereo_63 96000
+apply
+transport 1 0 120
+render 192000 63
+end
+scenario defaults_96000_stereo_64 96000
+apply
+transport 1 0 120
+render 192000 64
+end
+scenario defaults_96000_stereo_65 96000
+apply
+transport 1 0 120
+render 192000 65
+end
+scenario defaults_96000_stereo_333 96000
+apply
+transport 1 0 120
+render 192000 333
+end
+scenario defaults_96000_stereo_4096 96000
+apply
+transport 1 0 120
+render 192000 4096
+end
+scenario defaults_96000_mono_1 96000 mono
+apply
+transport 1 0 120
+render 48000 1
+end
+scenario defaults_96000_mono_7 96000 mono
+apply
+transport 1 0 120
+render 192000 7
+end
+scenario defaults_96000_mono_63 96000 mono
+apply
+transport 1 0 120
+render 192000 63
+end
+scenario defaults_96000_mono_64 96000 mono
+apply
+transport 1 0 120
+render 192000 64
+end
+scenario defaults_96000_mono_65 96000 mono
+apply
+transport 1 0 120
+render 192000 65
+end
+scenario defaults_96000_mono_333 96000 mono
+apply
+transport 1 0 120
+render 192000 333
+end
+scenario defaults_96000_mono_4096 96000 mono
+apply
+transport 1 0 120
+render 192000 4096
+end
+scenario defaults_192000_stereo_1 192000
+apply
+transport 1 0 120
+render 96000 1
+end
+scenario defaults_192000_stereo_7 192000
+apply
+transport 1 0 120
+render 384000 7
+end
+scenario defaults_192000_stereo_63 192000
+apply
+transport 1 0 120
+render 384000 63
+end
+scenario defaults_192000_stereo_64 192000
+apply
+transport 1 0 120
+render 384000 64
+end
+scenario defaults_192000_stereo_65 192000
+apply
+transport 1 0 120
+render 384000 65
+end
+scenario defaults_192000_stereo_333 192000
+apply
+transport 1 0 120
+render 384000 333
+end
+scenario defaults_192000_stereo_4096 192000
+apply
+transport 1 0 120
+render 384000 4096
+end
+scenario defaults_192000_mono_1 192000 mono
+apply
+transport 1 0 120
+render 96000 1
+end
+scenario defaults_192000_mono_7 192000 mono
+apply
+transport 1 0 120
+render 384000 7
+end
+scenario defaults_192000_mono_63 192000 mono
+apply
+transport 1 0 120
+render 384000 63
+end
+scenario defaults_192000_mono_64 192000 mono
+apply
+transport 1 0 120
+render 384000 64
+end
+scenario defaults_192000_mono_65 192000 mono
+apply
+transport 1 0 120
+render 384000 65
+end
+scenario defaults_192000_mono_333 192000 mono
+apply
+transport 1 0 120
+render 384000 333
+end
+scenario defaults_192000_mono_4096 192000 mono
+apply
+transport 1 0 120
+render 384000 4096
+end
+
+# Knobs turned while it plays: a new value every block, the blocks odd sizes so the
+# changes land inside the engine's 64-sample chunks; the smoothing follows each.
+scenario sweep_freq_1_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 24000 1
+end
+scenario sweep_freq_1_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 24000 1
+end
+scenario sweep_freq_2_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 13
+end
+scenario sweep_freq_2_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 13
+end
+scenario sweep_freq_3_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 37
+end
+scenario sweep_freq_3_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 37
+end
+scenario sweep_freq_4_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 100
+end
+scenario sweep_freq_4_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 0 1 96000 100
+end
+scenario sweep_freq_5_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 24000 1
+end
+scenario sweep_freq_5_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 24000 1
+end
+scenario sweep_freq_6_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 13
+end
+scenario sweep_freq_6_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 13
+end
+scenario sweep_freq_7_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 37
+end
+scenario sweep_freq_7_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 37
+end
+scenario sweep_freq_8_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 100
+end
+scenario sweep_freq_8_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep freq 1 0 96000 100
+end
+scenario sweep_q_9_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 24000 1
+end
+scenario sweep_q_9_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 24000 1
+end
+scenario sweep_q_10_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 13
+end
+scenario sweep_q_10_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 13
+end
+scenario sweep_q_11_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 37
+end
+scenario sweep_q_11_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 37
+end
+scenario sweep_q_12_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 100
+end
+scenario sweep_q_12_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep q 0 1 96000 100
+end
+scenario sweep_amount_13_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 24000 1
+end
+scenario sweep_amount_13_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 24000 1
+end
+scenario sweep_amount_14_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 13
+end
+scenario sweep_amount_14_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 13
+end
+scenario sweep_amount_15_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 37
+end
+scenario sweep_amount_15_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 37
+end
+scenario sweep_amount_16_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 100
+end
+scenario sweep_amount_16_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 0 1 96000 100
+end
+scenario sweep_amount_17_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 24000 1
+end
+scenario sweep_amount_17_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 24000 1
+end
+scenario sweep_amount_18_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 13
+end
+scenario sweep_amount_18_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 13
+end
+scenario sweep_amount_19_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 37
+end
+scenario sweep_amount_19_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 37
+end
+scenario sweep_amount_20_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 100
+end
+scenario sweep_amount_20_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep amount 1 0 96000 100
+end
+scenario sweep_decay_21_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 24000 1
+end
+scenario sweep_decay_21_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 24000 1
+end
+scenario sweep_decay_22_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 13
+end
+scenario sweep_decay_22_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 13
+end
+scenario sweep_decay_23_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 37
+end
+scenario sweep_decay_23_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 37
+end
+scenario sweep_decay_24_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 100
+end
+scenario sweep_decay_24_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 100
+end
+scenario sweep_decay_25_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 24000 1
+end
+scenario sweep_decay_25_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 24000 1
+end
+scenario sweep_decay_26_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 13
+end
+scenario sweep_decay_26_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 13
+end
+scenario sweep_decay_27_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 37
+end
+scenario sweep_decay_27_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 37
+end
+scenario sweep_decay_28_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 100
+end
+scenario sweep_decay_28_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 100
+end
+scenario sweep_mix_29_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 24000 1
+end
+scenario sweep_mix_29_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 24000 1
+end
+scenario sweep_mix_30_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 13
+end
+scenario sweep_mix_30_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 13
+end
+scenario sweep_mix_31_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 37
+end
+scenario sweep_mix_31_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 37
+end
+scenario sweep_mix_32_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 100
+end
+scenario sweep_mix_32_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 100
+end
+scenario sweep_mix_33_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 24000 1
+end
+scenario sweep_mix_33_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 24000 1
+end
+scenario sweep_mix_34_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 13
+end
+scenario sweep_mix_34_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 13
+end
+scenario sweep_mix_35_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 37
+end
+scenario sweep_mix_35_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 37
+end
+scenario sweep_mix_36_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 100
+end
+scenario sweep_mix_36_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 100
+end
+scenario sweep_level_37_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 24000 1
+end
+scenario sweep_level_37_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 24000 1
+end
+scenario sweep_level_38_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 13
+end
+scenario sweep_level_38_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 13
+end
+scenario sweep_level_39_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 37
+end
+scenario sweep_level_39_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 37
+end
+scenario sweep_level_40_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 100
+end
+scenario sweep_level_40_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 100
+end
+scenario sweep_level_41_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 24000 1
+end
+scenario sweep_level_41_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 24000 1
+end
+scenario sweep_level_42_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 13
+end
+scenario sweep_level_42_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 13
+end
+scenario sweep_level_43_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 37
+end
+scenario sweep_level_43_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 37
+end
+scenario sweep_level_44_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 100
+end
+scenario sweep_level_44_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 100
+end
+scenario sweep_mode_45_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 24000 1
+end
+scenario sweep_mode_45_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 24000 1
+end
+scenario sweep_mode_46_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 13
+end
+scenario sweep_mode_46_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 13
+end
+scenario sweep_mode_47_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 37
+end
+scenario sweep_mode_47_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 37
+end
+scenario sweep_mode_48_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 100
+end
+scenario sweep_mode_48_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 100
+end
+scenario sweep_pattern_49_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 24000 1
+end
+scenario sweep_pattern_49_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 24000 1
+end
+scenario sweep_pattern_50_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 13
+end
+scenario sweep_pattern_50_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 13
+end
+scenario sweep_pattern_51_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 37
+end
+scenario sweep_pattern_51_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 37
+end
+scenario sweep_pattern_52_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 100
+end
+scenario sweep_pattern_52_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 100
+end
+scenario sweep_pattern_53_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 24000 1
+end
+scenario sweep_pattern_53_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 24000 1
+end
+scenario sweep_pattern_54_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 13
+end
+scenario sweep_pattern_54_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 13
+end
+scenario sweep_pattern_55_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 37
+end
+scenario sweep_pattern_55_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 37
+end
+scenario sweep_pattern_56_m0 48000
+set mode 0
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 100
+end
+scenario sweep_pattern_56_m1 48000
+set mode 1
+set q 0.7
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 100
+end
+scenario sweep_everything 96000
+input noise
+transport 1 0 100
+sweep freq 0 1 30000 17
+sweep q 1 0 30000 19
+sweep amount 0.3 1 30000 23
+sweep decay 1 0 30000 29
+sweep mix 0 1 30000 31
+sweep level 12 -24 30000 37
+sweep pattern 1 32 96000 41
+end
+
+# The transport: stopped (nothing struck, the filter settles back to FREQ), started,
+# stopped again, started in the middle of a step (it waits for the next), no timeline.
+scenario stopped_from_start 48000
+apply
+transport 0 0 120
+render 48000 512
+end
+scenario no_timeline 48000
+set amount 1
+apply
+notimeline
+render 48000 480
+end
+scenario start_stop_start 48000
+set pattern 3
+set decay 0.9
+apply
+transport 1 0 120
+render 30000 512
+transport 0 1.4 120
+render 30000 512
+transport 1 1.4 120
+render 30000 512
+notimeline
+render 20000 512
+transport 1 2 120
+render 30000 512
+end
+scenario start_mid_step 48000
+set pattern 2
+apply
+transport 1 0.37 120
+render 48000 256
+end
+scenario start_on_step_boundary_block_split 44100
+set pattern 11
+apply
+transport 1 0.25 120
+render 44100 1
+end
+scenario preroll 48000
+set pattern 7
+apply
+transport 1 -2 120
+render 96000 500
+end
+scenario stop_with_mono 48000 mono
+set pattern 9
+apply
+transport 1 0 90
+render 40000 128
+transport 0 0 90
+render 40000 128
+end
+
+# Loops: back to the bar on a block boundary (the step is struck again), back into the
+# middle of a step (it waits), forward jumps, a loop every few blocks.
+scenario loop_to_bar 48000
+set pattern 12
+apply
+transport 1 0 120
+render 96000 480
+seek 0
+render 96000 480
+seek 0
+render 48000 480
+end
+scenario loop_mid_step 48000
+set pattern 13
+apply
+transport 1 2.5 120
+render 30000 512
+seek 0.6
+render 30000 512
+seek 1.1
+render 30000 512
+end
+scenario loop_forward 48000
+set pattern 18
+apply
+transport 1 0 120
+render 20000 512
+seek 16
+render 20000 512
+seek 3.75
+render 20000 512
+end
+scenario loop_tight 48000
+set pattern 30
+set decay 0.2
+apply
+transport 1 0 128
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+render 11250 375
+seek 0
+end
+scenario loop_backwards_in_block_tiny 96000
+set pattern 20
+apply
+transport 1 1 133
+render 9600 7
+seek 0.999
+render 9600 7
+seek -0.001
+render 9600 7
+end
+
+# Tempo changes while it plays, and tempi and positions out of the ordinary.
+scenario tempo_changes 48000
+set pattern 15
+apply
+transport 1 0 80
+render 24000 512
+tempo 160
+render 24000 512
+tempo 97.3
+render 24000 512
+tempo 300
+render 24000 512
+tempo 33
+render 24000 512
+end
+scenario tempo_every_block 44100
+set pattern 24
+apply
+transport 1 0 120
+tempo 60
+render 2205 441
+tempo 67
+render 2205 441
+tempo 74
+render 2205 441
+tempo 81
+render 2205 441
+tempo 88
+render 2205 441
+tempo 95
+render 2205 441
+tempo 102
+render 2205 441
+tempo 109
+render 2205 441
+tempo 116
+render 2205 441
+tempo 123
+render 2205 441
+tempo 130
+render 2205 441
+tempo 137
+render 2205 441
+tempo 144
+render 2205 441
+tempo 151
+render 2205 441
+tempo 158
+render 2205 441
+tempo 165
+render 2205 441
+tempo 172
+render 2205 441
+tempo 179
+render 2205 441
+tempo 186
+render 2205 441
+tempo 193
+render 2205 441
+tempo 200
+render 2205 441
+tempo 207
+render 2205 441
+tempo 214
+render 2205 441
+tempo 221
+render 2205 441
+tempo 228
+render 2205 441
+tempo 235
+render 2205 441
+tempo 242
+render 2205 441
+tempo 249
+render 2205 441
+tempo 256
+render 2205 441
+tempo 263
+render 2205 441
+tempo 270
+render 2205 441
+tempo 277
+render 2205 441
+tempo 284
+render 2205 441
+tempo 291
+render 2205 441
+tempo 298
+render 2205 441
+tempo 305
+render 2205 441
+tempo 312
+render 2205 441
+tempo 319
+render 2205 441
+tempo 326
+render 2205 441
+tempo 333
+render 2205 441
+tempo 340
+render 2205 441
+end
+scenario tempo_zero 48000
+apply
+transport 1 0 0
+render 24000 512
+end
+scenario tempo_negative 48000
+apply
+transport 1 0 -120
+render 24000 512
+end
+scenario tempo_1000 48000
+set pattern 3
+apply
+transport 1 0 1000
+render 48000 64
+end
+scenario tempo_1 48000
+set pattern 3
+apply
+transport 1 0 1
+render 192000 4096
+end
+scenario position_nan 48000
+apply
+transport 1 nan 120
+render 24000 512
+end
+scenario position_inf 48000
+apply
+transport 1 -inf 120
+render 24000 512
+end
+scenario position_far 48000
+set pattern 6
+apply
+transport 1 1099511627776 120
+render 48000 512
+end
+
+# Silence and denormals: the envelope and the filter ring down into the denormal range,
+# with flush-to-zero (as the plug-in runs) and without.
+scenario silence_ftz1 48000
+ftz 1
+input silence
+set q 1
+apply
+transport 1 0 120
+render 192000 512
+ftz 1
+end
+scenario ringdown_ftz1 48000
+ftz 1
+set q 1
+set decay 1
+apply
+input impulse 100000
+transport 1 0 120
+render 240000 1000
+ftz 1
+end
+scenario tiny_input_ftz1 48000
+ftz 1
+input tiny
+set q 0.9
+apply
+transport 1 0 120
+render 96000 512
+ftz 1
+end
+scenario stopped_ringdown_ftz1 48000
+ftz 1
+input impulse 30000
+set q 1
+apply
+transport 1 0 120
+render 24000 512
+transport 0 0 120
+input silence
+render 480000 4096
+ftz 1
+end
+scenario silence_ftz0 48000
+ftz 0
+input silence
+set q 1
+apply
+transport 1 0 120
+render 192000 512
+ftz 1
+end
+scenario ringdown_ftz0 48000
+ftz 0
+set q 1
+set decay 1
+apply
+input impulse 100000
+transport 1 0 120
+render 240000 1000
+ftz 1
+end
+scenario tiny_input_ftz0 48000
+ftz 0
+input tiny
+set q 0.9
+apply
+transport 1 0 120
+render 96000 512
+ftz 1
+end
+scenario stopped_ringdown_ftz0 48000
+ftz 0
+input impulse 30000
+set q 1
+apply
+transport 1 0 120
+render 24000 512
+transport 0 0 120
+input silence
+render 480000 4096
+ftz 1
+end
+
+# Other inputs, loud ones, and settings outside their ranges (the engine clamps them).
+scenario dc_input 48000
+input dc 0.5
+set mode 1
+apply
+transport 1 0 120
+render 96000 512
+end
+scenario loud_noise_resonant 48000
+input noise
+gain 8
+set q 1
+set amount 1
+set pattern 8
+apply
+transport 1 0 120
+render 96000 512
+end
+scenario impulses_bp 96000
+input impulse 997
+set mode 1
+set q 0.95
+set pattern 26
+apply
+transport 1 0 128
+render 192000 777
+end
+scenario out_of_range 48000
+set freq 1.5
+set q 1.2
+set amount 2
+set decay 3
+set mix -1
+set level 40
+set pattern 99
+set mode 1
+apply
+transport 1 0 120
+render 48000 512
+set freq -1
+set amount -1
+set decay -1
+set mix 3
+set level -99
+set pattern -5
+set mode 0
+apply
+render 48000 512
+end
+scenario mode_flipping 48000
+transport 1 0 120
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+set mode 0
+apply
+render 3000 300
+set mode 1
+apply
+render 3000 300
+end
+
+# The host changing its rate, and resets, while it plays.
+scenario prepare_again 48000
+set pattern 19
+apply
+transport 1 0 120
+render 48000 512
+prepare 96000
+transport 1 2 120
+render 96000 1024
+prepare 44100
+transport 1 6 120
+render 44100 441
+prepare 192000
+transport 1 9 120
+render 192000 2048
+end
+scenario reset_while_playing 48000
+set pattern 2
+set decay 0.8
+apply
+transport 1 0 120
+render 30000 512
+reset
+render 30000 512
+reset
+render 30000 512
+end
+scenario mono_every_rate 44100 mono
+input noise
+set pattern 27
+apply
+transport 1 0 120
+render 44100 100
+prepare 192000
+transport 1 0 120
+render 96000 1000
+end

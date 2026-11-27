@@ -222,6 +222,28 @@ current program in their own way, so save what matters in `SaveState` too.
 - **Floating point:** the wrapper masks FP exceptions around every call. Don't
   unmask them yourself.
 
+### Units shared by several plug-ins
+
+`pascaljuce_add_plugin` puts `pascal/` and the folder of `PASCAL_SOURCE` on
+the unit path. `PASCAL_UNIT_PATHS` adds more folders (relative to the
+plug-in's own `CMakeLists.txt`); their units are on the path (`-Fu`, and
+`-Fi` for include files) and every `.pas`/`.inc`/`.lfm` in them triggers a
+rebuild of the library, so one plug-in can use another's units without a
+copy:
+
+```cmake
+pascaljuce_add_plugin(MzPCG
+    ...
+    PASCAL_SOURCE     MzPCG.dpr
+    PASCAL_UNIT_PATHS ../MzPCF/PCF   # MzPCF's patterns, step clock, envelope, panel controls
+)
+```
+
+Keep such units free of any one plug-in's units (the MzPCF example keeps its
+engine and its panel's controls in `PCF/`, which uses only `pascal/` and
+itself), and give them a prefix of their own (`Pcf...`): FPC finds units by
+name, so two folders on the path must not both have a `Params.pas`.
+
 ## Editor
 
 By default a plug-in shows JUCE's generic editor: one control per
@@ -763,6 +785,15 @@ library; nothing is read from disk at run time.
   1,000,000 values in all. A malformed or truncated stream is always an
   `EJuceLayoutError` with the byte offset, never a crash; loading is
   all-or-nothing (on error no control is added).
+
+Controls of your own in a designed form: the IDE packages know only the
+ready-made classes, so put a ready-made *stand-in* in the form (a
+`TJucePanel`, `TJuceKnob`, `TJuceDisplay`, ...) with the name, place and
+colours you want, and swap it for your control in the editor's constructor,
+after `JuceLoadLayoutResource`, keeping its place in the drawing order and
+copying the published properties the two classes share. MzPCF does this for
+its knobs, readouts and faces (`PcfReplaceControl` in
+`examples/plugins/MzPCF/PCF/PcfControls.pas`).
 
 Not supported (yet): anchors and `Align` (positions are absolute), frames and
 form inheritance, collections, and palette icons and stock filmstrip images

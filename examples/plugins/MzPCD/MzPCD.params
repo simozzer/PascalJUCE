@@ -1,0 +1,14 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+pattern	int	Pattern		1	32	1	1	
+rate	choice	Rate		0	2	1	1	1/8|1/16|1/32
+drive	float	Drive		0	1	0.551181078	0	
+shape	float	Shape		0	1	0	0	
+tone	float	Tone		0	1	0.5	0	
+feedback	float	Feedback		0	1	0	0	
+driveAmount	float	Pattern Drive		0	1	0.5	0	
+toneAmount	float	Pattern Tone		-1	1	0	0	
+feedbackAmount	float	Pattern Feedback		0	1	0	0	
+decay	float	Pattern Decay		0	1	0.349999994	0	
+mix	float	Mix		0	1	1	0	
+level	float	Level		-24	12	0	0	

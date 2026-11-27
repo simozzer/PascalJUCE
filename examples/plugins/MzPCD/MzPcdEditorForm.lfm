@@ -1,0 +1,354 @@
+object MzPcdEditorForm: TMzPcdEditorForm
+  Left = 300
+  Height = 186
+  Top = 200
+  Width = 966
+  Caption = 'MzPCD_Pascal editor (design only)'
+  ClientHeight = 186
+  ClientWidth = 966
+  Color = 2828070
+  LCLVersion = '4.8.0.0'
+  object Face: TJucePanel
+    Left = 10
+    Height = 166
+    Top = 10
+    Width = 946
+    Color = -12434618
+    GradientColor = -12960962
+    BorderColor = -1728053248
+    BorderWidth = 1
+    CornerRadius = 3
+  end
+  object Title: TJuceLabel
+    Left = 24
+    Height = 28
+    Top = 18
+    Width = 300
+    Caption = 'MzPCD'
+    FontSize = 22
+    Bold = True
+    Alignment = jaLeft
+    Color = -1447450
+  end
+  object Subtitle: TJuceLabel
+    Left = 106
+    Height = 28
+    Top = 18
+    Width = 400
+    Caption = 'PATTERN CONTROLLED DISTORTION'
+    FontSize = 10.5
+    Bold = True
+    Alignment = jaLeft
+    Color = -1712723482
+  end
+  object ProjectLink: TJuceLink
+    Left = 582
+    Height = 28
+    Top = 18
+    Width = 360
+    Hint = 'The project''s page: the latest version and what''s new in it, the source, and where to' +
+      ' report a problem. Opens in your browser.'
+    Caption = 'MzPCD_Pascal 0.4.0  -  github.com/simozzer/MzPCD'
+    FontSize = 11.5
+    Bold = True
+    Alignment = jaRight
+    Color = -9785089
+    Url = 'https://github.com/simozzer/MzPCD'
+  end
+  object PcdUnit: TJucePanel
+    Left = 20
+    Height = 120
+    Top = 48
+    Width = 788
+    Color = -12824733
+    GradientColor = -13285800
+    BorderColor = -1728053248
+    BorderWidth = 1
+    CornerRadius = 3
+  end
+  object OutUnit: TJucePanel
+    Left = 816
+    Height = 120
+    Top = 48
+    Width = 130
+    Color = -12824733
+    GradientColor = -13285800
+    BorderColor = -1728053248
+    BorderWidth = 1
+    CornerRadius = 3
+  end
+  object PcdTag: TJucePanel
+    Left = 28
+    Height = 15
+    Top = 54
+    Width = 60
+    Color = -14536642
+    BorderWidth = 0
+    CornerRadius = 2
+  end
+  object PcdTagText: TJuceLabel
+    Left = 28
+    Height = 15
+    Top = 54
+    Width = 60
+    Caption = 'PCD'
+    FontSize = 10.5
+    Bold = True
+    Color = -1447450
+  end
+  object OutTag: TJucePanel
+    Left = 824
+    Height = 15
+    Top = 54
+    Width = 60
+    Color = -14536642
+    BorderWidth = 0
+    CornerRadius = 2
+  end
+  object OutTagText: TJuceLabel
+    Left = 824
+    Height = 15
+    Top = 54
+    Width = 60
+    Caption = 'OUTPUT'
+    FontSize = 10.5
+    Bold = True
+    Color = -1447450
+  end
+  object LevelsGroup: TJuceLabel
+    Left = 318
+    Height = 12
+    Top = 72
+    Width = 222
+    Caption = 'LEVELS'
+    FontSize = 9
+    Bold = True
+    Color = -857085466
+  end
+  object PushesGroup: TJuceLabel
+    Left = 558
+    Height = 12
+    Top = 72
+    Width = 222
+    Caption = 'PATTERN PUSHES'
+    FontSize = 9
+    Bold = True
+    Color = -857085466
+  end
+  object PatternLegend: TJuceLabel
+    Left = 28
+    Height = 12
+    Top = 81
+    Width = 60
+    Caption = 'PATTERN'
+    FontSize = 9
+    Bold = True
+    Alignment = jaLeft
+    Color = -1075189274
+  end
+  object PatternNumber: TJuceDisplay
+    Left = 28
+    Height = 32
+    Top = 94
+    Width = 44
+    Caption = '1'
+    Color = -15333882
+    TextColor = -50398
+    BorderColor = -16777216
+    BorderWidth = 1
+    CornerRadius = 2
+    FontName = 'Lucida Console'
+    FontSize = 25
+    Bold = True
+    Alignment = jaRight
+  end
+  object PatternDisplay: TJuceDisplay
+    Left = 80
+    Height = 78
+    Top = 80
+    Width = 164
+    Color = -15333882
+    TextColor = -50398
+    BorderColor = -16777216
+    BorderWidth = 1
+    CornerRadius = 2
+  end
+  object Rate: TJuceButton
+    Left = 252
+    Height = 46
+    Top = 82
+    Width = 54
+    ParameterId = 'rate'
+    Caption = 'RATE'
+    ShowLed = False
+    FaceColor = -15000803
+    TextColor = -1447450
+    CornerRadius = 3
+  end
+  object Drive: TJuceKnob
+    Left = 318
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'drive'
+    Caption = 'DRIVE'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Shape: TJuceKnob
+    Left = 374
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'shape'
+    Caption = 'SHAPE'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Tone: TJuceKnob
+    Left = 430
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'tone'
+    Caption = 'TONE'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Feedback: TJuceKnob
+    Left = 486
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'feedback'
+    Caption = 'FDBK'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object DriveAmount: TJuceKnob
+    Left = 558
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'driveAmount'
+    Caption = 'DRIVE'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object ToneAmount: TJuceKnob
+    Left = 614
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'toneAmount'
+    Caption = 'TONE'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object FeedbackAmount: TJuceKnob
+    Left = 670
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'feedbackAmount'
+    Caption = 'FDBK'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Decay: TJuceKnob
+    Left = 726
+    Height = 76
+    Top = 86
+    Width = 54
+    ParameterId = 'decay'
+    Caption = 'DEC'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Mix: TJuceKnob
+    Left = 824
+    Height = 76
+    Top = 86
+    Width = 56
+    ParameterId = 'mix'
+    Caption = 'MIX'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Level: TJuceKnob
+    Left = 880
+    Height = 76
+    Top = 86
+    Width = 56
+    ParameterId = 'level'
+    Caption = 'LEVEL'
+    ShowValue = False
+    Sensitivity = 180
+    TrackColor = -1447450
+    BodyColor = -15394787
+    PointerColor = -1082078
+    TextColor = -1447450
+    ValueBubble = jvbDragAndHover
+  end
+  object Theme: TJuceThemeResource
+    Background = -14276821
+    Text = -1447450
+    TextDim = -1712723482
+    Accent = -2608609
+    TooltipBackground = -15658476
+    TooltipText = -1447450
+    TooltipBorder = -2608609
+    BubbleBackground = -14276821
+    BubbleText = -1447450
+    BubbleBorder = -7499885
+    BubbleFontSize = 15
+    Link = -9785089
+    Left = 12
+    Top = 12
+  end
+end

@@ -1,0 +1,10 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+pattern	int	Pattern		1	32	1	1	
+freq	float	Frequency		0	1	0.349999994	0	
+q	float	Resonance		0	1	0.400000006	0	
+amount	float	Amount		0	1	0.600000024	0	
+decay	float	Decay		0	1	0.349999994	0	
+mode	choice	Mode		0	1	0	1	LP|BP
+mix	float	Mix		0	1	1	0	
+level	float	Level		-24	12	0	0	

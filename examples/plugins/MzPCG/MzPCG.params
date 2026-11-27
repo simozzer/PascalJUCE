@@ -1,0 +1,11 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+pattern	int	Pattern		1	32	1	1	
+mode	choice	Mode		0	1	0	1	GATE|DUCK
+rate	choice	Rate		0	2	1	1	1/8|1/16|1/32
+depth	float	Depth		0	1	1	0	
+attack	float	Attack		0	1	0.200000003	0	
+hold	float	Hold		0	1	0.5	0	
+decay	float	Decay		0	1	0.200000003	0	
+mix	float	Mix		0	1	1	0	
+level	float	Level		-24	12	0	0	

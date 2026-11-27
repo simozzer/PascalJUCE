@@ -1,0 +1,1669 @@
+# MzPCD equivalence scenarios: read by both render_cpp.cpp (the original C++ engine, built
+# from the MzPCD repository's Source/PCD and MzPCF's Source/PCF) and render_pas.dpr (the
+# Pascal port). Each scenario writes <name>.f32 (raw little-endian floats); the two must be
+# identical, bit for bit (render_pas --compare). Generated, but edit it as you like.
+#
+#   scenario NAME RATE [mono]  a new engine, prepare(RATE); settings = the defaults; input a
+#                              110 Hz saw (the right channel 165 Hz, from half way); no
+#                              timeline. mono: the right channel is null, as for a mono bus
+#   set ID VALUE               a pending parameter, as the host holds it (parameter IDs as
+#                              in Params.cpp; pattern 1..32, rate 0 1/8, 1 1/16, 2 1/32)
+#   apply                      engine.setSettings(the pending settings, read as the C++
+#                              params::Reader reads them)
+#   input KIND [ARG]           saw HZ | noise | impulse PERIOD | dc VALUE | silence | tiny
+#                              (denormals, alternating in sign)
+#   gain G                     scale the input
+#   transport PLAYING PPQ BPM  the host's timeline at the top of the next block; while
+#                              playing, each block moves it on by its length
+#   tempo BPM / seek PPQ       change the tempo / jump (a loop), keeping the rest
+#   notimeline                 no timeline: as stopped, position 0, 120 BPM
+#   render SAMPLES BLOCK       render in blocks of BLOCK: setHostClock(timeline) then
+#                              process, every block, as processBlock does
+#   sweep ID FROM TO SAMPLES BLOCK
+#                              render, setting ID (and applying) at the top of each block,
+#                              from FROM to TO in even steps - a knob turned while playing
+#   prepare RATE / reset       prepare again (the host changing its rate) / reset()
+#   ftz 0|1                    flush denormals to zero (1, the default: the plug-in runs
+#                              under juce::ScopedNoDenormals) or not
+#   latency                    Pcd::latency(), and howlFrequency across the audio band
+#   tables                     ReBirth's tables (level, shaper) and every function of them
+#                              (level, inGain, clipGain, clipThreshold, outGain, row, shape)
+#                              across their ranges and past them
+#   oversampler SAMPLES        the Oversampler alone on the left source: up, and down again
+#   rbdist AMOUNT SHAPE SAMPLES BLOCK RATE
+#                              ReBirth's own unit (rbdist::Distortion) on the left source,
+#                              AMOUNT +7 and SHAPE +5 a block, wrapping past their ends
+#   texts STEPS                every unit's value text (Params.cpp's text()) at STEPS+1
+#                              points across its range, as character codes
+#   end
+#
+# Every block appends the left channel, the right one (stereo), then step() and envelope().
+
+# ReBirth's tables, the oversampler and ReBirth's own unit, alone; the value texts.
+scenario tables 48000
+tables
+end
+scenario latency 48000
+latency
+end
+scenario oversampler_saw_110 48000
+input saw 110
+oversampler 6000
+end
+scenario oversampler_noise 48000
+input noise
+oversampler 6000
+end
+scenario oversampler_impulse_97 48000
+input impulse 97
+oversampler 6000
+end
+scenario rbdist_44100_0_0 44100
+gain 3
+rbdist 0 0 88200 98 44100
+end
+scenario rbdist_44100_70_0 44100
+rbdist 70 0 88200 195 44100
+end
+scenario rbdist_44100_127_0 44100
+input noise
+rbdist 127 0 88200 292 44100
+end
+scenario rbdist_44100_90_1 44100
+rbdist 90 1 88200 389 44100
+end
+scenario rbdist_44100_30_64 44100
+gain 3
+rbdist 30 64 88200 486 44100
+end
+scenario rbdist_44100_127_127 44100
+input noise
+rbdist 127 127 88200 583 44100
+end
+scenario rbdist_48000_0_0 48000
+rbdist 0 0 96000 680 48000
+end
+scenario rbdist_48000_70_0 48000
+rbdist 70 0 96000 77 48000
+end
+scenario rbdist_48000_127_0 48000
+input noise
+gain 3
+rbdist 127 0 96000 174 48000
+end
+scenario rbdist_48000_90_1 48000
+rbdist 90 1 96000 271 48000
+end
+scenario rbdist_48000_30_64 48000
+rbdist 30 64 96000 368 48000
+end
+scenario rbdist_48000_127_127 48000
+input noise
+rbdist 127 127 96000 465 48000
+end
+scenario rbdist_96000_0_0 96000
+gain 3
+rbdist 0 0 192000 562 96000
+end
+scenario rbdist_96000_70_0 96000
+rbdist 70 0 192000 659 96000
+end
+scenario rbdist_96000_127_0 96000
+input noise
+rbdist 127 0 192000 56 96000
+end
+scenario rbdist_96000_90_1 96000
+rbdist 90 1 192000 153 96000
+end
+scenario rbdist_96000_30_64 96000
+gain 3
+rbdist 30 64 192000 250 96000
+end
+scenario rbdist_96000_127_127 96000
+input noise
+rbdist 127 127 192000 347 96000
+end
+scenario rbdist_22050_0_0 22050
+rbdist 0 0 44100 444 22050
+end
+scenario rbdist_22050_70_0 22050
+rbdist 70 0 44100 541 22050
+end
+scenario rbdist_22050_127_0 22050
+input noise
+gain 3
+rbdist 127 0 44100 638 22050
+end
+scenario rbdist_22050_90_1 22050
+rbdist 90 1 44100 35 22050
+end
+scenario rbdist_22050_30_64 22050
+rbdist 30 64 44100 132 22050
+end
+scenario rbdist_22050_127_127 22050
+input noise
+rbdist 127 127 44100 229 22050
+end
+scenario texts 48000
+texts 4000
+end
+scenario texts_ties 48000
+texts 144
+end
+
+# The defaults at every rate, playing from the top of the song, stereo and mono; and stopped.
+scenario defaults_play_44100 44100
+transport 1 0 120
+render 52920 512
+end
+scenario defaults_mono_44100 44100 mono
+transport 1 0 120
+render 35280 480
+end
+scenario defaults_stopped_44100 44100
+render 22050 256
+end
+scenario defaults_play_48000 48000
+transport 1 0 120
+render 57600 512
+end
+scenario defaults_mono_48000 48000 mono
+transport 1 0 120
+render 38400 480
+end
+scenario defaults_stopped_48000 48000
+render 24000 256
+end
+scenario defaults_play_96000 96000
+transport 1 0 120
+render 115200 512
+end
+scenario defaults_mono_96000 96000 mono
+transport 1 0 120
+render 76800 480
+end
+scenario defaults_stopped_96000 96000
+render 48000 256
+end
+scenario defaults_play_192000 192000
+transport 1 0 120
+render 230400 512
+end
+scenario defaults_mono_192000 192000 mono
+transport 1 0 120
+render 153600 480
+end
+scenario defaults_stopped_192000 192000
+render 96000 256
+end
+
+# All 32 patterns, pushing the drive, the tone and the feedback.
+scenario pattern_1 48000
+set pattern 1
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.125
+set shape 0.031496
+apply
+transport 1 0 103
+render 48000 93
+end
+scenario pattern_2 96000
+set pattern 2
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.15
+set shape 0.062992
+apply
+transport 1 0 106
+render 96000 122
+end
+scenario pattern_3 44100
+set pattern 3
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.175
+set shape 0.094488
+apply
+transport 1 0 109
+render 44100 151
+end
+scenario pattern_4 48000
+set pattern 4
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.2
+set shape 0.125984
+apply
+transport 1 0 112
+render 48000 180
+end
+scenario pattern_5 96000
+set pattern 5
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.225
+set shape 0.157480
+apply
+transport 1 0 115
+render 96000 209
+end
+scenario pattern_6 44100
+set pattern 6
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.25
+set shape 0.188976
+apply
+transport 1 0 118
+render 44100 238
+end
+scenario pattern_7 48000
+set pattern 7
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.275
+set shape 0.220472
+apply
+transport 1 0 121
+render 48000 267
+end
+scenario pattern_8 96000
+set pattern 8
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.3
+set shape 0.251969
+apply
+transport 1 0 124
+render 96000 296
+end
+scenario pattern_9 44100
+set pattern 9
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.325
+set shape 0.283465
+apply
+transport 1 0 127
+render 44100 325
+end
+scenario pattern_10 48000
+set pattern 10
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.35
+set shape 0.314961
+apply
+transport 1 0 130
+render 48000 354
+end
+scenario pattern_11 96000
+set pattern 11
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.375
+set shape 0.346457
+apply
+transport 1 0 133
+render 96000 383
+end
+scenario pattern_12 44100
+set pattern 12
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.4
+set shape 0.377953
+apply
+transport 1 0 136
+render 44100 412
+end
+scenario pattern_13 48000
+set pattern 13
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.425
+set shape 0.409449
+apply
+transport 1 0 139
+render 48000 441
+end
+scenario pattern_14 96000
+set pattern 14
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.45
+set shape 0.440945
+apply
+transport 1 0 142
+render 96000 470
+end
+scenario pattern_15 44100
+set pattern 15
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.475
+set shape 0.472441
+apply
+transport 1 0 145
+render 44100 499
+end
+scenario pattern_16 48000
+set pattern 16
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.5
+set shape 0.503937
+apply
+transport 1 0 148
+render 48000 528
+end
+scenario pattern_17 96000
+set pattern 17
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.525
+set shape 0.535433
+apply
+transport 1 0 151
+render 96000 557
+end
+scenario pattern_18 44100
+set pattern 18
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.55
+set shape 0.566929
+apply
+transport 1 0 154
+render 44100 586
+end
+scenario pattern_19 48000
+set pattern 19
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.575
+set shape 0.598425
+apply
+transport 1 0 157
+render 48000 615
+end
+scenario pattern_20 96000
+set pattern 20
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.6
+set shape 0.629921
+apply
+transport 1 0 160
+render 96000 644
+end
+scenario pattern_21 44100
+set pattern 21
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.625
+set shape 0.661417
+apply
+transport 1 0 163
+render 44100 673
+end
+scenario pattern_22 48000
+set pattern 22
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.65
+set shape 0.692913
+apply
+transport 1 0 166
+render 48000 702
+end
+scenario pattern_23 96000
+set pattern 23
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.675
+set shape 0.724409
+apply
+transport 1 0 169
+render 96000 731
+end
+scenario pattern_24 44100
+set pattern 24
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.7
+set shape 0.755906
+apply
+transport 1 0 172
+render 44100 760
+end
+scenario pattern_25 48000
+set pattern 25
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.725
+set shape 0.787402
+apply
+transport 1 0 175
+render 48000 789
+end
+scenario pattern_26 96000
+set pattern 26
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.75
+set shape 0.818898
+apply
+transport 1 0 178
+render 96000 818
+end
+scenario pattern_27 44100
+set pattern 27
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.775
+set shape 0.850394
+apply
+transport 1 0 181
+render 44100 847
+end
+scenario pattern_28 48000
+set pattern 28
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.8
+set shape 0.881890
+apply
+transport 1 0 184
+render 48000 876
+end
+scenario pattern_29 96000
+set pattern 29
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.825
+set shape 0.913386
+apply
+transport 1 0 187
+render 96000 905
+end
+scenario pattern_30 44100
+set pattern 30
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.85
+set shape 0.944882
+apply
+transport 1 0 190
+render 44100 934
+end
+scenario pattern_31 48000
+set pattern 31
+set driveAmount 1
+set toneAmount 0.8
+set feedbackAmount 0.4
+set decay 0.875
+set shape 0.976378
+apply
+transport 1 0 193
+render 48000 963
+end
+scenario pattern_32 96000
+set pattern 32
+set driveAmount 1
+set toneAmount -0.6
+set feedbackAmount 0.4
+set decay 0.9
+set shape 1.007874
+apply
+transport 1 0 196
+render 96000 992
+end
+
+# Every RATE, at several tempi and from several places.
+scenario rate_0_90_0 48000
+set rate 0
+set pattern 5
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0 90
+render 72000 333
+end
+scenario rate_0_133_7_0_37 48000
+set rate 0
+set pattern 5
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0.37 133.7
+render 72000 333
+end
+scenario rate_0_174_7_999999999 48000
+set rate 0
+set pattern 5
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 7.999999999 174
+render 72000 333
+end
+scenario rate_0_60__1_3 48000
+set rate 0
+set pattern 5
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 -1.3 60
+render 72000 333
+end
+scenario rate_1_90_0 48000
+set rate 1
+set pattern 12
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0 90
+render 72000 334
+end
+scenario rate_1_133_7_0_37 48000
+set rate 1
+set pattern 12
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0.37 133.7
+render 72000 334
+end
+scenario rate_1_174_7_999999999 48000
+set rate 1
+set pattern 12
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 7.999999999 174
+render 72000 334
+end
+scenario rate_1_60__1_3 48000
+set rate 1
+set pattern 12
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 -1.3 60
+render 72000 334
+end
+scenario rate_2_90_0 48000
+set rate 2
+set pattern 19
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0 90
+render 72000 335
+end
+scenario rate_2_133_7_0_37 48000
+set rate 2
+set pattern 19
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 0.37 133.7
+render 72000 335
+end
+scenario rate_2_174_7_999999999 48000
+set rate 2
+set pattern 19
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 7.999999999 174
+render 72000 335
+end
+scenario rate_2_60__1_3 48000
+set rate 2
+set pattern 19
+set driveAmount 0.8
+set toneAmount 1
+set feedbackAmount 0.3
+set decay 0.2
+apply
+transport 1 -1.3 60
+render 72000 335
+end
+scenario rate_changes_playing 48000
+set pattern 9
+apply
+transport 1 0 120
+set rate 0
+apply
+render 6000 128
+set rate 1
+apply
+render 6000 141
+set rate 2
+apply
+render 6000 154
+set rate 0
+apply
+render 6000 167
+set rate 1
+apply
+render 6000 180
+set rate 2
+apply
+render 6000 193
+set rate 0
+apply
+render 6000 206
+set rate 1
+apply
+render 6000 219
+set rate 2
+apply
+render 6000 232
+set rate 0
+apply
+render 6000 245
+set rate 1
+apply
+render 6000 258
+set rate 2
+apply
+render 6000 271
+set rate 7
+apply
+render 6000 512
+set rate -2
+apply
+render 6000 512
+end
+
+# Knobs turned while playing, block by block, in small blocks.
+scenario sweep_drive_1_48000 48000
+set pattern 6
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep drive 0 1 72000 38
+end
+scenario sweep_drive_1_96000 96000
+set pattern 6
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep drive 0 1 144000 38
+end
+scenario sweep_shape_2_48000 48000
+set pattern 11
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep shape 0 1 72000 45
+end
+scenario sweep_shape_2_96000 96000
+set pattern 11
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep shape 0 1 144000 45
+end
+scenario sweep_shape_3_48000 48000
+set pattern 16
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep shape 0.02 0 72000 52
+end
+scenario sweep_shape_3_96000 96000
+set pattern 16
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep shape 0.02 0 144000 52
+end
+scenario sweep_tone_4_48000 48000
+set pattern 21
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep tone 0 1 72000 59
+end
+scenario sweep_tone_4_96000 96000
+set pattern 21
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep tone 0 1 144000 59
+end
+scenario sweep_feedback_5_48000 48000
+set pattern 26
+set feedbackAmount 0.6
+apply
+transport 1 0.5 128
+sweep feedback 0 1 72000 66
+end
+scenario sweep_feedback_5_96000 96000
+set pattern 26
+set feedbackAmount 0.6
+apply
+transport 1 0.5 128
+sweep feedback 0 1 144000 66
+end
+scenario sweep_driveAmount_6_48000 48000
+set pattern 31
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep driveAmount 0 1 72000 73
+end
+scenario sweep_driveAmount_6_96000 96000
+set pattern 31
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep driveAmount 0 1 144000 73
+end
+scenario sweep_toneAmount_7_48000 48000
+set pattern 4
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep toneAmount -1 1 72000 80
+end
+scenario sweep_toneAmount_7_96000 96000
+set pattern 4
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep toneAmount -1 1 144000 80
+end
+scenario sweep_feedbackAmount_8_48000 48000
+set pattern 9
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep feedbackAmount 0 1 72000 87
+end
+scenario sweep_feedbackAmount_8_96000 96000
+set pattern 9
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep feedbackAmount 0 1 144000 87
+end
+scenario sweep_decay_9_48000 48000
+set pattern 14
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep decay 0 1 72000 94
+end
+scenario sweep_decay_9_96000 96000
+set pattern 14
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+input noise
+transport 1 0.5 128
+sweep decay 0 1 144000 94
+end
+scenario sweep_mix_10_48000 48000
+set pattern 19
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep mix 0 1 72000 101
+end
+scenario sweep_mix_10_96000 96000
+set pattern 19
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep mix 0 1 144000 101
+end
+scenario sweep_level_11_48000 48000
+set pattern 24
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep level -24 12 72000 108
+end
+scenario sweep_level_11_96000 96000
+set pattern 24
+set feedback 0.5
+set feedbackAmount 0.3
+set toneAmount 0.5
+apply
+transport 1 0.5 128
+sweep level -24 12 144000 108
+end
+scenario sweep_all_mono 44100 mono
+transport 1 0 140
+sweep drive 0 1 22050 61
+sweep shape 0 1 22050 61
+sweep shape 0.02 0 22050 61
+sweep tone 0 1 22050 61
+sweep feedback 0 1 22050 61
+sweep driveAmount 0 1 22050 61
+sweep toneAmount -1 1 22050 61
+sweep feedbackAmount 0 1 22050 61
+sweep decay 0 1 22050 61
+sweep mix 0 1 22050 61
+sweep level -24 12 22050 61
+end
+
+# Odd block sizes, one sample at a time among them; empty blocks.
+scenario block_1 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 24000 1
+render 0 0
+render 5 5
+end
+scenario block_2 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 2
+render 0 0
+render 5 5
+end
+scenario block_3 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 3
+render 0 0
+render 5 5
+end
+scenario block_17 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 17
+render 0 0
+render 5 5
+end
+scenario block_127 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 127
+render 0 0
+render 5 5
+end
+scenario block_1023 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 1023
+render 0 0
+render 5 5
+end
+scenario block_4096 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 4096
+render 0 0
+render 5 5
+end
+scenario block_8192 48000
+set pattern 20
+set driveAmount 1
+set feedback 0.7
+set feedbackAmount 0.3
+apply
+transport 1 0.25 150
+render 72000 8192
+render 0 0
+render 5 5
+end
+
+# The transport: stopping and starting, loop jumps, tempo changes, no timeline.
+scenario transport_stop_start 48000
+set pattern 3
+set driveAmount 1
+set feedbackAmount 0.5
+apply
+transport 1 0 120
+render 30000 512
+transport 0 0 120
+render 20000 512
+transport 1 3.5 120
+render 30000 512
+notimeline
+render 10000 300
+transport 1 0.999999 120
+render 30000 77
+end
+scenario transport_loops 48000
+set pattern 17
+set rate 2
+set driveAmount 0.7
+set toneAmount -1
+apply
+transport 1 0 120
+render 12000 200
+seek 0
+render 12000 231
+seek 1.125
+render 12000 262
+seek 2
+render 12000 293
+seek 0.125
+render 12000 324
+seek 1
+render 12000 355
+seek 2.125
+render 12000 386
+seek 0
+render 12000 417
+seek 1.125
+render 12000 448
+seek 2
+render 12000 479
+seek 0.125
+end
+scenario transport_tempi 44100
+set pattern 26
+set rate 0
+set driveAmount 1
+apply
+transport 1 0 120
+tempo 60
+render 11025 441
+tempo 61.5
+render 11025 441
+tempo 87.25
+render 11025 441
+tempo 133.7
+render 11025 441
+tempo 174
+render 11025 441
+tempo 240
+render 11025 441
+tempo 999
+render 11025 441
+tempo 1
+render 11025 441
+tempo 120
+render 11025 441
+end
+scenario transport_preroll 96000
+set pattern 9
+apply
+transport 1 -2.5 135
+render 192000 1000
+end
+scenario transport_nonfinite 48000
+transport 1 nan 120
+render 4800 480
+transport 1 0 0
+render 4800 480
+transport 1 inf 120
+render 4800 480
+transport 1 0 -5
+render 4800 480
+transport 1 1 120
+render 9600 480
+end
+
+# Silence, denormals, hot input that drives the feedback as hard as it goes.
+scenario silence_ftz1 48000
+ftz 1
+input silence
+set feedback 1
+set feedbackAmount 1
+apply
+transport 1 0 120
+render 48000 512
+ftz 1
+end
+scenario tiny_ftz1 48000
+ftz 1
+input tiny
+set feedback 0.9
+set shape 0.5
+apply
+transport 1 0 120
+render 48000 512
+ftz 1
+end
+scenario silence_ftz0 48000
+ftz 0
+input silence
+set feedback 1
+set feedbackAmount 1
+apply
+transport 1 0 120
+render 48000 512
+ftz 1
+end
+scenario tiny_ftz0 48000
+ftz 0
+input tiny
+set feedback 0.9
+set shape 0.5
+apply
+transport 1 0 120
+render 48000 512
+ftz 1
+end
+scenario hot_4_0 48000
+gain 4
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0
+set tone 0.1
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_4_0_6 48000
+gain 4
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0.6
+set tone 0.58
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_4_1 48000
+gain 4
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 1
+set tone 0.9
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_50_0 48000
+gain 50
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0
+set tone 0.1
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_50_0_6 48000
+gain 50
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0.6
+set tone 0.58
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_50_1 48000
+gain 50
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 1
+set tone 0.9
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000_0 48000
+gain 1000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0
+set tone 0.1
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000_0_6 48000
+gain 1000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0.6
+set tone 0.58
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000_1 48000
+gain 1000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 1
+set tone 0.9
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000000_0 48000
+gain 1000000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0
+set tone 0.1
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000000_0_6 48000
+gain 1000000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 0.6
+set tone 0.58
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario hot_1000000_1 48000
+gain 1000000
+set feedback 1
+set feedbackAmount 1
+set drive 1
+set driveAmount 1
+set shape 1
+set tone 0.9
+set toneAmount 1
+apply
+transport 1 0 120
+render 72000 512
+input silence
+render 48000 512
+end
+scenario howl_after_silence 48000
+set feedback 1
+set tone 0.3
+set pattern 1
+set feedbackAmount 1
+input impulse 48000
+apply
+transport 1 0 120
+render 144000 1024
+end
+scenario dc_input 44100
+input dc 0.8
+set feedback 0.8
+set shape 0.3
+apply
+transport 1 0 120
+render 44100 256
+input dc -1.7
+render 44100 256
+end
+
+# Settings past their ends (only a host bug or a script could set them).
+scenario range_drive_2 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set drive 2
+apply
+transport 1 0 120
+render 30000 137
+end
+scenario range_drive_m1 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set drive -1
+apply
+transport 1 0 120
+render 30000 174
+end
+scenario range_shape_1_5 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set shape 1.5
+apply
+transport 1 0 120
+render 30000 211
+end
+scenario range_shape_m0_5 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set shape -0.5
+apply
+transport 1 0 120
+render 30000 248
+end
+scenario range_tone_3 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set tone 3
+apply
+transport 1 0 120
+render 30000 285
+end
+scenario range_tone_m2 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set tone -2
+apply
+transport 1 0 120
+render 30000 322
+end
+scenario range_feedback_5 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set feedback 5
+apply
+transport 1 0 120
+render 30000 359
+end
+scenario range_feedback_m1 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set feedback -1
+apply
+transport 1 0 120
+render 30000 396
+end
+scenario range_driveAmount_4 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set driveAmount 4
+apply
+transport 1 0 120
+render 30000 433
+end
+scenario range_driveAmount_m3 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set driveAmount -3
+apply
+transport 1 0 120
+render 30000 470
+end
+scenario range_toneAmount_9 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set toneAmount 9
+apply
+transport 1 0 120
+render 30000 507
+end
+scenario range_toneAmount_m9 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set toneAmount -9
+apply
+transport 1 0 120
+render 30000 544
+end
+scenario range_feedbackAmount_3 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set feedbackAmount 3
+apply
+transport 1 0 120
+render 30000 581
+end
+scenario range_feedbackAmount_m2 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set feedbackAmount -2
+apply
+transport 1 0 120
+render 30000 618
+end
+scenario range_decay_m1 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set decay -1
+apply
+transport 1 0 120
+render 30000 655
+end
+scenario range_decay_2 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set decay 2
+apply
+transport 1 0 120
+render 30000 692
+end
+scenario range_mix_2 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set mix 2
+apply
+transport 1 0 120
+render 30000 729
+end
+scenario range_mix_m1 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set mix -1
+apply
+transport 1 0 120
+render 30000 766
+end
+scenario range_level_40 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set level 40
+apply
+transport 1 0 120
+render 30000 803
+end
+scenario range_level_m80 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set level -80
+apply
+transport 1 0 120
+render 30000 840
+end
+scenario range_pattern_0 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set pattern 0
+apply
+transport 1 0 120
+render 30000 877
+end
+scenario range_pattern_40 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set pattern 40
+apply
+transport 1 0 120
+render 30000 914
+end
+scenario range_rate_m1 44100
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set rate -1
+apply
+transport 1 0 120
+render 30000 951
+end
+scenario range_rate_5 48000
+set pattern 12
+set driveAmount 0.6
+set toneAmount 0.4
+set feedbackAmount 0.4
+set rate 5
+apply
+transport 1 0 120
+render 30000 988
+end
+
+# The host changing its rate, and reset, mid-song; noise and impulses in.
+scenario reprepare 44100
+set pattern 7
+set feedback 0.6
+apply
+transport 1 0 120
+render 22050 512
+prepare 96000
+render 48000 512
+prepare 22050
+render 11025 300
+prepare 192000
+render 96000 2048
+end
+scenario reset_midsong 48000
+set pattern 31
+set feedback 0.9
+set feedbackAmount 0.5
+apply
+transport 1 0 120
+render 24000 512
+reset
+render 24000 512
+reset
+transport 0 0 120
+render 4800 512
+end
+scenario noise_bright 96000
+input noise
+set tone 1
+set toneAmount 1
+set shape 1
+set driveAmount 1
+set pattern 2
+apply
+transport 1 0 160
+render 96000 777
+end
+scenario impulses_dark 44100
+input impulse 441
+set tone 0
+set toneAmount -1
+set shape 0.25
+set pattern 11
+apply
+transport 1 0 120
+render 44100 64
+end
+scenario mix_level_mono 192000 mono
+set mix 0.37
+set level -7.5
+set pattern 14
+apply
+transport 1 0 120
+render 96000 1500
+end

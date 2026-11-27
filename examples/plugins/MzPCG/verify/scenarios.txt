@@ -1,0 +1,4326 @@
+# MzPCG equivalence scenarios: read by both render_cpp.cpp (the original C++ engine, built
+# from the MzPCG repository's Source/PCG and MzPCF's Source/PCF) and render_pas.dpr (the
+# Pascal port). Each scenario writes <name>.f32 (raw little-endian floats); the two must be
+# identical, bit for bit (render_pas --compare). Generated, but edit it as you like.
+#
+#   scenario NAME RATE [mono]  a new engine, prepare(RATE); settings = the defaults; input a
+#                              110 Hz saw (the right channel 165 Hz, from half way); no
+#                              timeline. mono: the right channel is null, as for a mono bus
+#   set ID VALUE               a pending parameter, as the host holds it (parameter IDs as
+#                              in Params.cpp; pattern 1..32, mode 0 GATE / 1 DUCK, rate
+#                              0 1/8 / 1 1/16 / 2 1/32)
+#   apply                      engine.setSettings(the pending settings, read as the C++
+#                              params::Reader reads them)
+#   input KIND [ARG]           saw HZ | noise | impulse PERIOD | dc VALUE | silence | tiny
+#                              (denormals, alternating in sign)
+#   gain G                     scale the input
+#   transport PLAYING PPQ BPM  the host's timeline at the top of the next block; while
+#                              playing, each block moves it on by its length
+#   tempo BPM / seek PPQ       change the tempo / jump (a loop), keeping the rest
+#   notimeline                 no timeline: as stopped, position 0, 120 BPM
+#   render SAMPLES BLOCK       render in blocks of BLOCK: setHostClock(timeline) then
+#                              process, every block, as processBlock does
+#   sweep ID FROM TO SAMPLES BLOCK
+#                              render, setting ID (and applying) at the top of each block,
+#                              from FROM to TO in even steps - a knob turned while playing
+#   prepare RATE / reset       prepare again (the host changing its rate) / reset()
+#   ftz 0|1                    flush denormals to zero (1, the default: the plug-in runs
+#                              under juce::ScopedNoDenormals) or not
+#   levels                     every pattern's level on every step, out-of-range ones too,
+#                              then stepsPerQuarter of RATE -2..4
+#   curve                      the panel's picture of the gain (GainDisplay::simulate) for
+#                              the pending settings: its length, then its values
+#   end
+#
+# Every block appends the left channel, the right one (stereo), then step() and gain().
+
+# The 32 patterns, every level of every step (and patterns and steps out of range).
+scenario levels 48000
+levels
+end
+
+# The panel's picture: every pattern, mode and rate, the knobs here and there.
+scenario curve_p1 48000
+set pattern 1
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.3
+set decay 0.1
+set depth 0.8
+curve
+set pattern 1
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.6
+set decay 0.1
+set depth 0.8
+curve
+set pattern 1
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.9
+set decay 0.1
+set depth 0.8
+curve
+set pattern 1
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.3
+set decay 0.2
+set depth 0.8
+curve
+set pattern 1
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.6
+set decay 0.2
+set depth 0.8
+curve
+set pattern 1
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.9
+set decay 0.2
+set depth 0.8
+curve
+end
+scenario curve_p2 48000
+set pattern 2
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.6
+set decay 0.2
+set depth 0.7
+curve
+set pattern 2
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.9
+set decay 0.2
+set depth 0.7
+curve
+set pattern 2
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.0
+set decay 0.2
+set depth 0.7
+curve
+set pattern 2
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.6
+set decay 0.3
+set depth 0.7
+curve
+set pattern 2
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.9
+set decay 0.3
+set depth 0.7
+curve
+set pattern 2
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.0
+set decay 0.3
+set depth 0.7
+curve
+end
+scenario curve_p3 48000
+set pattern 3
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.9
+set decay 0.3
+set depth 0.6
+curve
+set pattern 3
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.0
+set decay 0.3
+set depth 0.6
+curve
+set pattern 3
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.3
+set decay 0.3
+set depth 0.6
+curve
+set pattern 3
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.9
+set decay 0.4
+set depth 0.6
+curve
+set pattern 3
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.0
+set decay 0.4
+set depth 0.6
+curve
+set pattern 3
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.3
+set decay 0.4
+set depth 0.6
+curve
+end
+scenario curve_p4 48000
+set pattern 4
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.0
+set decay 0.4
+set depth 0.5
+curve
+set pattern 4
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.3
+set decay 0.4
+set depth 0.5
+curve
+set pattern 4
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.6
+set decay 0.4
+set depth 0.5
+curve
+set pattern 4
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.0
+set decay 0.5
+set depth 0.5
+curve
+set pattern 4
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.3
+set decay 0.5
+set depth 0.5
+curve
+set pattern 4
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.6
+set decay 0.5
+set depth 0.5
+curve
+end
+scenario curve_p5 48000
+set pattern 5
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.3
+set decay 0.5
+set depth 0.4
+curve
+set pattern 5
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.6
+set decay 0.5
+set depth 0.4
+curve
+set pattern 5
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.9
+set decay 0.5
+set depth 0.4
+curve
+set pattern 5
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.3
+set decay 0.6
+set depth 0.4
+curve
+set pattern 5
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.6
+set decay 0.6
+set depth 0.4
+curve
+set pattern 5
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.9
+set decay 0.6
+set depth 0.4
+curve
+end
+scenario curve_p6 48000
+set pattern 6
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.6
+set decay 0.6
+set depth 0.3
+curve
+set pattern 6
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.9
+set decay 0.6
+set depth 0.3
+curve
+set pattern 6
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.0
+set decay 0.6
+set depth 0.3
+curve
+set pattern 6
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.6
+set decay 0.7
+set depth 0.3
+curve
+set pattern 6
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.9
+set decay 0.7
+set depth 0.3
+curve
+set pattern 6
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.0
+set decay 0.7
+set depth 0.3
+curve
+end
+scenario curve_p7 48000
+set pattern 7
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.9
+set decay 0.7
+set depth 0.2
+curve
+set pattern 7
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.0
+set decay 0.7
+set depth 0.2
+curve
+set pattern 7
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.3
+set decay 0.7
+set depth 0.2
+curve
+set pattern 7
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.9
+set decay 0.8
+set depth 0.2
+curve
+set pattern 7
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.0
+set decay 0.8
+set depth 0.2
+curve
+set pattern 7
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.3
+set decay 0.8
+set depth 0.2
+curve
+end
+scenario curve_p8 48000
+set pattern 8
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.0
+set decay 0.8
+set depth 0.1
+curve
+set pattern 8
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.3
+set decay 0.8
+set depth 0.1
+curve
+set pattern 8
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.6
+set decay 0.8
+set depth 0.1
+curve
+set pattern 8
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.0
+set decay 0.9
+set depth 0.1
+curve
+set pattern 8
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.3
+set decay 0.9
+set depth 0.1
+curve
+set pattern 8
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.6
+set decay 0.9
+set depth 0.1
+curve
+end
+scenario curve_p9 48000
+set pattern 9
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.3
+set decay 0.9
+set depth 0.9
+curve
+set pattern 9
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.6
+set decay 0.9
+set depth 0.9
+curve
+set pattern 9
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.9
+set decay 0.9
+set depth 0.9
+curve
+set pattern 9
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.3
+set decay 0.0
+set depth 0.9
+curve
+set pattern 9
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.6
+set decay 0.0
+set depth 0.9
+curve
+set pattern 9
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.9
+set decay 0.0
+set depth 0.9
+curve
+end
+scenario curve_p10 48000
+set pattern 10
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.6
+set decay 0.0
+set depth 0.8
+curve
+set pattern 10
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.9
+set decay 0.0
+set depth 0.8
+curve
+set pattern 10
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.0
+set decay 0.0
+set depth 0.8
+curve
+set pattern 10
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.6
+set decay 0.1
+set depth 0.8
+curve
+set pattern 10
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.9
+set decay 0.1
+set depth 0.8
+curve
+set pattern 10
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.0
+set decay 0.1
+set depth 0.8
+curve
+end
+scenario curve_p11 48000
+set pattern 11
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.9
+set decay 0.1
+set depth 0.7
+curve
+set pattern 11
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.0
+set decay 0.1
+set depth 0.7
+curve
+set pattern 11
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.3
+set decay 0.1
+set depth 0.7
+curve
+set pattern 11
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.9
+set decay 0.2
+set depth 0.7
+curve
+set pattern 11
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.0
+set decay 0.2
+set depth 0.7
+curve
+set pattern 11
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.3
+set decay 0.2
+set depth 0.7
+curve
+end
+scenario curve_p12 48000
+set pattern 12
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.0
+set decay 0.2
+set depth 0.6
+curve
+set pattern 12
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.3
+set decay 0.2
+set depth 0.6
+curve
+set pattern 12
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.6
+set decay 0.2
+set depth 0.6
+curve
+set pattern 12
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.0
+set decay 0.3
+set depth 0.6
+curve
+set pattern 12
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.3
+set decay 0.3
+set depth 0.6
+curve
+set pattern 12
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.6
+set decay 0.3
+set depth 0.6
+curve
+end
+scenario curve_p13 48000
+set pattern 13
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.3
+set decay 0.3
+set depth 0.5
+curve
+set pattern 13
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.6
+set decay 0.3
+set depth 0.5
+curve
+set pattern 13
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.9
+set decay 0.3
+set depth 0.5
+curve
+set pattern 13
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.3
+set decay 0.4
+set depth 0.5
+curve
+set pattern 13
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.6
+set decay 0.4
+set depth 0.5
+curve
+set pattern 13
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.9
+set decay 0.4
+set depth 0.5
+curve
+end
+scenario curve_p14 48000
+set pattern 14
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.6
+set decay 0.4
+set depth 0.4
+curve
+set pattern 14
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.9
+set decay 0.4
+set depth 0.4
+curve
+set pattern 14
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.0
+set decay 0.4
+set depth 0.4
+curve
+set pattern 14
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.6
+set decay 0.5
+set depth 0.4
+curve
+set pattern 14
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.9
+set decay 0.5
+set depth 0.4
+curve
+set pattern 14
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.0
+set decay 0.5
+set depth 0.4
+curve
+end
+scenario curve_p15 48000
+set pattern 15
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.9
+set decay 0.5
+set depth 0.3
+curve
+set pattern 15
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.0
+set decay 0.5
+set depth 0.3
+curve
+set pattern 15
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.3
+set decay 0.5
+set depth 0.3
+curve
+set pattern 15
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.9
+set decay 0.6
+set depth 0.3
+curve
+set pattern 15
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.0
+set decay 0.6
+set depth 0.3
+curve
+set pattern 15
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.3
+set decay 0.6
+set depth 0.3
+curve
+end
+scenario curve_p16 48000
+set pattern 16
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.0
+set decay 0.6
+set depth 0.2
+curve
+set pattern 16
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.3
+set decay 0.6
+set depth 0.2
+curve
+set pattern 16
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.6
+set decay 0.6
+set depth 0.2
+curve
+set pattern 16
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.0
+set decay 0.7
+set depth 0.2
+curve
+set pattern 16
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.3
+set decay 0.7
+set depth 0.2
+curve
+set pattern 16
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.6
+set decay 0.7
+set depth 0.2
+curve
+end
+scenario curve_p17 48000
+set pattern 17
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.3
+set decay 0.7
+set depth 0.1
+curve
+set pattern 17
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.6
+set decay 0.7
+set depth 0.1
+curve
+set pattern 17
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.9
+set decay 0.7
+set depth 0.1
+curve
+set pattern 17
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.3
+set decay 0.8
+set depth 0.1
+curve
+set pattern 17
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.6
+set decay 0.8
+set depth 0.1
+curve
+set pattern 17
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.9
+set decay 0.8
+set depth 0.1
+curve
+end
+scenario curve_p18 48000
+set pattern 18
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.6
+set decay 0.8
+set depth 0.9
+curve
+set pattern 18
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.9
+set decay 0.8
+set depth 0.9
+curve
+set pattern 18
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.0
+set decay 0.8
+set depth 0.9
+curve
+set pattern 18
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.6
+set decay 0.9
+set depth 0.9
+curve
+set pattern 18
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.9
+set decay 0.9
+set depth 0.9
+curve
+set pattern 18
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.0
+set decay 0.9
+set depth 0.9
+curve
+end
+scenario curve_p19 48000
+set pattern 19
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.9
+set decay 0.9
+set depth 0.8
+curve
+set pattern 19
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.0
+set decay 0.9
+set depth 0.8
+curve
+set pattern 19
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.3
+set decay 0.9
+set depth 0.8
+curve
+set pattern 19
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.9
+set decay 0.0
+set depth 0.8
+curve
+set pattern 19
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.0
+set decay 0.0
+set depth 0.8
+curve
+set pattern 19
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.3
+set decay 0.0
+set depth 0.8
+curve
+end
+scenario curve_p20 48000
+set pattern 20
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.0
+set decay 0.0
+set depth 0.7
+curve
+set pattern 20
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.3
+set decay 0.0
+set depth 0.7
+curve
+set pattern 20
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.6
+set decay 0.0
+set depth 0.7
+curve
+set pattern 20
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.0
+set decay 0.1
+set depth 0.7
+curve
+set pattern 20
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.3
+set decay 0.1
+set depth 0.7
+curve
+set pattern 20
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.6
+set decay 0.1
+set depth 0.7
+curve
+end
+scenario curve_p21 48000
+set pattern 21
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.3
+set decay 0.1
+set depth 0.6
+curve
+set pattern 21
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.6
+set decay 0.1
+set depth 0.6
+curve
+set pattern 21
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.9
+set decay 0.1
+set depth 0.6
+curve
+set pattern 21
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.3
+set decay 0.2
+set depth 0.6
+curve
+set pattern 21
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.6
+set decay 0.2
+set depth 0.6
+curve
+set pattern 21
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.9
+set decay 0.2
+set depth 0.6
+curve
+end
+scenario curve_p22 48000
+set pattern 22
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.6
+set decay 0.2
+set depth 0.5
+curve
+set pattern 22
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.9
+set decay 0.2
+set depth 0.5
+curve
+set pattern 22
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.0
+set decay 0.2
+set depth 0.5
+curve
+set pattern 22
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.6
+set decay 0.3
+set depth 0.5
+curve
+set pattern 22
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.9
+set decay 0.3
+set depth 0.5
+curve
+set pattern 22
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.0
+set decay 0.3
+set depth 0.5
+curve
+end
+scenario curve_p23 48000
+set pattern 23
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.9
+set decay 0.3
+set depth 0.4
+curve
+set pattern 23
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.0
+set decay 0.3
+set depth 0.4
+curve
+set pattern 23
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.3
+set decay 0.3
+set depth 0.4
+curve
+set pattern 23
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.9
+set decay 0.4
+set depth 0.4
+curve
+set pattern 23
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.0
+set decay 0.4
+set depth 0.4
+curve
+set pattern 23
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.3
+set decay 0.4
+set depth 0.4
+curve
+end
+scenario curve_p24 48000
+set pattern 24
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.0
+set decay 0.4
+set depth 0.3
+curve
+set pattern 24
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.3
+set decay 0.4
+set depth 0.3
+curve
+set pattern 24
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.6
+set decay 0.4
+set depth 0.3
+curve
+set pattern 24
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.0
+set decay 0.5
+set depth 0.3
+curve
+set pattern 24
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.3
+set decay 0.5
+set depth 0.3
+curve
+set pattern 24
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.6
+set decay 0.5
+set depth 0.3
+curve
+end
+scenario curve_p25 48000
+set pattern 25
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.3
+set decay 0.5
+set depth 0.2
+curve
+set pattern 25
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.6
+set decay 0.5
+set depth 0.2
+curve
+set pattern 25
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.9
+set decay 0.5
+set depth 0.2
+curve
+set pattern 25
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.3
+set decay 0.6
+set depth 0.2
+curve
+set pattern 25
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.6
+set decay 0.6
+set depth 0.2
+curve
+set pattern 25
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.9
+set decay 0.6
+set depth 0.2
+curve
+end
+scenario curve_p26 48000
+set pattern 26
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.6
+set decay 0.6
+set depth 0.1
+curve
+set pattern 26
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.9
+set decay 0.6
+set depth 0.1
+curve
+set pattern 26
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.0
+set decay 0.6
+set depth 0.1
+curve
+set pattern 26
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.6
+set decay 0.7
+set depth 0.1
+curve
+set pattern 26
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.9
+set decay 0.7
+set depth 0.1
+curve
+set pattern 26
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.0
+set decay 0.7
+set depth 0.1
+curve
+end
+scenario curve_p27 48000
+set pattern 27
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.9
+set decay 0.7
+set depth 0.9
+curve
+set pattern 27
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.0
+set decay 0.7
+set depth 0.9
+curve
+set pattern 27
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.3
+set decay 0.7
+set depth 0.9
+curve
+set pattern 27
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.9
+set decay 0.8
+set depth 0.9
+curve
+set pattern 27
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.0
+set decay 0.8
+set depth 0.9
+curve
+set pattern 27
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.3
+set decay 0.8
+set depth 0.9
+curve
+end
+scenario curve_p28 48000
+set pattern 28
+set mode 0
+set rate 0
+set attack 0.2
+set hold 0.0
+set decay 0.8
+set depth 0.8
+curve
+set pattern 28
+set mode 0
+set rate 1
+set attack 0.4
+set hold 0.3
+set decay 0.8
+set depth 0.8
+curve
+set pattern 28
+set mode 0
+set rate 2
+set attack 0.6
+set hold 0.6
+set decay 0.8
+set depth 0.8
+curve
+set pattern 28
+set mode 1
+set rate 0
+set attack 0.8
+set hold 0.0
+set decay 0.9
+set depth 0.8
+curve
+set pattern 28
+set mode 1
+set rate 1
+set attack 0.0
+set hold 0.3
+set decay 0.9
+set depth 0.8
+curve
+set pattern 28
+set mode 1
+set rate 2
+set attack 0.2
+set hold 0.6
+set decay 0.9
+set depth 0.8
+curve
+end
+scenario curve_p29 48000
+set pattern 29
+set mode 0
+set rate 0
+set attack 0.6
+set hold 0.3
+set decay 0.9
+set depth 0.7
+curve
+set pattern 29
+set mode 0
+set rate 1
+set attack 0.8
+set hold 0.6
+set decay 0.9
+set depth 0.7
+curve
+set pattern 29
+set mode 0
+set rate 2
+set attack 0.0
+set hold 0.9
+set decay 0.9
+set depth 0.7
+curve
+set pattern 29
+set mode 1
+set rate 0
+set attack 0.2
+set hold 0.3
+set decay 0.0
+set depth 0.7
+curve
+set pattern 29
+set mode 1
+set rate 1
+set attack 0.4
+set hold 0.6
+set decay 0.0
+set depth 0.7
+curve
+set pattern 29
+set mode 1
+set rate 2
+set attack 0.6
+set hold 0.9
+set decay 0.0
+set depth 0.7
+curve
+end
+scenario curve_p30 48000
+set pattern 30
+set mode 0
+set rate 0
+set attack 0.0
+set hold 0.6
+set decay 0.0
+set depth 0.6
+curve
+set pattern 30
+set mode 0
+set rate 1
+set attack 0.2
+set hold 0.9
+set decay 0.0
+set depth 0.6
+curve
+set pattern 30
+set mode 0
+set rate 2
+set attack 0.4
+set hold 0.0
+set decay 0.0
+set depth 0.6
+curve
+set pattern 30
+set mode 1
+set rate 0
+set attack 0.6
+set hold 0.6
+set decay 0.1
+set depth 0.6
+curve
+set pattern 30
+set mode 1
+set rate 1
+set attack 0.8
+set hold 0.9
+set decay 0.1
+set depth 0.6
+curve
+set pattern 30
+set mode 1
+set rate 2
+set attack 0.0
+set hold 0.0
+set decay 0.1
+set depth 0.6
+curve
+end
+scenario curve_p31 48000
+set pattern 31
+set mode 0
+set rate 0
+set attack 0.4
+set hold 0.9
+set decay 0.1
+set depth 0.5
+curve
+set pattern 31
+set mode 0
+set rate 1
+set attack 0.6
+set hold 0.0
+set decay 0.1
+set depth 0.5
+curve
+set pattern 31
+set mode 0
+set rate 2
+set attack 0.8
+set hold 0.3
+set decay 0.1
+set depth 0.5
+curve
+set pattern 31
+set mode 1
+set rate 0
+set attack 0.0
+set hold 0.9
+set decay 0.2
+set depth 0.5
+curve
+set pattern 31
+set mode 1
+set rate 1
+set attack 0.2
+set hold 0.0
+set decay 0.2
+set depth 0.5
+curve
+set pattern 31
+set mode 1
+set rate 2
+set attack 0.4
+set hold 0.3
+set decay 0.2
+set depth 0.5
+curve
+end
+scenario curve_p32 48000
+set pattern 32
+set mode 0
+set rate 0
+set attack 0.8
+set hold 0.0
+set decay 0.2
+set depth 0.4
+curve
+set pattern 32
+set mode 0
+set rate 1
+set attack 0.0
+set hold 0.3
+set decay 0.2
+set depth 0.4
+curve
+set pattern 32
+set mode 0
+set rate 2
+set attack 0.2
+set hold 0.6
+set decay 0.2
+set depth 0.4
+curve
+set pattern 32
+set mode 1
+set rate 0
+set attack 0.4
+set hold 0.0
+set decay 0.3
+set depth 0.4
+curve
+set pattern 32
+set mode 1
+set rate 1
+set attack 0.6
+set hold 0.3
+set decay 0.3
+set depth 0.4
+curve
+set pattern 32
+set mode 1
+set rate 2
+set attack 0.8
+set hold 0.6
+set decay 0.3
+set depth 0.4
+curve
+end
+scenario curve_extremes 48000
+set attack 0
+curve
+set attack 1
+curve
+set hold 0
+curve
+set hold 1
+curve
+set decay 0
+curve
+set decay 1
+curve
+set depth 0
+curve
+set depth 1
+curve
+set attack -3
+curve
+set hold 7
+curve
+set decay nan
+curve
+set depth inf
+curve
+set pattern 0
+curve
+set pattern 40
+curve
+set rate 9
+curve
+set mode 3
+curve
+set mix 0
+curve
+set level -40
+curve
+end
+
+# The defaults, playing from the top, at every rate, stereo and mono, odd blocks.
+scenario defaults_44100_stereo_1 44100
+transport 1 0 120
+render 22050 512
+end
+scenario defaults_44100_stereo_2 44100
+transport 1 0 120
+render 5512 1
+end
+scenario defaults_44100_stereo_3 44100
+transport 1 0 120
+render 22050 7
+end
+scenario defaults_44100_stereo_4 44100
+transport 1 0 120
+render 22050 64
+end
+scenario defaults_44100_stereo_5 44100
+transport 1 0 120
+render 22050 333
+end
+scenario defaults_44100_stereo_6 44100
+transport 1 0 120
+render 22050 1024
+end
+scenario defaults_44100_stereo_7 44100
+transport 1 0 120
+render 22050 4096
+end
+scenario defaults_44100_mono_1 44100 mono
+transport 1 0 120
+render 22050 512
+end
+scenario defaults_44100_mono_2 44100 mono
+transport 1 0 120
+render 5512 1
+end
+scenario defaults_44100_mono_3 44100 mono
+transport 1 0 120
+render 22050 7
+end
+scenario defaults_44100_mono_4 44100 mono
+transport 1 0 120
+render 22050 64
+end
+scenario defaults_44100_mono_5 44100 mono
+transport 1 0 120
+render 22050 333
+end
+scenario defaults_44100_mono_6 44100 mono
+transport 1 0 120
+render 22050 1024
+end
+scenario defaults_44100_mono_7 44100 mono
+transport 1 0 120
+render 22050 4096
+end
+scenario defaults_48000_stereo_1 48000
+transport 1 0 120
+render 24000 512
+end
+scenario defaults_48000_stereo_2 48000
+transport 1 0 120
+render 6000 1
+end
+scenario defaults_48000_stereo_3 48000
+transport 1 0 120
+render 24000 7
+end
+scenario defaults_48000_stereo_4 48000
+transport 1 0 120
+render 24000 64
+end
+scenario defaults_48000_stereo_5 48000
+transport 1 0 120
+render 24000 333
+end
+scenario defaults_48000_stereo_6 48000
+transport 1 0 120
+render 24000 1024
+end
+scenario defaults_48000_stereo_7 48000
+transport 1 0 120
+render 24000 4096
+end
+scenario defaults_48000_mono_1 48000 mono
+transport 1 0 120
+render 24000 512
+end
+scenario defaults_48000_mono_2 48000 mono
+transport 1 0 120
+render 6000 1
+end
+scenario defaults_48000_mono_3 48000 mono
+transport 1 0 120
+render 24000 7
+end
+scenario defaults_48000_mono_4 48000 mono
+transport 1 0 120
+render 24000 64
+end
+scenario defaults_48000_mono_5 48000 mono
+transport 1 0 120
+render 24000 333
+end
+scenario defaults_48000_mono_6 48000 mono
+transport 1 0 120
+render 24000 1024
+end
+scenario defaults_48000_mono_7 48000 mono
+transport 1 0 120
+render 24000 4096
+end
+scenario defaults_96000_stereo_1 96000
+transport 1 0 120
+render 48000 512
+end
+scenario defaults_96000_stereo_2 96000
+transport 1 0 120
+render 12000 1
+end
+scenario defaults_96000_stereo_3 96000
+transport 1 0 120
+render 48000 7
+end
+scenario defaults_96000_stereo_4 96000
+transport 1 0 120
+render 48000 64
+end
+scenario defaults_96000_stereo_5 96000
+transport 1 0 120
+render 48000 333
+end
+scenario defaults_96000_stereo_6 96000
+transport 1 0 120
+render 48000 1024
+end
+scenario defaults_96000_stereo_7 96000
+transport 1 0 120
+render 48000 4096
+end
+scenario defaults_96000_mono_1 96000 mono
+transport 1 0 120
+render 48000 512
+end
+scenario defaults_96000_mono_2 96000 mono
+transport 1 0 120
+render 12000 1
+end
+scenario defaults_96000_mono_3 96000 mono
+transport 1 0 120
+render 48000 7
+end
+scenario defaults_96000_mono_4 96000 mono
+transport 1 0 120
+render 48000 64
+end
+scenario defaults_96000_mono_5 96000 mono
+transport 1 0 120
+render 48000 333
+end
+scenario defaults_96000_mono_6 96000 mono
+transport 1 0 120
+render 48000 1024
+end
+scenario defaults_96000_mono_7 96000 mono
+transport 1 0 120
+render 48000 4096
+end
+scenario defaults_192000_stereo_1 192000
+transport 1 0 120
+render 96000 512
+end
+scenario defaults_192000_stereo_2 192000
+transport 1 0 120
+render 24000 1
+end
+scenario defaults_192000_stereo_3 192000
+transport 1 0 120
+render 96000 7
+end
+scenario defaults_192000_stereo_4 192000
+transport 1 0 120
+render 96000 64
+end
+scenario defaults_192000_stereo_5 192000
+transport 1 0 120
+render 96000 333
+end
+scenario defaults_192000_stereo_6 192000
+transport 1 0 120
+render 96000 1024
+end
+scenario defaults_192000_stereo_7 192000
+transport 1 0 120
+render 96000 4096
+end
+scenario defaults_192000_mono_1 192000 mono
+transport 1 0 120
+render 96000 512
+end
+scenario defaults_192000_mono_2 192000 mono
+transport 1 0 120
+render 24000 1
+end
+scenario defaults_192000_mono_3 192000 mono
+transport 1 0 120
+render 96000 7
+end
+scenario defaults_192000_mono_4 192000 mono
+transport 1 0 120
+render 96000 64
+end
+scenario defaults_192000_mono_5 192000 mono
+transport 1 0 120
+render 96000 333
+end
+scenario defaults_192000_mono_6 192000 mono
+transport 1 0 120
+render 96000 1024
+end
+scenario defaults_192000_mono_7 192000 mono
+transport 1 0 120
+render 96000 4096
+end
+
+# Every pattern in both modes, at a rate each, a bar and a half.
+scenario pattern_1_m0 48000
+set pattern 1
+set mode 0
+set rate 1
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 93
+render 144000 61
+end
+scenario pattern_1_m1 48000
+set pattern 1
+set mode 1
+set rate 2
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 93
+render 144000 61
+end
+scenario pattern_2_m0 48000
+set pattern 2
+set mode 0
+set rate 2
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 96
+render 144000 90
+end
+scenario pattern_2_m1 48000
+set pattern 2
+set mode 1
+set rate 0
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 96
+render 144000 90
+end
+scenario pattern_3_m0 48000
+set pattern 3
+set mode 0
+set rate 0
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 99
+render 144000 119
+end
+scenario pattern_3_m1 48000
+set pattern 3
+set mode 1
+set rate 1
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 99
+render 144000 119
+end
+scenario pattern_4_m0 48000
+set pattern 4
+set mode 0
+set rate 1
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 102
+render 144000 148
+end
+scenario pattern_4_m1 48000
+set pattern 4
+set mode 1
+set rate 2
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 102
+render 144000 148
+end
+scenario pattern_5_m0 48000
+set pattern 5
+set mode 0
+set rate 2
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 105
+render 144000 177
+end
+scenario pattern_5_m1 48000
+set pattern 5
+set mode 1
+set rate 0
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 105
+render 144000 177
+end
+scenario pattern_6_m0 48000
+set pattern 6
+set mode 0
+set rate 0
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 108
+render 144000 206
+end
+scenario pattern_6_m1 48000
+set pattern 6
+set mode 1
+set rate 1
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 108
+render 144000 206
+end
+scenario pattern_7_m0 48000
+set pattern 7
+set mode 0
+set rate 1
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 111
+render 144000 235
+end
+scenario pattern_7_m1 48000
+set pattern 7
+set mode 1
+set rate 2
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 111
+render 144000 235
+end
+scenario pattern_8_m0 48000
+set pattern 8
+set mode 0
+set rate 2
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 114
+render 144000 264
+end
+scenario pattern_8_m1 48000
+set pattern 8
+set mode 1
+set rate 0
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 114
+render 144000 264
+end
+scenario pattern_9_m0 48000
+set pattern 9
+set mode 0
+set rate 0
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 117
+render 144000 293
+end
+scenario pattern_9_m1 48000
+set pattern 9
+set mode 1
+set rate 1
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 117
+render 144000 293
+end
+scenario pattern_10_m0 48000
+set pattern 10
+set mode 0
+set rate 1
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 120
+render 144000 322
+end
+scenario pattern_10_m1 48000
+set pattern 10
+set mode 1
+set rate 2
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 120
+render 144000 322
+end
+scenario pattern_11_m0 48000
+set pattern 11
+set mode 0
+set rate 2
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 123
+render 144000 351
+end
+scenario pattern_11_m1 48000
+set pattern 11
+set mode 1
+set rate 0
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 123
+render 144000 351
+end
+scenario pattern_12_m0 48000
+set pattern 12
+set mode 0
+set rate 0
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 126
+render 144000 380
+end
+scenario pattern_12_m1 48000
+set pattern 12
+set mode 1
+set rate 1
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 126
+render 144000 380
+end
+scenario pattern_13_m0 48000
+set pattern 13
+set mode 0
+set rate 1
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 129
+render 144000 409
+end
+scenario pattern_13_m1 48000
+set pattern 13
+set mode 1
+set rate 2
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 129
+render 144000 409
+end
+scenario pattern_14_m0 48000
+set pattern 14
+set mode 0
+set rate 2
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 132
+render 144000 438
+end
+scenario pattern_14_m1 48000
+set pattern 14
+set mode 1
+set rate 0
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 132
+render 144000 438
+end
+scenario pattern_15_m0 48000
+set pattern 15
+set mode 0
+set rate 0
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 135
+render 144000 467
+end
+scenario pattern_15_m1 48000
+set pattern 15
+set mode 1
+set rate 1
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 135
+render 144000 467
+end
+scenario pattern_16_m0 48000
+set pattern 16
+set mode 0
+set rate 1
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 138
+render 144000 496
+end
+scenario pattern_16_m1 48000
+set pattern 16
+set mode 1
+set rate 2
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 138
+render 144000 496
+end
+scenario pattern_17_m0 48000
+set pattern 17
+set mode 0
+set rate 2
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 141
+render 144000 525
+end
+scenario pattern_17_m1 48000
+set pattern 17
+set mode 1
+set rate 0
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 141
+render 144000 525
+end
+scenario pattern_18_m0 48000
+set pattern 18
+set mode 0
+set rate 0
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 144
+render 144000 554
+end
+scenario pattern_18_m1 48000
+set pattern 18
+set mode 1
+set rate 1
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 144
+render 144000 554
+end
+scenario pattern_19_m0 48000
+set pattern 19
+set mode 0
+set rate 1
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 147
+render 144000 583
+end
+scenario pattern_19_m1 48000
+set pattern 19
+set mode 1
+set rate 2
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 147
+render 144000 583
+end
+scenario pattern_20_m0 48000
+set pattern 20
+set mode 0
+set rate 2
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 150
+render 144000 612
+end
+scenario pattern_20_m1 48000
+set pattern 20
+set mode 1
+set rate 0
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 150
+render 144000 612
+end
+scenario pattern_21_m0 48000
+set pattern 21
+set mode 0
+set rate 0
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 153
+render 144000 641
+end
+scenario pattern_21_m1 48000
+set pattern 21
+set mode 1
+set rate 1
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 153
+render 144000 641
+end
+scenario pattern_22_m0 48000
+set pattern 22
+set mode 0
+set rate 1
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 156
+render 144000 670
+end
+scenario pattern_22_m1 48000
+set pattern 22
+set mode 1
+set rate 2
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 156
+render 144000 670
+end
+scenario pattern_23_m0 48000
+set pattern 23
+set mode 0
+set rate 2
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 159
+render 144000 699
+end
+scenario pattern_23_m1 48000
+set pattern 23
+set mode 1
+set rate 0
+set hold 0.9
+set decay 0.1
+set attack 0.3
+apply
+transport 1 0 159
+render 144000 699
+end
+scenario pattern_24_m0 48000
+set pattern 24
+set mode 0
+set rate 0
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 162
+render 144000 728
+end
+scenario pattern_24_m1 48000
+set pattern 24
+set mode 1
+set rate 1
+set hold 0.2
+set decay 0.8
+set attack 0.4
+apply
+transport 1 0 162
+render 144000 728
+end
+scenario pattern_25_m0 48000
+set pattern 25
+set mode 0
+set rate 1
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 165
+render 144000 757
+end
+scenario pattern_25_m1 48000
+set pattern 25
+set mode 1
+set rate 2
+set hold 0.5
+set decay 0.5
+set attack 0.5
+apply
+transport 1 0 165
+render 144000 757
+end
+scenario pattern_26_m0 48000
+set pattern 26
+set mode 0
+set rate 2
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 168
+render 144000 786
+end
+scenario pattern_26_m1 48000
+set pattern 26
+set mode 1
+set rate 0
+set hold 0.8
+set decay 0.2
+set attack 0.6
+apply
+transport 1 0 168
+render 144000 786
+end
+scenario pattern_27_m0 48000
+set pattern 27
+set mode 0
+set rate 0
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 171
+render 144000 815
+end
+scenario pattern_27_m1 48000
+set pattern 27
+set mode 1
+set rate 1
+set hold 0.1
+set decay 0.9
+set attack 0.7
+apply
+transport 1 0 171
+render 144000 815
+end
+scenario pattern_28_m0 48000
+set pattern 28
+set mode 0
+set rate 1
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 174
+render 144000 844
+end
+scenario pattern_28_m1 48000
+set pattern 28
+set mode 1
+set rate 2
+set hold 0.4
+set decay 0.6
+set attack 0.8
+apply
+transport 1 0 174
+render 144000 844
+end
+scenario pattern_29_m0 48000
+set pattern 29
+set mode 0
+set rate 2
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 177
+render 144000 873
+end
+scenario pattern_29_m1 48000
+set pattern 29
+set mode 1
+set rate 0
+set hold 0.7
+set decay 0.3
+set attack 0.9
+apply
+transport 1 0 177
+render 144000 873
+end
+scenario pattern_30_m0 48000
+set pattern 30
+set mode 0
+set rate 0
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 180
+render 144000 902
+end
+scenario pattern_30_m1 48000
+set pattern 30
+set mode 1
+set rate 1
+set hold 0.0
+set decay 0.0
+set attack 0.0
+apply
+transport 1 0 180
+render 144000 902
+end
+scenario pattern_31_m0 48000
+set pattern 31
+set mode 0
+set rate 1
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 183
+render 144000 931
+end
+scenario pattern_31_m1 48000
+set pattern 31
+set mode 1
+set rate 2
+set hold 0.3
+set decay 0.7
+set attack 0.1
+apply
+transport 1 0 183
+render 144000 931
+end
+scenario pattern_32_m0 48000
+set pattern 32
+set mode 0
+set rate 2
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 186
+render 144000 960
+end
+scenario pattern_32_m1 48000
+set pattern 32
+set mode 1
+set rate 0
+set hold 0.6
+set decay 0.4
+set attack 0.2
+apply
+transport 1 0 186
+render 144000 960
+end
+
+# Every RATE and MODE at every sample rate.
+scenario rate_44100_r0_m0 44100
+set rate 0
+set mode 0
+set pattern 9
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_44100_r0_m1 44100
+set rate 0
+set mode 1
+set pattern 12
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_44100_r1_m0 44100
+set rate 1
+set mode 0
+set pattern 10
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_44100_r1_m1 44100
+set rate 1
+set mode 1
+set pattern 13
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_44100_r2_m0 44100
+set rate 2
+set mode 0
+set pattern 11
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_44100_r2_m1 44100
+set rate 2
+set mode 1
+set pattern 14
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 66150 480
+end
+scenario rate_48000_r0_m0 48000
+set rate 0
+set mode 0
+set pattern 9
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_48000_r0_m1 48000
+set rate 0
+set mode 1
+set pattern 12
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_48000_r1_m0 48000
+set rate 1
+set mode 0
+set pattern 10
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_48000_r1_m1 48000
+set rate 1
+set mode 1
+set pattern 13
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_48000_r2_m0 48000
+set rate 2
+set mode 0
+set pattern 11
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_48000_r2_m1 48000
+set rate 2
+set mode 1
+set pattern 14
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 72000 480
+end
+scenario rate_96000_r0_m0 96000
+set rate 0
+set mode 0
+set pattern 9
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_96000_r0_m1 96000
+set rate 0
+set mode 1
+set pattern 12
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_96000_r1_m0 96000
+set rate 1
+set mode 0
+set pattern 10
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_96000_r1_m1 96000
+set rate 1
+set mode 1
+set pattern 13
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_96000_r2_m0 96000
+set rate 2
+set mode 0
+set pattern 11
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_96000_r2_m1 96000
+set rate 2
+set mode 1
+set pattern 14
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 144000 480
+end
+scenario rate_192000_r0_m0 192000
+set rate 0
+set mode 0
+set pattern 9
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+scenario rate_192000_r0_m1 192000
+set rate 0
+set mode 1
+set pattern 12
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+scenario rate_192000_r1_m0 192000
+set rate 1
+set mode 0
+set pattern 10
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+scenario rate_192000_r1_m1 192000
+set rate 1
+set mode 1
+set pattern 13
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+scenario rate_192000_r2_m0 192000
+set rate 2
+set mode 0
+set pattern 11
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+scenario rate_192000_r2_m1 192000
+set rate 2
+set mode 1
+set pattern 14
+set depth 0.8
+set hold 0.3
+apply
+transport 1 0.25 133.7
+render 288000 480
+end
+
+# The knobs turned while playing, a block at a time (blocks of 1 to 100), both modes.
+scenario sweep_depth_1_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 24000 1
+end
+scenario sweep_depth_2_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 24000 1
+end
+scenario sweep_depth_3_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 13
+end
+scenario sweep_depth_4_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 13
+end
+scenario sweep_depth_5_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 64
+end
+scenario sweep_depth_6_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 64
+end
+scenario sweep_depth_7_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 100
+end
+scenario sweep_depth_8_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 0 1 96000 100
+end
+scenario sweep_depth_9_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 24000 1
+end
+scenario sweep_depth_10_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 24000 1
+end
+scenario sweep_depth_11_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 13
+end
+scenario sweep_depth_12_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 13
+end
+scenario sweep_depth_13_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 64
+end
+scenario sweep_depth_14_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 64
+end
+scenario sweep_depth_15_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 100
+end
+scenario sweep_depth_16_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep depth 1 0 96000 100
+end
+scenario sweep_attack_17_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 24000 1
+end
+scenario sweep_attack_18_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 24000 1
+end
+scenario sweep_attack_19_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 13
+end
+scenario sweep_attack_20_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 13
+end
+scenario sweep_attack_21_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 64
+end
+scenario sweep_attack_22_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 64
+end
+scenario sweep_attack_23_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 100
+end
+scenario sweep_attack_24_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 0 1 96000 100
+end
+scenario sweep_attack_25_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 24000 1
+end
+scenario sweep_attack_26_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 24000 1
+end
+scenario sweep_attack_27_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 13
+end
+scenario sweep_attack_28_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 13
+end
+scenario sweep_attack_29_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 64
+end
+scenario sweep_attack_30_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 64
+end
+scenario sweep_attack_31_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 100
+end
+scenario sweep_attack_32_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep attack 1 0 96000 100
+end
+scenario sweep_hold_33_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 24000 1
+end
+scenario sweep_hold_34_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 24000 1
+end
+scenario sweep_hold_35_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 13
+end
+scenario sweep_hold_36_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 13
+end
+scenario sweep_hold_37_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 64
+end
+scenario sweep_hold_38_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 64
+end
+scenario sweep_hold_39_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 100
+end
+scenario sweep_hold_40_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 0 1 96000 100
+end
+scenario sweep_hold_41_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 24000 1
+end
+scenario sweep_hold_42_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 24000 1
+end
+scenario sweep_hold_43_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 13
+end
+scenario sweep_hold_44_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 13
+end
+scenario sweep_hold_45_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 64
+end
+scenario sweep_hold_46_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 64
+end
+scenario sweep_hold_47_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 100
+end
+scenario sweep_hold_48_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep hold 1 0 96000 100
+end
+scenario sweep_decay_49_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 24000 1
+end
+scenario sweep_decay_50_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 24000 1
+end
+scenario sweep_decay_51_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 13
+end
+scenario sweep_decay_52_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 13
+end
+scenario sweep_decay_53_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 64
+end
+scenario sweep_decay_54_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 64
+end
+scenario sweep_decay_55_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 100
+end
+scenario sweep_decay_56_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 0 1 96000 100
+end
+scenario sweep_decay_57_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 24000 1
+end
+scenario sweep_decay_58_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 24000 1
+end
+scenario sweep_decay_59_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 13
+end
+scenario sweep_decay_60_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 13
+end
+scenario sweep_decay_61_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 64
+end
+scenario sweep_decay_62_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 64
+end
+scenario sweep_decay_63_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 100
+end
+scenario sweep_decay_64_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep decay 1 0 96000 100
+end
+scenario sweep_mix_65_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 24000 1
+end
+scenario sweep_mix_66_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 24000 1
+end
+scenario sweep_mix_67_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 13
+end
+scenario sweep_mix_68_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 13
+end
+scenario sweep_mix_69_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 64
+end
+scenario sweep_mix_70_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 64
+end
+scenario sweep_mix_71_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 100
+end
+scenario sweep_mix_72_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 0 1 96000 100
+end
+scenario sweep_mix_73_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 24000 1
+end
+scenario sweep_mix_74_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 24000 1
+end
+scenario sweep_mix_75_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 13
+end
+scenario sweep_mix_76_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 13
+end
+scenario sweep_mix_77_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 64
+end
+scenario sweep_mix_78_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 64
+end
+scenario sweep_mix_79_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 100
+end
+scenario sweep_mix_80_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mix 1 0 96000 100
+end
+scenario sweep_level_81_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 24000 1
+end
+scenario sweep_level_82_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 24000 1
+end
+scenario sweep_level_83_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 13
+end
+scenario sweep_level_84_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 13
+end
+scenario sweep_level_85_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 64
+end
+scenario sweep_level_86_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 64
+end
+scenario sweep_level_87_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 100
+end
+scenario sweep_level_88_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level -24 12 96000 100
+end
+scenario sweep_level_89_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 24000 1
+end
+scenario sweep_level_90_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 24000 1
+end
+scenario sweep_level_91_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 13
+end
+scenario sweep_level_92_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 13
+end
+scenario sweep_level_93_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 64
+end
+scenario sweep_level_94_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 64
+end
+scenario sweep_level_95_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 100
+end
+scenario sweep_level_96_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep level 12 -24 96000 100
+end
+scenario sweep_pattern_97_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 24000 1
+end
+scenario sweep_pattern_98_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 24000 1
+end
+scenario sweep_pattern_99_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 13
+end
+scenario sweep_pattern_100_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 13
+end
+scenario sweep_pattern_101_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 64
+end
+scenario sweep_pattern_102_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 64
+end
+scenario sweep_pattern_103_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 100
+end
+scenario sweep_pattern_104_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 1 32 96000 100
+end
+scenario sweep_pattern_105_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 24000 1
+end
+scenario sweep_pattern_106_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 24000 1
+end
+scenario sweep_pattern_107_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 13
+end
+scenario sweep_pattern_108_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 13
+end
+scenario sweep_pattern_109_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 64
+end
+scenario sweep_pattern_110_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 64
+end
+scenario sweep_pattern_111_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 100
+end
+scenario sweep_pattern_112_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep pattern 32 1 96000 100
+end
+scenario sweep_rate_113_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 24000 1
+end
+scenario sweep_rate_114_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 24000 1
+end
+scenario sweep_rate_115_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 13
+end
+scenario sweep_rate_116_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 13
+end
+scenario sweep_rate_117_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 64
+end
+scenario sweep_rate_118_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 64
+end
+scenario sweep_rate_119_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 100
+end
+scenario sweep_rate_120_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 0 2 96000 100
+end
+scenario sweep_rate_121_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 24000 1
+end
+scenario sweep_rate_122_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 24000 1
+end
+scenario sweep_rate_123_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 13
+end
+scenario sweep_rate_124_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 13
+end
+scenario sweep_rate_125_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 64
+end
+scenario sweep_rate_126_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 64
+end
+scenario sweep_rate_127_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 100
+end
+scenario sweep_rate_128_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep rate 2 0 96000 100
+end
+scenario sweep_mode_129_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 24000 1
+end
+scenario sweep_mode_130_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 24000 1
+end
+scenario sweep_mode_131_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 13
+end
+scenario sweep_mode_132_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 13
+end
+scenario sweep_mode_133_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 64
+end
+scenario sweep_mode_134_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 64
+end
+scenario sweep_mode_135_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 100
+end
+scenario sweep_mode_136_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 0 1 96000 100
+end
+scenario sweep_mode_137_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 24000 1
+end
+scenario sweep_mode_138_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 24000 1
+end
+scenario sweep_mode_139_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 13
+end
+scenario sweep_mode_140_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 13
+end
+scenario sweep_mode_141_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 64
+end
+scenario sweep_mode_142_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 64
+end
+scenario sweep_mode_143_m0 48000
+set mode 0
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 100
+end
+scenario sweep_mode_144_m1 48000
+set mode 1
+set pattern 18
+set hold 0.4
+apply
+transport 1 0.5 126
+sweep mode 1 0 96000 100
+end
+
+# The transport: stopped and started, loops, jumps into a step, tempo changes, a pre-roll,
+# no timeline, odd positions and tempi.
+scenario transport_stop_start 48000
+set pattern 3
+set hold 0.2
+apply
+transport 1 0 120
+render 30000 512
+transport 0 2 120
+render 20000 512
+transport 1 2 120
+render 30000 333
+notimeline
+render 10000 64
+transport 1 3.999999 120
+render 30000 100
+end
+scenario transport_stop_start_duck 48000
+set mode 1
+set pattern 1
+apply
+transport 1 0 128
+render 30000 512
+transport 0 2 128
+render 20000 512
+transport 1 2 128
+render 30000 333
+end
+scenario loop_to_bar 48000
+set pattern 17
+apply
+transport 1 0 120
+render 48000 512
+seek 0
+render 48000 512
+seek 0
+render 24000 512
+end
+scenario loop_mid_step 48000
+set pattern 23
+apply
+transport 1 1.1 120
+render 48000 256
+seek 0.37
+render 24000 256
+seek 3.13
+render 24000 256
+end
+scenario loop_tight 44100
+set pattern 5
+set rate 2
+apply
+transport 1 0 140
+render 4410 441
+seek 0
+render 4410 441
+seek 0
+render 4410 441
+seek 0.5
+render 8820 441
+end
+scenario loop_backwards 96000
+set pattern 26
+set mode 1
+apply
+transport 1 8 100
+render 96000 1000
+seek 4
+render 96000 1000
+seek 7.99
+render 50000 7
+end
+scenario tempo_changes 48000
+set pattern 21
+set rate 2
+apply
+transport 1 0 60
+render 48000 512
+tempo 180
+render 48000 512
+tempo 97.3
+render 48000 77
+tempo 300
+render 48000 512
+tempo 20
+render 96000 512
+end
+scenario tempo_bad 48000
+transport 1 0 0
+render 9600 480
+tempo -120
+render 9600 480
+tempo inf
+render 9600 480
+tempo nan
+render 9600 480
+tempo 120
+render 9600 480
+end
+scenario position_bad 48000
+transport 1 nan 120
+render 9600 480
+transport 1 inf 120
+render 9600 480
+transport 1 -inf 120
+render 9600 480
+transport 1 1e15 120
+render 9600 480
+transport 1 0 120
+render 9600 480
+end
+scenario preroll 48000
+set pattern 19
+apply
+transport 1 -2.3 120
+render 96000 512
+end
+scenario no_timeline 48000
+set pattern 3
+apply
+notimeline
+render 48000 512
+end
+scenario no_timeline_duck 48000
+set mode 1
+apply
+render 48000 512
+transport 1 0 120
+render 48000 512
+notimeline
+render 48000 512
+end
+scenario rate_change_mid_play 48000
+set pattern 2
+apply
+transport 1 0 120
+render 24000 512
+set rate 0
+apply
+render 24000 512
+set rate 2
+apply
+render 24000 333
+set rate 1
+apply
+render 24000 1
+end
+scenario mode_flipping 48000
+set pattern 9
+apply
+transport 1 0 120
+render 12000 512
+set mode 1
+apply
+render 12000 512
+reset
+render 12000 512
+set mode 0
+apply
+reset
+render 12000 512
+end
+scenario reset_and_prepare 48000
+set pattern 11
+set depth 0.7
+apply
+transport 1 0 120
+render 24000 512
+reset
+render 24000 512
+prepare 96000
+render 48000 512
+prepare 44100
+render 22050 300
+prepare 0
+render 4800 480
+prepare -5
+render 4800 480
+end
+scenario mono_every_rate 44100 mono
+set pattern 28
+apply
+transport 1 0 120
+render 44100 512
+set rate 0
+apply
+render 44100 512
+set rate 2
+apply
+render 44100 512
+end
+scenario mono_duck_192k 192000 mono
+set mode 1
+set pattern 31
+set rate 2
+apply
+transport 1 0 174
+render 192000 999
+end
+
+# What goes through: silence, denormals (flushed or not), DC, impulses, loud noise.
+scenario silence 48000
+input silence
+transport 1 0 120
+render 48000 512
+end
+scenario denormals_ftz 48000
+input tiny
+set pattern 2
+apply
+transport 1 0 120
+render 48000 512
+end
+scenario denormals_no_ftz 48000
+ftz 0
+input tiny
+set pattern 2
+set mode 1
+apply
+transport 1 0 120
+render 48000 512
+ftz 1
+end
+scenario dc_input 48000
+input dc 0.5
+set pattern 13
+apply
+transport 1 0 120
+render 48000 512
+end
+scenario impulses 48000
+input impulse 97
+set pattern 22
+set mode 1
+apply
+transport 1 0 120
+render 48000 64
+end
+scenario loud_noise 48000
+input noise
+gain 1000
+set pattern 27
+set level 12
+apply
+transport 1 0 120
+render 48000 512
+end
+scenario quiet_after_gate_ftz_off 48000
+ftz 0
+set pattern 19
+set decay 1
+set hold 0
+apply
+transport 1 0 60
+render 96000 512
+ftz 1
+end
+
+# Settings out of range: clamped (or not) as the C++ does.
+scenario out_of_range 48000
+transport 1 0 120
+set depth 2
+set attack -1
+set hold 5
+set decay 3
+set mix -2
+set level 100
+apply
+render 12000 512
+set depth -1
+set attack 7
+set hold -3
+set decay -9
+set mix 9
+set level -100
+apply
+render 12000 512
+set pattern 0
+set mode 5
+set rate 9
+apply
+render 12000 512
+set pattern 99
+set mode -1
+set rate -3
+apply
+render 12000 512
+end
+scenario out_of_range_nan 48000
+transport 1 0 120
+set depth nan
+apply
+render 4800 480
+set depth 1
+set attack nan
+apply
+render 4800 480
+set attack 0.2
+set hold nan
+apply
+render 4800 480
+set hold 0.5
+set decay nan
+apply
+render 4800 480
+set decay 0.2
+set mix nan
+apply
+render 4800 480
+set mix 1
+set level nan
+apply
+render 4800 480
+set level inf
+apply
+render 4800 480
+end

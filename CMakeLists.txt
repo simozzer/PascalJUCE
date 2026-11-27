@@ -538,6 +538,81 @@ if(TARGET Mz950)
     set_tests_properties(mz950_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
 endif()
 
+# mzpcf_editor_test: the MzPCF_Pascal panel (a designed form whose stand-ins become the C++ panel's controls; the step lit from the host's play head), offscreen, the same way. An effect, so the wrapper is built as one (as scope_test). Its source and reference image live with the example.
+if(TARGET MzPCF)
+    set(_mzpcf "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/MzPCF")
+    juce_add_console_app(mzpcf_editor_test PRODUCT_NAME "mzpcf_editor_test")
+    target_sources(mzpcf_editor_test PRIVATE "${_mzpcf}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mzpcf_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/MzPCF/MzPCF_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mzpcf_editor_test PRIVATE # an effect: _editor_wrapper_defs is for instruments
+        JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
+        PASCALJUCE_PLUGIN_KIND=1 PASCALJUCE_EDITOR_TEST_HOOKS=1 JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+        JucePlugin_Name="MzPCF_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:MzPCF,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZPCF_VERIFY_DIR="${_mzpcf}/verify")
+    target_link_libraries(mzpcf_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mzpcf_editor_test MzPCF_PascalLibrary MzPCF_PascalHash)
+    add_custom_command(TARGET mzpcf_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/MzPCF/MzPCF_pascal/$<CONFIG>/$<TARGET_PROPERTY:MzPCF,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mzpcf_editor_test>"
+        VERBATIM)
+    add_test(NAME mzpcf_editor_test COMMAND mzpcf_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mzpcf_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
+# mzpcd_editor_test: the MzPCD_Pascal panel (MzPCF_Pascal's controls; the step lit and the push metered from the host's play head), offscreen, the same way, and the latency it reports. An effect. Its source and reference image live with the example.
+if(TARGET MzPCD)
+    set(_mzpcd "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/MzPCD")
+    juce_add_console_app(mzpcd_editor_test PRODUCT_NAME "mzpcd_editor_test")
+    target_sources(mzpcd_editor_test PRIVATE "${_mzpcd}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mzpcd_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/MzPCD/MzPCD_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mzpcd_editor_test PRIVATE # an effect: _editor_wrapper_defs is for instruments
+        JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
+        PASCALJUCE_PLUGIN_KIND=1 PASCALJUCE_EDITOR_TEST_HOOKS=1 JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+        JucePlugin_Name="MzPCD_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:MzPCD,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZPCD_VERIFY_DIR="${_mzpcd}/verify")
+    target_link_libraries(mzpcd_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mzpcd_editor_test MzPCD_PascalLibrary MzPCD_PascalHash)
+    add_custom_command(TARGET mzpcd_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/MzPCD/MzPCD_pascal/$<CONFIG>/$<TARGET_PROPERTY:MzPCD,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mzpcd_editor_test>"
+        VERBATIM)
+    add_test(NAME mzpcd_editor_test COMMAND mzpcd_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mzpcd_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
+# mzpcg_editor_test: the MzPCG_Pascal panel (MzPCF_Pascal's controls, and the gain's picture worked out by playing the engine), offscreen, the same way. An effect. Its source and reference image live with the example.
+if(TARGET MzPCG)
+    set(_mzpcg "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/MzPCG")
+    juce_add_console_app(mzpcg_editor_test PRODUCT_NAME "mzpcg_editor_test")
+    target_sources(mzpcg_editor_test PRIVATE "${_mzpcg}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mzpcg_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/MzPCG/MzPCG_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mzpcg_editor_test PRIVATE # an effect: _editor_wrapper_defs is for instruments
+        JucePlugin_WantsMidiInput=0 JucePlugin_ProducesMidiOutput=0 JucePlugin_IsMidiEffect=0
+        PASCALJUCE_PLUGIN_KIND=1 PASCALJUCE_EDITOR_TEST_HOOKS=1 JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+        JucePlugin_Name="MzPCG_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:MzPCG,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZPCG_VERIFY_DIR="${_mzpcg}/verify")
+    target_link_libraries(mzpcg_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mzpcg_editor_test MzPCG_PascalLibrary MzPCG_PascalHash)
+    add_custom_command(TARGET mzpcg_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/MzPCG/MzPCG_pascal/$<CONFIG>/$<TARGET_PROPERTY:MzPCG,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mzpcg_editor_test>"
+        VERBATIM)
+    add_test(NAME mzpcg_editor_test COMMAND mzpcg_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mzpcg_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
 # scope_test: the Scope example (an effect), its window offscreen, the same way.
 if(TARGET Scope)
     juce_add_console_app(scope_test PRODUCT_NAME "scope_test")
@@ -618,7 +693,8 @@ if(PASCALJUCE_ASAN_DIR)
     endif()
     foreach(_cfg IN LISTS _configs)
         foreach(_dir "bin/${_cfg}" "plugin_host_test_artefacts/${_cfg}" "fuzz_plugin_state_artefacts/${_cfg}"
-                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}" "mz808_editor_test_artefacts/${_cfg}" "mz909_editor_test_artefacts/${_cfg}" "mz950_editor_test_artefacts/${_cfg}"
+                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}" "mz808_editor_test_artefacts/${_cfg}" "mz909_editor_test_artefacts/${_cfg}" "mz950_editor_test_artefacts/${_cfg}" "mzpcf_editor_test_artefacts/${_cfg}" "mzpcg_editor_test_artefacts/${_cfg}"
+                     "mzpcd_editor_test_artefacts/${_cfg}"
                      "examples/plugins/PascalSynth/PascalSynth_artefacts/${_cfg}/Standalone")
             file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/${_dir}")
             file(COPY "${PASCALJUCE_ASAN_DIR}/clang_rt.asan_dynamic-x86_64.dll" DESTINATION "${CMAKE_BINARY_DIR}/${_dir}")
