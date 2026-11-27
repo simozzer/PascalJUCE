@@ -3,7 +3,7 @@
 //
 //     mz101_host_check <VST3|LV2> <bundle path>
 //
-// Loads the built Mz101 Pascal bundle through JUCE's own plug-in hosting (what a DAW
+// Loads the built Mz101_Pascal bundle through JUCE's own plug-in hosting (what a DAW
 // does) and plays it: parameters and their text, notes, the CC map, the Patch parameter,
 // the momentary buttons, the sequence in the saved state, hostile state, and that the
 // editor is the custom panel.
@@ -108,13 +108,13 @@ int main(int argc, char* argv[])
     juce::addDefaultFormatsToManager(manager);
     const juce::String format(argv[1]);
     const juce::String path = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String::fromUTF8(argv[2])).getFullPathName();
-    std::printf("Mz101 Pascal / %s: %s\n", format.toRawUTF8(), path.toRawUTF8());
+    std::printf("Mz101_Pascal / %s: %s\n", format.toRawUTF8(), path.toRawUTF8());
 
     auto plugin = load(manager, format, path);
     check(plugin != nullptr, "plug-in loads");
     if (plugin == nullptr) return 1;
 
-    check(plugin->getName() == "Mz101 Pascal", "name = \"" + plugin->getName() + "\"");
+    check(plugin->getName() == "Mz101_Pascal", "name = \"" + plugin->getName() + "\"");
     check(plugin->acceptsMidi() && ! plugin->producesMidi(), "an instrument: MIDI in, none out");
     auto* cutoff = param(*plugin, "VCF Freq");
     auto* range = param(*plugin, "VCO Range");

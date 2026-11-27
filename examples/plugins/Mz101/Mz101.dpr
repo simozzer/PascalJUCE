@@ -1,7 +1,7 @@
 // Mz101 - Created by Simon Moscrop
 // Free software under the GNU AGPL v3; see LICENSE.
 //
-// Mz101 Pascal: the Mz101 SH-101 emulation as a PascalJUCE plug-in library.
+// Mz101_Pascal: the Mz101 SH-101 emulation as a PascalJUCE plug-in library.
 // Build: see CMakeLists.txt in this folder (pascaljuce_add_plugin), or build this library
 // in Delphi (Win64, pascal/ on the search path) and point PASCAL_LIBRARY at the DLL.
 library Mz101;

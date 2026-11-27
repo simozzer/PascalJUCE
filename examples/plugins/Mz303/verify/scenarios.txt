@@ -1,0 +1,314 @@
+# Mz303 equivalence scenarios: read by both render_cpp.cpp (the original C++ engine) and
+# render_pas.dpr (the Pascal port). Each renders to <name>.f32 (raw little-endian floats).
+#
+#   scenario NAME RATE        new engine, prepare(RATE), pending settings = defaults
+#   set ID VALUE              change a pending setting (parameter IDs as in Params.cpp)
+#   patch NAME                pending settings = defaults + factory preset NAME
+#   apply                     engine.setSettings(pending)
+#   on N [VEL]                note on (velocity 80 if none given; 100 or more is an accent)
+#   off N                     note off
+#   bend V                    pitch bend -1..1
+#   allnotesoff
+#   render SAMPLES [BLOCK]    render, in blocks of BLOCK (default: one block)
+#   end
+
+scenario single_note 48000
+apply
+on 36
+render 24000
+off 36
+render 12000
+end
+
+scenario single_note_441 44100
+set res 2
+apply
+on 48
+render 22050 512
+off 48
+render 11025 512
+end
+
+scenario single_note_96k 96000
+apply
+on 41
+render 48000 480
+off 41
+render 24000 480
+end
+
+scenario single_note_192k 192000
+set cutoff 7
+apply
+on 45
+render 48000
+off 45
+render 48000
+end
+
+scenario square 48000
+set wave 1
+set res 6
+apply
+on 33
+render 18000
+off 33
+render 6000
+on 57
+render 18000
+off 57
+render 6000
+end
+
+scenario high_notes 48000
+set cutoff 10
+set envMod 0
+set res 0
+apply
+on 96
+render 9600
+off 96
+on 120
+render 9600
+off 120
+set wave 1
+apply
+on 127
+render 9600
+off 127
+render 4800
+end
+
+scenario accent 48000
+set accent 10
+apply
+on 36 127
+render 6000
+off 36
+render 6000
+on 36 99
+render 6000
+off 36
+render 6000
+on 36 100
+render 6000
+off 36
+render 6000
+end
+
+scenario accent_run_wow 48000
+patch Accent Wow
+apply
+on 36 120
+render 3000
+off 36
+render 3000
+on 36 120
+render 3000
+off 36
+render 3000
+on 43 120
+render 3000
+off 43
+render 3000
+on 36 120
+render 3000
+off 36
+render 3000
+on 48 120
+render 3000
+off 48
+render 24000
+end
+
+scenario slide 48000
+patch Acid Squelch
+apply
+on 36
+render 5000
+on 48
+render 5000
+off 36
+render 5000
+on 43 110
+render 5000
+off 48
+render 3000
+off 43
+render 9000
+end
+
+scenario slide_back 48000
+apply
+on 36
+render 6000
+on 48
+render 6000
+off 48
+render 9000
+off 36
+render 6000
+end
+
+scenario repeat_same_note 48000
+apply
+on 40
+render 3000
+on 40 127
+render 3000
+off 40
+render 3000
+end
+
+scenario velocity_zero 48000
+apply
+on 40
+render 4000
+on 40 0
+render 4000
+on 52
+render 4000
+allnotesoff
+render 8000
+end
+
+scenario knobs_move 48000
+apply
+on 36
+render 4800
+set cutoff 8
+set res 9
+set envMod 2
+apply
+render 4800
+set decay 10
+set volume 3
+set accent 0
+apply
+render 4800 64
+set wave 1
+set cutoff 0
+apply
+render 4800 64
+off 36
+render 9600
+end
+
+scenario long_decay_hold 48000
+set decay 10
+set envMod 10
+apply
+on 31
+render 96000 256
+off 31
+render 9600 256
+end
+
+scenario tune_bend 48000
+set tune -100
+apply
+on 45
+render 6000
+set tune 100
+apply
+render 6000
+bend 1
+render 6000
+bend -1
+render 6000
+bend 0.37
+render 6000
+off 45
+render 6000
+end
+
+scenario volume_zero 48000
+set volume 0
+apply
+on 36
+render 6000
+set volume 10
+apply
+render 6000
+off 36
+render 3000
+end
+
+scenario silence_rings 48000
+set res 10
+apply
+render 24000
+end
+
+scenario patch_init 48000
+patch Init
+apply
+on 36
+render 6000
+off 36
+render 3000
+end
+
+scenario patch_rubber_bass 44100
+patch Rubber Bass
+apply
+on 38
+render 6000
+on 50 110
+render 3000
+off 38
+off 50
+render 6000
+end
+
+scenario patch_square_reed 48000
+patch Square Reed
+apply
+on 43
+render 9000
+off 43
+render 3000
+end
+
+scenario patch_long_sweep 96000
+patch Long Sweep
+apply
+on 36 127
+render 48000
+off 36
+render 12000
+end
+
+scenario patch_deep_sub 48000
+patch Deep Sub
+apply
+on 28
+render 9000
+off 28
+render 3000
+end
+
+scenario patch_bright_pluck 48000
+patch Bright Pluck
+apply
+on 48 110
+render 4000
+off 48
+on 55
+render 4000
+off 55
+render 4000
+end
+
+scenario odd_blocks 48000
+patch Acid Squelch
+apply
+on 36
+render 7777 1
+on 39 127
+render 7777 7
+off 36
+render 7777 333
+off 39
+render 7777 4096
+end

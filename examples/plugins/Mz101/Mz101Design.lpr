@@ -2,7 +2,7 @@
   Mz101 - Created by Simon Moscrop
   Free software under the GNU AGPL v3; see LICENSE.
 
-  Mz101Design - the Lazarus project for designing the Mz101 Pascal panel.
+  Mz101Design - the Lazarus project for designing the Mz101_Pascal panel.
 
   Open Mz101Design.lpi in Lazarus (with pascaljuce_design installed), then open
   Mz101EditorForm.pas and press F12 to see the form. Running this project shows a

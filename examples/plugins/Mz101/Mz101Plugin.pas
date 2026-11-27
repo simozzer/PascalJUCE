@@ -85,7 +85,6 @@ type
     // Shared with the panel (message thread): atomics only.
     FCcOf: array[0..NumSpecs - 1] of Integer;   // the CC each control answers to, -1 none
     FLearning: Integer;                         // the control waiting for a CC, -1 none
-    FScopeTimeMs: Single;                       // the panel scope's TIME (a view setting)
     FMapVersion: Integer;                       // bumped on every change of the above
     FTransposePresses, FLegatoPresses: Integer; // presses not yet acted on
     FKeyQueue: array[0..KeyQueueSize - 1] of Integer;  // note, + 128 for a key down
@@ -136,10 +135,6 @@ type
     // if the queue is full (the key is dropped).
     function QueueKey(Note: Integer; Down: Boolean): Boolean;
 
-    // How much the panel's scope shows, in ms: set by its TIME slider (message thread).
-    // Not a parameter (it changes the view, not the sound), but saved with the project.
-    property ScopeTimeMs: Single read FScopeTimeMs write FScopeTimeMs;
-
     // For tests: the engine, read-only use.
     property Engine: TEngine read FEngine;
   end;
@@ -166,12 +161,12 @@ const
   //   entries x         id length (1 byte, 1..64), id (ASCII), CC (1 byte; 255 = none)
   // Version 1 (before MIDI learn) loads with the default CCs. A build that knows only
   // version 1 refuses version 2 as "a later version" and keeps its own sequence.
-  // From version 3, after the map, the panel scope's TIME:
-  //   'S' 'T'           magic
-  //   time              4 bytes, the milliseconds as a little-endian Single
-  // Version 2 loads with the scope as it is. Each build refuses a later version.
+  // Version 3 (saved by the builds whose panel had a scope) is version 2 followed by the
+  // scope's TIME ('S' 'T', then a little-endian Single): it still loads, the time
+  // checked and ignored. This build saves version 2, and refuses a later version than 3.
   StateMagic: array[0..3] of Byte = (Ord('M'), Ord('z'), Ord('S'), Ord('q'));
-  StateVersion = 3;
+  StateVersion = 2;      // what this build saves
+  NewestVersion = 3;     // what it loads
   StateHeader = 6;
   MapMagic: array[0..1] of Byte = (Ord('C'), Ord('C'));
   ScopeMagic: array[0..1] of Byte = (Ord('S'), Ord('T'));
@@ -244,7 +239,6 @@ begin
   FPendingTimeout := 48000;
   FPatchDebounce := 2400;
   FLearning := -1;
-  FScopeTimeMs := 20;
   ResetCcs;
 end;
 
@@ -422,6 +416,10 @@ var
 begin
   FPendingTimeout := Max(1, Round(ASampleRate));   // a second: the host has had time
   FPatchDebounce := Max(1, Round(ASampleRate * PatchDebounceSeconds));
+  // The patch the controls are already set to: a patch chosen from now on is applied, even
+  // before the first block. (A project loaded later says its own, in LoadState.)
+  if FAppliedPatch < 0 then
+    FAppliedPatch := Round(GetParameter(PPatch));
 
   FEngine.Prepare(ASampleRate);
 
@@ -706,13 +704,12 @@ end;
 function TMz101.SaveState: TBytes;
 var
   N, I, J, P, Size, Cc: Integer;
-  Step, Bits: UInt32;
+  Step: UInt32;
   Id: AnsiString;
-  Time: Single;
 begin
   N := FEngine.SeqLength;
   Result := nil;
-  Size := StateHeader + 4 * N + 3 + ScopeBytes;
+  Size := StateHeader + 4 * N + 3;
   for I := 0 to NumSpecs - 1 do
     Inc(Size, 2 + Length(Specs[I].Id));
   SetLength(Result, Size);
@@ -748,15 +745,6 @@ begin
       Result[P] := Cc;
     Inc(P);
   end;
-  // the scope's TIME
-  Time := FScopeTimeMs;
-  Move(Time, Bits, SizeOf(Bits));
-  Result[P] := ScopeMagic[0];
-  Result[P + 1] := ScopeMagic[1];
-  Result[P + 2] := Bits and $FF;
-  Result[P + 3] := (Bits shr 8) and $FF;
-  Result[P + 4] := (Bits shr 16) and $FF;
-  Result[P + 5] := (Bits shr 24) and $FF;
 end;
 
 // The CC map of a version 2 or 3 state, from Data[Start] to Data[Stop - 1]: the entries
@@ -806,7 +794,7 @@ begin
   Result := P = Stop;
 end;
 
-// The scope's TIME of a version 3 state: its last ScopeBytes. False if malformed.
+// The scope's TIME at the end of a version 3 state: its last ScopeBytes. False if malformed.
 function ParseScope(const Data: TBytes; out Ms: Single): Boolean;
 var
   P: Integer;
@@ -831,11 +819,11 @@ var
   Valid: Boolean;
   ScopeTime: Single;
 begin
-  // The sequence, the CC map and the scope's TIME. Never trust the data: it comes from a
-  // project file. Known magic and version, a count within the sequencer's length, then
-  // exactly the steps (version 1), the steps and a well-formed map (version 2), or those
-  // and the scope's time (version 3); the engine masks each step to its note, REST and TIE
-  // bits. All or nothing: damaged data changes neither the sequence nor the map.
+  // The sequence and the CC map. Never trust the data: it comes from a project file.
+  // Known magic and version, a count within the sequencer's length, then exactly the
+  // steps (version 1), the steps and a well-formed map (version 2), or those and a scope
+  // time, checked and ignored (version 3); the engine masks each step to its note, REST
+  // and TIE bits. All or nothing: damaged data changes neither the sequence nor the map.
   FillChar(Steps, SizeOf(Steps), 0);
   MapCount := 0;
   if Length(Data) = 0 then
@@ -856,9 +844,9 @@ begin
     begin
       Version := Data[4];
       N := Data[5];
-      Valid := (Version >= 1) and (Version <= 3) and (N <= MaxSteps);
+      Valid := (Version >= 1) and (Version <= NewestVersion) and (N <= MaxSteps);
     end;
-    ScopeTime := FScopeTimeMs;               // versions 1 and 2: the scope as it is
+    ScopeTime := 0;
     if Valid then
     begin
       if Version = 1 then
@@ -884,7 +872,6 @@ begin
       ResetCcs;
       for I := 0 to MapCount - 1 do
         AssignCc(MapIndex[I], MapCc[I]);
-      FScopeTimeMs := ScopeTime;
     end;
     // else: damaged or from a later version - keep the sequence and the map there are
   end;

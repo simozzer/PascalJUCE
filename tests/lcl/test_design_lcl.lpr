@@ -8,7 +8,7 @@
        back end) and compares the picture with tests/data/ui/
        pascalsynth_default.png, which JUCE rendered from the same layout in
        editor_test. Reports the differences inside and outside text. The
-       same for the Mz101 Pascal panel (examples/plugins/Mz101: faders,
+       same for the Mz101_Pascal panel (examples/plugins/Mz101: faders,
        slide switches, LED buttons, a combo box, a readout, a keyboard and a
        theme resource) against mz101_editor_test's verify/ui/mz101_default.png.
     2. Designer output -> run-time loader: streams the design form the way
@@ -403,7 +403,7 @@ begin
   Result := RootDir + 'examples' + PathDelim + 'plugins' + PathDelim + 'Mz101' + PathDelim;
 end;
 
-{ The Mz101 Pascal panel: a big form with every new control (faders, slide
+{ The Mz101_Pascal panel: a big form with every new control (faders, slide
   switches, LED buttons, a combo box, a readout, a keyboard) and a theme
   resource, against mz101_editor_test's JUCE rendering of the plug-in. }
 procedure TestMz101Wysiwyg;

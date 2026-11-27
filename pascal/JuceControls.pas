@@ -2531,6 +2531,10 @@ end;
 procedure TJuceKeyboard.MouseUp(X, Y: Single; Shift: TJuceShiftState);
 begin
   ReleaseNote;
+  { pressed without the mouse having moved over it first (a touch screen): no MouseLeave
+    will come to clear the hover mark, so clear it now }
+  if not Hovered then
+    SetHoverNote(-1);
 end;
 
 procedure TJuceKeyboard.MouseMove(X, Y: Single; Shift: TJuceShiftState);

@@ -463,7 +463,7 @@ host's automation or undo). `JuceScopeTimeFromValue` and
 `JuceScopeTimeText` gives its readout ('2.5 ms', '40 ms'); set the scope's
 `TimeMs` in its `OnChange`, and `OnValueText` for the readout. To keep the
 setting with the project, hold it in the plug-in and save it in `SaveState`.
-Pascal Synth (`SynthEditor.pas`) and Mz101 do this, and so does
+Pascal Synth (`SynthEditor.pas`) does this, and so does
 `examples/plugins/Scope`, an oscilloscope effect: put it on a track to see
 that track (TIME and a trigger choice, both saved with the project).
 

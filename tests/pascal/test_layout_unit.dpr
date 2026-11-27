@@ -339,6 +339,35 @@ begin
   end;
 end;
 
+{ The Mz303 example's panel: its .dfm (for Delphi) must describe the same panel as the .lfm
+  the plug-in is built and tested with. }
+procedure TestMz303Form;
+var
+  FromLfm, FromDfm: TTestEditor;
+  Dir: string;
+begin
+  Suite('Mz303 form: .lfm and .dfm');
+  Dir := RootDir + 'examples' + PathDelim + 'plugins' + PathDelim + 'Mz303' + PathDelim;
+  if not FileExists(Dir + 'Mz303EditorForm.dfm') then
+  begin
+    Skip('Mz303', 'repository root not given (' + Dir + ')');
+    Exit;
+  end;
+  FromLfm := NewEditor;
+  FromDfm := NewEditor;
+  try
+    CheckEquals('', TryLoad(FromLfm, FileBytes(Dir + 'Mz303EditorForm.lfm'), True), 'the .lfm loads in strict mode');
+    CheckEquals('', TryLoad(FromDfm, FileBytes(Dir + 'Mz303EditorForm.dfm'), True), 'the .dfm loads in strict mode');
+    CheckEquals(1040, FromDfm.Width, '.dfm ClientWidth');
+    CheckEquals(430, FromDfm.Height, '.dfm ClientHeight');
+    Check(FromDfm.Theme.Background = FromLfm.Theme.Background, 'the same theme');
+    CheckTree(FromLfm.Root, FromDfm.Root, 'the .dfm gives the same tree as the .lfm');
+  finally
+    FromLfm.Free;
+    FromDfm.Free;
+  end;
+end;
+
 { ---------------------------------------------------------------------------- }
 { Every class, every property                                                  }
 { ---------------------------------------------------------------------------- }
@@ -943,6 +972,7 @@ begin
   JuceLayoutStrict := True;
 
   TestSynthForm;
+  TestMz303Form;
   TestEveryProperty;
   TestFormProperties;
   TestMalformed;

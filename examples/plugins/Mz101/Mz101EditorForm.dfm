@@ -1,7 +1,7 @@
 object Mz101EditorForm: TMz101EditorForm
   Left = 0
   Top = 0
-  Caption = 'Mz101 Pascal editor (design only)'
+  Caption = 'Mz101_Pascal editor (design only)'
   ClientHeight = 610
   ClientWidth = 1490
   Color = 2301983
@@ -80,7 +80,7 @@ object Mz101EditorForm: TMz101EditorForm
     Width = 420
     Height = 26
     Hint = 'The project''s page: the latest version and what''s new in it, the source, and where to report a problem. Opens in your browser.'
-    Caption = 'Mz101 Pascal 0.3.0  -  github.com/simozzer/Mz101'
+    Caption = 'Mz101_Pascal 0.3.0  -  github.com/simozzer/Mz101'
     FontSize = 13
     Bold = True
     Alignment = jaRight
@@ -784,47 +784,18 @@ object Mz101EditorForm: TMz101EditorForm
   object KeyboardBox: TJucePanel
     Left = 810
     Top = 366
-    Width = 426
+    Width = 666
     Height = 230
     BorderWidth = 1
     CornerRadius = 4
     object Keyboard: TJuceKeyboard
       Left = 8
       Top = 24
-      Width = 410
+      Width = 650
       Height = 198
       FirstNote = 41
       LastNote = 72
       OctaveForMiddleC = 4
-    end
-  end
-  object ScopeBox: TJucePanel
-    Left = 1246
-    Top = 366
-    Width = 230
-    Height = 230
-    Caption = 'SCOPE'
-    BorderWidth = 1
-    CornerRadius = 4
-    HeaderHeight = 24
-    CaptionAlign = jaCenter
-    CaptionSeparator = True
-    object Scope: TJuceScope
-      Left = 8
-      Top = 24
-      Width = 214
-      Height = 150
-      Hint = 'The output, triggered on a rising zero crossing'
-    end
-    object ScopeTime: TJuceSlider
-      Left = 8
-      Top = 176
-      Width = 214
-      Height = 50
-      Hint = 'How much the scope shows: 1 to 170 ms'
-      Caption = 'TIME'
-      DefaultValue = 0.5833
-      Orientation = joHorizontal
     end
   end
 end

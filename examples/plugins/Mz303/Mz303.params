@@ -1,0 +1,11 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+tune	float	Tuning		-100	100	0	0	
+cutoff	float	Cut Off Freq		0	10	4	0	
+res	float	Resonance		0	10	5	0	
+envMod	float	Env Mod		0	10	5	0	
+decay	float	Decay		0	10	5	0	
+accent	float	Accent		0	10	5	0	
+wave	choice	Waveform		0	1	0	1	Saw|Square
+volume	float	Volume		0	10	7	0	
+patch	choice	Patch		0	7	0	1	Init|Acid Squelch|Rubber Bass|Square Reed|Accent Wow|Long Sweep|Deep Sub|Bright Pluck

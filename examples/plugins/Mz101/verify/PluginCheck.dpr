@@ -611,7 +611,7 @@ begin
 
   StateBytes := nil;
   VT.GetState(Inst, StateWriter, nil);
-  Check(Length(StateBytes) = 6 + 4 * 5 + MapBytes + 6, 'saved: header, 5 steps, the CC map and the scope''s time', Format('%d bytes', [Length(StateBytes)]));
+  Check(Length(StateBytes) = 6 + 4 * 5 + MapBytes, 'saved: header, 5 steps and the CC map', Format('%d bytes', [Length(StateBytes)]));
   EndPair;
 
   // Reopen, as saved mid-recording: LOAD would wipe it, so it comes back at OFF.
@@ -913,10 +913,9 @@ begin
   Both;
   Plugin.ForgetCc(PVolume);
   Plugin.Learn(PAttack);            // learning is not saved
-  Plugin.ScopeTimeMs := 55;         // the panel scope's TIME
   Saved := Plugin.SaveState;
-  Check((Length(Saved) = 6 + 4 + MapBytes + 6) and (Saved[4] = 3),
-    'saved as version 3: the step, the map and the scope''s time', Format('%d bytes', [Length(Saved)]));
+  Check((Length(Saved) = 6 + 4 + MapBytes) and (Saved[4] = 2), 'saved as version 2: the step and the map',
+    Format('%d bytes', [Length(Saved)]));
   EndPair;
 
   StartPair;
@@ -926,15 +925,22 @@ begin
     'reopened: learned, given up and forgotten CCs come back; not learning', Why);
   Seq := SequenceText(Plugin.Engine);
   Check(Seq = '62 ', 'and the sequence', Seq);
-  Check(Plugin.ScopeTimeMs = 55, 'and the scope''s time', FloatToStr(Plugin.ScopeTimeMs));
 
-  // a project from before the scope's time: version 2, the same sequence and map
-  Data := Copy(Saved, 0, Length(Saved) - 6);
-  Data[4] := 2;
-  Plugin.ScopeTimeMs := 20;
+  // a project saved by the builds whose panel had a scope: version 3, the same with the
+  // scope's TIME (20 ms) after the map - loads, the time ignored
+  Data := Copy(Saved);
+  Data[4] := 3;
+  SetLength(Data, Length(Data) + 6);
+  Data[High(Data) - 5] := Ord('S'); Data[High(Data) - 4] := Ord('T');
+  Data[High(Data) - 3] := 0; Data[High(Data) - 2] := 0; Data[High(Data) - 1] := $A0; Data[High(Data)] := $41;
+  Plugin.LoadState(nil);   // none: the defaults
   Plugin.LoadState(Data);
-  Check((Plugin.CcFor(PCutoff) = 20) and (Plugin.CcFor(PVolume) = -1) and (SequenceText(Plugin.Engine) = '62 ')
-    and (Plugin.ScopeTimeMs = 20), 'a version 2 state loads: sequence and map; the scope as it was', '');
+  Check((Plugin.CcFor(PCutoff) = 20) and (Plugin.CcFor(PVolume) = -1) and (SequenceText(Plugin.Engine) = '62 '),
+    'a version 3 state (with a scope time) still loads: sequence and map', '');
+  Plugin.LoadState(nil);   // none: the defaults
+  Data[High(Data) - 5] := Ord('X');
+  Plugin.LoadState(Data);
+  Check(MapIsDefault(Plugin), 'and a damaged one is refused', '');
   Plugin.LoadState(Saved);
 
   // a project from before MIDI learn: version 1, the same sequence
@@ -947,7 +953,7 @@ begin
   // and the other way: the previous build's parser, given this build's state
   Exceptions := 0;
   try
-    Check(not OldParse(Saved, N), 'the version 1 build refuses a version 3 state (keeps its sequence)', '');
+    Check(not OldParse(Saved, N), 'the previous build refuses a version 2 state (keeps its sequence)', '');
   except
     Inc(Exceptions);
   end;
@@ -969,15 +975,6 @@ begin
   Data := Copy(Saved); Data[6 + 4 + 4] := Ord(' '); Load(Data);    // a bad character
   Check((Exceptions = 0) and (Plugin.CcFor(PCutoff) = 20) and (Plugin.CcFor(PVolume) = -1)
     and (SequenceText(Plugin.Engine) = '62 '), 'damaged maps are refused; map and sequence stay', '');
-  // hostile scope data: refused as a whole, the time kept
-  Data := Copy(Saved); Data[Length(Data) - 6] := Ord('X'); Load(Data);      // scope magic
-  Data := Copy(Saved); Data[Length(Data) - 1] := $FF; Data[Length(Data) - 2] := $FF;
-  Load(Data);                                                                // NaN
-  Data := Copy(Saved); Data[Length(Data) - 1] := 0; Load(Data);             // a tiny time
-  Data := Copy(Saved); Data[Length(Data) - 1] := $7F; Load(Data);           // a huge time
-  Data := Copy(Saved, 0, Length(Saved) - 6); Load(Data);                    // version 3, no scope block
-  Check((Exceptions = 0) and (Plugin.ScopeTimeMs = 55) and (Plugin.CcFor(PCutoff) = 20)
-    and (SequenceText(Plugin.Engine) = '62 '), 'damaged scope data is refused; time, map and sequence stay', '');
 
   // well-formed, with things this build would not take: skipped
   Data := Copy(Saved);
@@ -1140,7 +1137,7 @@ end;
 
 begin
   SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
-  Writeln('Mz101 Pascal plug-in check');
+  Writeln('Mz101_Pascal plug-in check');
 
   RegisterMz101;
   FillChar(Factory, SizeOf(Factory), 0);

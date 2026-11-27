@@ -1,8 +1,8 @@
-# Mz101 Pascal - the Mz101 SH-101 emulation (github.com/simozzer/Mz101), ported to Object
+# Mz101_Pascal - the Mz101 SH-101 emulation (github.com/simozzer/Mz101), ported to Object
 # Pascal on PascalJUCE. Its own PLUGIN_CODE and BUNDLE_ID, so it sits beside the C++ Mz101
 # in a DAW rather than replacing it.
 pascaljuce_add_plugin(Mz101
-    PRODUCT_NAME      "Mz101 Pascal"
+    PRODUCT_NAME      "Mz101_Pascal"
     COMPANY_NAME      "simozzer"
     COMPANY_WEBSITE   "https://github.com/simozzer"
     MANUFACTURER_CODE Smoz            # the C++ Mz101's manufacturer code
