@@ -311,7 +311,19 @@ function(pascaljuce_add_plugin target)
         COPY_PLUGIN_AFTER_BUILD FALSE
         ${extra})
 
-    set(pascal_lib_name "${target}_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    # The library's file name: <target>_pascal, unless that is the product's own name in
+    # another case (PRODUCT_NAME "Mz101_Pascal" for target Mz101). The product's binaries
+    # share a folder with the library (the LV2 bundle's <product>.dll, ...), and on a
+    # case-insensitive file system one would overwrite the other.
+    set(pascal_lib_base "${target}_pascal")
+    string(TOLOWER "${ARG_PRODUCT_NAME}" _pascaljuce_product_lc)
+    string(TOLOWER "${pascal_lib_base}" _pascaljuce_lib_lc)
+    if(_pascaljuce_product_lc STREQUAL _pascaljuce_lib_lc)
+        set(pascal_lib_base "${target}_pascal_lib")
+    endif()
+    set(pascal_lib_name "${pascal_lib_base}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    # For tests and scripts: $<TARGET_PROPERTY:<target>,PASCALJUCE_LIBRARY_NAME>
+    set_target_properties(${target} PROPERTIES PASCALJUCE_LIBRARY_NAME "${pascal_lib_name}")
     set(gen_dir "${CMAKE_CURRENT_BINARY_DIR}/${target}_pascal")
 
     target_sources(${target} PRIVATE "${PASCALJUCE_ROOT}/plugin/pascaljuce_plugin_processor.cpp")

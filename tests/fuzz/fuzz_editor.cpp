@@ -46,6 +46,8 @@ std::string pascaljuce_test_opened_url(int index);
 std::string pascaljuce_test_validated_url(const char* url);
 std::string pascaljuce_test_launcher_input(const std::string& url);
 bool pascaljuce_test_spawn_launcher(const std::string& program, const std::string& url);
+bool pascaljuce_test_file_request(int* mode, std::string* title, std::string* patterns, std::string* initial);
+bool pascaljuce_test_answer_file_request(const char* path);
 
 namespace
 {
@@ -192,6 +194,18 @@ void mouseDown(juce::Component& c, juce::Point<float> at = { 20.0f, 20.0f })
 {
     c.mouseDown(mouseEvent(c, at, leftButton));
 }
+
+// Counts the host notifications that say the program changed.
+struct ProgramListener final : juce::AudioProcessorListener
+{
+    void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+    void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails& details) override
+    {
+        if (details.programChanged)
+            ++changes;
+    }
+    int changes = 0;
+};
 
 void processBlock(juce::AudioProcessor& p)
 {
@@ -506,6 +520,102 @@ int scenario(juce::AudioProcessor& p, editor_probe_state& s)
         editor.reset();
         pump(100);
         check(pascaljuce_test_opened_url_count() == opened + 3, "three pages opened in all");
+    }
+
+    std::printf("choose_file: only as the answer to a click\n");
+    {
+        editor = openEditor(p);
+        s.url_everywhere = 1;
+        render(*editor);
+        editor->mouseMove(mouseEvent(*editor, { 30, 30 }, juce::ModifierKeys()));
+        editor->mouseDrag(mouseEvent(*editor, { 31, 30 }, leftButton));
+        params[0]->setValueNotifyingHost(0.3f);
+        pump(100);
+        check(! pascaljuce_test_file_request(nullptr, nullptr, nullptr, nullptr), "no dialog yet");
+        const int failed = s.failures;
+        s.action = PROBE_CHOOSE_FILE;
+        mouseDown(*editor);
+        check(s.action_done == PROBE_CHOOSE_FILE && s.failures == failed,
+              "hostile modes, titles, patterns and paths refused, one dialog shown, a second refused"
+                  + (s.failures != failed ? ": " + juce::String(s.last_failure) : juce::String()));
+        int mode = -1;
+        std::string title, patterns, initial;
+        const bool requested = pascaljuce_test_file_request(&mode, &title, &patterns, &initial);
+        check(requested && mode == JCP_FILE_OPEN && title == "Open a probe file" && patterns == "*.txt;*.probe"
+                  && initial.empty(),
+              "the dialog: open, its title and patterns; a relative initial path ignored ("
+                  + juce::String(title) + ", " + juce::String(patterns) + ", '" + juce::String(initial) + "')");
+        const int chosen = s.files_chosen;
+        const auto path = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("caf\xc3\xa9 probe.txt");
+        check(pascaljuce_test_answer_file_request(path.getFullPathName().toRawUTF8()), "answered");
+        pump(50);
+        check(s.files_chosen == chosen + 1 && s.last_file_request == 41 && s.last_file_cancelled == 0
+                  && juce::String::fromUTF8(s.last_file_path) == path.getFullPathName(),
+              "file_chosen(41, the path in UTF-8): " + juce::String::fromUTF8(s.last_file_path));
+        s.action = PROBE_CHOOSE_FILE_AGAIN;
+        mouseDown(*editor);
+        check(s.file_request_result == 1 && pascaljuce_test_file_request(&mode, &title, &patterns, nullptr)
+                  && mode == JCP_FILE_SAVE && title == "Save as" && patterns == "*",
+              "once answered another may open: save, a default title, any file");
+        pascaljuce_test_answer_file_request(nullptr);
+        pump(50);
+        check(s.files_chosen == chosen + 2 && s.last_file_request == 43 && s.last_file_cancelled == 1,
+              "Cancel: file_chosen(43, NULL)");
+        // a menu choice is a click too
+        s.file_in_menu = 1;
+        s.file_request_result = -1;
+        s.action = PROBE_SHOW_MENU;
+        mouseDown(*editor);
+        if (auto* modal = juce::ModalComponentManager::getInstance()->getModalComponent(0))
+        {
+            modal->keyPressed(juce::KeyPress(juce::KeyPress::downKey));
+            modal->keyPressed(juce::KeyPress(juce::KeyPress::returnKey));
+        }
+        pump(200);
+        check(s.file_request_result == 1, "a menu choice may open a dialog");
+        s.file_in_menu = 0;
+        // the window closes while the dialog is up: the answer goes nowhere
+        const int before = s.files_chosen;
+        editor.reset();
+        pump(100);
+        check(pascaljuce_test_answer_file_request(path.getFullPathName().toRawUTF8()), "answered after the window closed");
+        pump(100);
+        check(s.files_chosen == before && s.callback_after_destroy == 0, "and the answer is dropped");
+        s.url_everywhere = 0;
+        check(s.files_accepted_outside == 0, "refused in create_editor, paint, timer, parameter, resize, move, drag and a dismissed menu");
+    }
+
+    std::printf("Programs\n");
+    {
+        ProgramListener listener;
+        p.addListener(&listener);
+        s.program_count = 0;
+        check(p.getNumPrograms() == 1 && p.getProgramName(0) == "Default" && p.getCurrentProgram() == 0,
+              "a library with no programs: one, \"Default\"");
+        s.program_count = 3;
+        check(p.getNumPrograms() == 3 && p.getProgramName(2) == juce::String::fromUTF8("Program 2 \xc3\xa9")
+                  && p.getProgramName(3).isEmpty() && p.getProgramName(-1).isEmpty(),
+              "three programs, named by the library; out of range: no name");
+        p.setCurrentProgram(1);
+        check(p.getCurrentProgram() == 1 && s.program_selections == 1, "setCurrentProgram reaches the library");
+        p.setCurrentProgram(3);
+        p.setCurrentProgram(-1);
+        check(s.program_selections == 1 && s.failures == 0, "out-of-range programs never reach it");
+        pump(100);
+        check(listener.changes >= 1, "programs_changed tells the host (" + juce::String(listener.changes) + ")");
+        s.current_program = 77;
+        check(p.getCurrentProgram() == 0, "a current program out of range reads as 0");
+        s.current_program = 1;
+        s.program_count = 100000;
+        check(p.getNumPrograms() == JCP_MAX_PROGRAMS, "at most JCP_MAX_PROGRAMS offered");
+        s.program_count = -5;
+        check(p.getNumPrograms() == 1, "a negative count is none");
+        s.program_count = 3;
+        s.bad_program_names = 1;
+        check(p.getProgramName(0).isEmpty(), "a name that is not UTF-8 (nor ends) is not used");
+        s.bad_program_names = 0;
+        s.program_count = 0;
+        p.removeListener(&listener);
     }
 
     std::printf("Scaled editor\n");

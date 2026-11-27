@@ -30,7 +30,9 @@ enum
     PROBE_SCALE,             /* set_design_size(320, 120, 0.5, 2, corner) */
     PROBE_LOOK,              /* set_look: hostile looks refused, then a valid one */
     PROBE_UNSCALE,           /* set_resize_limits(0, ...): scaling ends */
-    PROBE_SCALE_TO_CLOSE     /* set_design_size(close_width, 100, 1, 1, corner): the driver closes the window in reaction */
+    PROBE_SCALE_TO_CLOSE,    /* set_design_size(close_width, 100, 1, 1, corner): the driver closes the window in reaction */
+    PROBE_CHOOSE_FILE,       /* choose_file: hostile arguments refused, one good request shown, a second refused */
+    PROBE_CHOOSE_FILE_AGAIN  /* choose_file(open, "*.txt") once: the result goes to file_request_result */
 };
 
 typedef struct editor_probe_state
@@ -46,6 +48,9 @@ typedef struct editor_probe_state
     int32_t scale_in_create;      /* create_editor calls set_design_size(320, 120, 0.5, 2, corner) */
     int32_t url_everywhere;       /* try open_url in every callback that is not a click (all must fail) */
     int32_t url_in_menu;          /* popup_result tries open_url (allowed for a chosen item) */
+    int32_t file_in_menu;         /* popup_result tries choose_file (allowed for a chosen item) */
+    int32_t program_count;        /* what get_program_count answers (0: no programs) */
+    int32_t bad_program_names;    /* get_program_name writes invalid UTF-8 / no NUL */
     const uint8_t* png;           /* a valid PNG and JPEG for image tests        */
     int32_t png_size;
     const uint8_t* jpeg;
@@ -74,6 +79,14 @@ typedef struct editor_probe_state
     float last_scale;                   /* get_scale in the last mouse callback */
     int32_t last_resize_w, last_resize_h;
     uint32_t look_colour;               /* menu_background PROBE_LOOK set */
+    int32_t file_request_result;        /* the last scripted choose_file call */
+    int32_t files_accepted_outside;     /* choose_file accepted outside a click (must stay 0) */
+    int32_t files_chosen;               /* file_chosen callbacks */
+    int32_t last_file_request;
+    int32_t last_file_cancelled;        /* the last answer had path NULL */
+    char last_file_path[512];
+    int32_t current_program;            /* set by set_current_program */
+    int32_t program_selections;
 } editor_probe_state;
 
 /* Exported by the library. */

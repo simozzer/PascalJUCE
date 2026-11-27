@@ -1,0 +1,1754 @@
+object Mz808EditorForm: TMz808EditorForm
+  Left = 300
+  Height = 500
+  Top = 200
+  Width = 1296
+  Caption = 'Mz808_Pascal editor (design only)'
+  ClientHeight = 500
+  ClientWidth = 1296
+  Color = 1907483
+  LCLVersion = '4.8.0.0'
+  object Band1: TJucePanel
+    Left = 0
+    Height = 4
+    Top = 0
+    Width = 325
+    BorderWidth = 0
+    Color = -2606805
+    CornerRadius = 0
+  end
+  object Band2: TJucePanel
+    Left = 324
+    Height = 4
+    Top = 0
+    Width = 325
+    BorderWidth = 0
+    Color = -1082081
+    CornerRadius = 0
+  end
+  object Band3: TJucePanel
+    Left = 648
+    Height = 4
+    Top = 0
+    Width = 325
+    BorderWidth = 0
+    Color = -933328
+    CornerRadius = 0
+  end
+  object Band4: TJucePanel
+    Left = 972
+    Height = 4
+    Top = 0
+    Width = 325
+    BorderWidth = 0
+    Color = -1120300
+    CornerRadius = 0
+  end
+  object Title: TJuceLabel
+    Left = 16
+    Height = 38
+    Top = 10
+    Width = 120
+    Caption = 'Mz808'
+    FontSize = 28
+    Bold = True
+    Alignment = jaLeft
+  end
+  object Subtitle: TJuceLabel
+    Left = 114
+    Height = 40
+    Top = 10
+    Width = 300
+    Caption = 'RHYTHM COMPOSER'
+    FontSize = 12
+    Bold = True
+    Alignment = jaLeft
+    Color = -1082081
+  end
+  object ProjectLink: TJuceLink
+    Left = 626
+    Height = 26
+    Hint = 'The project''s page: the latest version and what''s new in it, the source, and where to report a problem. Opens in your browser.'
+    Top = 14
+    Width = 420
+    Caption = 'Mz808_Pascal 0.3.0  -  github.com/simozzer/Mz808'
+    FontSize = 13
+    Bold = True
+    Alignment = jaRight
+    Color = -9785089
+    Url = 'https://github.com/simozzer/Mz808'
+  end
+  object PatchBox: TJuceComboBox
+    Left = 1062
+    Height = 26
+    Hint = 'Factory kits. Your own edits are saved with the project.'
+    Top = 14
+    Width = 220
+    ParameterId = 'patch'
+    Color = -14342872
+    BorderColor = -12961216
+    TextColor = -1513760
+    FontSize = 14
+  end
+  object ColAccent: TJucePanel
+    Left = 14
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object AccentTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'ACCENT'
+      FontSize = 11
+      Bold = True
+    end
+    object AccentStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -2606805
+      CornerRadius = 0
+    end
+    object Accent: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'ACCENT'#10'How much harder an accented hit strikes: velocity above 100 is an accent. It does not just turn the sound up - every circuit answers a taller trigger in its own way, a kick blooming, a snare cracking.'#10'MIDI CC 14. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'accent'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object AccentLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object AccentButton: TJuceButton
+      Left = 10
+      Height = 40
+      Hint = 'ACCENT'#10'Lit, the pads play accented hits - as velocity above 100 does from MIDI. Shift-click a pad for one accented hit.'
+      Top = 334
+      Width = 72
+      Caption = 'ACCENT'
+      LedColor = -1873826
+      FaceColor = -15329770
+      TextColor = -1513760
+      LedPosition = jlpTop
+      Flat = True
+      BorderColor = -12961216
+      CornerRadius = 3
+    end
+  end
+  object ColBassDrum: TJucePanel
+    Left = 112
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object BassDrumTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'BASS DRUM'
+      FontSize = 11
+      Bold = True
+    end
+    object BassDrumStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -2606805
+      CornerRadius = 0
+    end
+    object BdLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'BASS DRUM LEVEL'#10'Level of the bass drum.'#10'MIDI CC 15. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'bdLevel'
+      DefaultValue = 0.8
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object BdLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object BdTone: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'BASS DRUM TONE'#10'The bass drum''s click: dark and round at 0, a sharp attack at 10.'#10'MIDI CC 16. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'bdTone'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object BdToneLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TONE'
+      FontSize = 10.5
+      Bold = True
+    end
+    object BdDecay: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'BASS DRUM DECAY'#10'How long the bass drum rings: a short thud at 0, a long, sighing boom at 10.'#10'MIDI CC 17. Right-click to learn another.'
+      Top = 212
+      Width = 66
+      ParameterId = 'bdDecay'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object BdDecayLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 278
+      Width = 84
+      Caption = 'DECAY'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedBD: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadBD: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'BASS DRUM'#10'MIDI note 36 (C1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -4443611
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeBD: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'BD'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteBD: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '36'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColSnareDrum: TJucePanel
+    Left = 210
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object SnareDrumTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'SNARE DRUM'
+      FontSize = 11
+      Bold = True
+    end
+    object SnareDrumStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -2606805
+      CornerRadius = 0
+    end
+    object SdLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'SNARE DRUM LEVEL'#10'Level of the snare drum.'#10'MIDI CC 18. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'sdLevel'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object SdLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object SdTone: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'SNARE DRUM TONE'#10'The drum head: crossfades its two oscillators, low and hollow at 0, high and tight at 10.'#10'MIDI CC 19. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'sdTone'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object SdToneLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TONE'
+      FontSize = 10.5
+      Bold = True
+    end
+    object SdSnappy: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'SNARE DRUM SNAPPY'#10'How much of the snares - the noise - goes in.'#10'MIDI CC 20. Right-click to learn another.'
+      Top = 212
+      Width = 66
+      ParameterId = 'sdSnappy'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object SdSnappyLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 278
+      Width = 84
+      Caption = 'SNAPPY'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedSD: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadSD: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'SNARE DRUM'#10'MIDI note 38 (D1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -4443611
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeSD: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'SD'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteSD: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '38'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColLowTom: TJucePanel
+    Left = 308
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object LowTomTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'LOW TOM'
+      FontSize = 11
+      Bold = True
+    end
+    object LowTomTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'LOW CONGA'
+      FontSize = 11
+      Bold = True
+    end
+    object LowTomStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -2606805
+      CornerRadius = 0
+    end
+    object LtLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'LOW TOM LEVEL'#10'Level of the low tom and the low conga, which share a circuit.'#10'MIDI CC 21. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'ltLevel'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object LtLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LtTuning: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'LOW TOM TUNING'#10'Pitch of the low tom and low conga, a quarter-octave either way.'#10'MIDI CC 22. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'ltTuning'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -640141013
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -2606805
+      ValueBubble = jvbDragAndHover
+    end
+    object LtTuningLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TUNING'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedLT: TJuceLed
+      Left = 20
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadLT: TJuceButton
+      Left = 5
+      Height = 56
+      Hint = 'LOW TOM'#10'MIDI note 43 (G1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -4443611
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeLT: TJuceLabel
+      Left = 6
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'LT'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteLT: TJuceLabel
+      Left = 6
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '43'
+      FontSize = 9.5
+      Color = -15000803
+    end
+    object LedLC: TJuceLed
+      Left = 64
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadLC: TJuceButton
+      Left = 49
+      Height = 56
+      Hint = 'LOW CONGA'#10'MIDI note 64 (E3).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -4443611
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeLC: TJuceLabel
+      Left = 50
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'LC'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteLC: TJuceLabel
+      Left = 50
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '64'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColMidTom: TJucePanel
+    Left = 406
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object MidTomTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'MID TOM'
+      FontSize = 11
+      Bold = True
+    end
+    object MidTomTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'MID CONGA'
+      FontSize = 11
+      Bold = True
+    end
+    object MidTomStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1082081
+      CornerRadius = 0
+    end
+    object MtLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'MID TOM LEVEL'#10'Level of the mid tom and the mid conga, which share a circuit.'#10'MIDI CC 23. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'mtLevel'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638616289
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1082081
+      ValueBubble = jvbDragAndHover
+    end
+    object MtLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object MtTuning: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'MID TOM TUNING'#10'Pitch of the mid tom and mid conga, a quarter-octave either way.'#10'MIDI CC 24. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'mtTuning'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638616289
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1082081
+      ValueBubble = jvbDragAndHover
+    end
+    object MtTuningLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TUNING'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedMT: TJuceLed
+      Left = 20
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadMT: TJuceButton
+      Left = 5
+      Height = 56
+      Hint = 'MID TOM'#10'MIDI note 47 (B1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3117797
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeMT: TJuceLabel
+      Left = 6
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'MT'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteMT: TJuceLabel
+      Left = 6
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '47'
+      FontSize = 9.5
+      Color = -15000803
+    end
+    object LedMC: TJuceLed
+      Left = 64
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadMC: TJuceButton
+      Left = 49
+      Height = 56
+      Hint = 'MID CONGA'#10'MIDI note 63 (D#3).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3117797
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeMC: TJuceLabel
+      Left = 50
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'MC'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteMC: TJuceLabel
+      Left = 50
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '63'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColHiTom: TJucePanel
+    Left = 504
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object HiTomTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'HI TOM'
+      FontSize = 11
+      Bold = True
+    end
+    object HiTomTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'HI CONGA'
+      FontSize = 11
+      Bold = True
+    end
+    object HiTomStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1082081
+      CornerRadius = 0
+    end
+    object HtLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'HI TOM LEVEL'#10'Level of the hi tom and the hi conga, which share a circuit.'#10'MIDI CC 25. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'htLevel'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638616289
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1082081
+      ValueBubble = jvbDragAndHover
+    end
+    object HtLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object HtTuning: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'HI TOM TUNING'#10'Pitch of the hi tom and hi conga, a quarter-octave either way.'#10'MIDI CC 26. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'htTuning'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638616289
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1082081
+      ValueBubble = jvbDragAndHover
+    end
+    object HtTuningLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TUNING'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedHT: TJuceLed
+      Left = 20
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadHT: TJuceButton
+      Left = 5
+      Height = 56
+      Hint = 'HI TOM'#10'MIDI note 50 (D2).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3117797
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeHT: TJuceLabel
+      Left = 6
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'HT'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteHT: TJuceLabel
+      Left = 6
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '50'
+      FontSize = 9.5
+      Color = -15000803
+    end
+    object LedHC: TJuceLed
+      Left = 64
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadHC: TJuceButton
+      Left = 49
+      Height = 56
+      Hint = 'HI CONGA'#10'MIDI note 62 (D3).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3117797
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeHC: TJuceLabel
+      Left = 50
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'HC'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteHC: TJuceLabel
+      Left = 50
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '62'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColRimShot: TJucePanel
+    Left = 602
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object RimShotTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'RIM SHOT'
+      FontSize = 11
+      Bold = True
+    end
+    object RimShotTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'CLAVES'
+      FontSize = 11
+      Bold = True
+    end
+    object RimShotStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -933328
+      CornerRadius = 0
+    end
+    object RsLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'RIM SHOT LEVEL'#10'Level of the rim shot and the claves, which share a circuit.'#10'MIDI CC 27. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'rsLevel'
+      DefaultValue = 0.6
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638467536
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -933328
+      ValueBubble = jvbDragAndHover
+    end
+    object RsLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedRS: TJuceLed
+      Left = 20
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadRS: TJuceButton
+      Left = 5
+      Height = 56
+      Hint = 'RIM SHOT'#10'MIDI note 37 (C#1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -2971350
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeRS: TJuceLabel
+      Left = 6
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'RS'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteRS: TJuceLabel
+      Left = 6
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '37'
+      FontSize = 9.5
+      Color = -15000803
+    end
+    object LedCL: TJuceLed
+      Left = 64
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadCL: TJuceButton
+      Left = 49
+      Height = 56
+      Hint = 'CLAVES'#10'MIDI note 75 (D#4).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -2971350
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeCL: TJuceLabel
+      Left = 50
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'CL'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteCL: TJuceLabel
+      Left = 50
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '75'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColHandClap: TJucePanel
+    Left = 700
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object HandClapTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'HAND CLAP'
+      FontSize = 11
+      Bold = True
+    end
+    object HandClapTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'MARACAS'
+      FontSize = 11
+      Bold = True
+    end
+    object HandClapStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -933328
+      CornerRadius = 0
+    end
+    object CpLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'HAND CLAP LEVEL'#10'Level of the hand clap and the maracas, which share a circuit.'#10'MIDI CC 28. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'cpLevel'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638467536
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -933328
+      ValueBubble = jvbDragAndHover
+    end
+    object CpLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedCP: TJuceLed
+      Left = 20
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadCP: TJuceButton
+      Left = 5
+      Height = 56
+      Hint = 'HAND CLAP'#10'MIDI note 39 (D#1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -2971350
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeCP: TJuceLabel
+      Left = 6
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'CP'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteCP: TJuceLabel
+      Left = 6
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '39'
+      FontSize = 9.5
+      Color = -15000803
+    end
+    object LedMA: TJuceLed
+      Left = 64
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadMA: TJuceButton
+      Left = 49
+      Height = 56
+      Hint = 'MARACAS'#10'MIDI note 70 (A#3).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -2971350
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeMA: TJuceLabel
+      Left = 50
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'MA'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteMA: TJuceLabel
+      Left = 50
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '70'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColCowBell: TJucePanel
+    Left = 798
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object CowBellTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'COW BELL'
+      FontSize = 11
+      Bold = True
+    end
+    object CowBellStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1120300
+      CornerRadius = 0
+    end
+    object CbLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'COW BELL LEVEL'#10'Level of the cow bell.'#10'MIDI CC 29. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'cbLevel'
+      DefaultValue = 0.6
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object CbLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedCB: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadCB: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'COW BELL'#10'MIDI note 56 (G#2).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3159624
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeCB: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'CB'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteCB: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '56'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColCymbal: TJucePanel
+    Left = 896
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object CymbalTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'CYMBAL'
+      FontSize = 11
+      Bold = True
+    end
+    object CymbalStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1120300
+      CornerRadius = 0
+    end
+    object CyLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'CYMBAL LEVEL'#10'Level of the cymbal.'#10'MIDI CC 30. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'cyLevel'
+      DefaultValue = 0.6
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object CyLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object CyTone: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'CYMBAL TONE'#10'How much of the cymbal''s top band - the splash - comes through.'#10'MIDI CC 31. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'cyTone'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object CyToneLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'TONE'
+      FontSize = 10.5
+      Bold = True
+    end
+    object CyDecay: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'CYMBAL DECAY'#10'How long the cymbal''s body rings.'#10'MIDI CC 102. Right-click to learn another.'
+      Top = 212
+      Width = 66
+      ParameterId = 'cyDecay'
+      DefaultValue = 0.5
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object CyDecayLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 278
+      Width = 84
+      Caption = 'DECAY'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedCY: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadCY: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'CYMBAL'#10'MIDI note 49 (C#2).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3159624
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeCY: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'CY'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteCY: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '49'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColOpenHihat: TJucePanel
+    Left = 994
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object OpenHihatTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'OPEN'
+      FontSize = 11
+      Bold = True
+    end
+    object OpenHihatTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'HIHAT'
+      FontSize = 11
+      Bold = True
+    end
+    object OpenHihatStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1120300
+      CornerRadius = 0
+    end
+    object OhLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'OPEN HIHAT LEVEL'#10'Level of the open hihat.'#10'MIDI CC 103. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'ohLevel'
+      DefaultValue = 0.6
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object OhLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object OhDecay: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'OPEN HIHAT DECAY'#10'How long the open hihat rings. A closed hihat cuts it off.'#10'MIDI CC 104. Right-click to learn another.'
+      Top = 128
+      Width = 66
+      ParameterId = 'ohDecay'
+      DefaultValue = 0.4
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object OhDecayLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 194
+      Width = 84
+      Caption = 'DECAY'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedOH: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadOH: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'OPEN HIHAT'#10'MIDI note 46 (A#1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3159624
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeOH: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'OH'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteOH: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '46'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColClosedHihat: TJucePanel
+    Left = 1092
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object ClosedHihatTitle1: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 7
+      Width = 84
+      Caption = 'CLOSED'
+      FontSize = 11
+      Bold = True
+    end
+    object ClosedHihatTitle2: TJuceLabel
+      Left = 4
+      Height = 13
+      Top = 18
+      Width = 84
+      Caption = 'HIHAT'
+      FontSize = 11
+      Bold = True
+    end
+    object ClosedHihatStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -1120300
+      CornerRadius = 0
+    end
+    object ChLevel: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'CLOSED HIHAT LEVEL'#10'Level of the closed hihat.'#10'MIDI CC 105. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'chLevel'
+      DefaultValue = 0.6
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -638654508
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -1120300
+      ValueBubble = jvbDragAndHover
+    end
+    object ChLevelLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'LEVEL'
+      FontSize = 10.5
+      Bold = True
+    end
+    object LedCH: TJuceLed
+      Left = 42
+      Height = 9
+      Top = 313
+      Width = 9
+      Color = -2606805
+    end
+    object PadCH: TJuceButton
+      Left = 27
+      Height = 56
+      Hint = 'CLOSED HIHAT'#10'MIDI note 42 (F#1).'#10'Click to play it; shift-click, or light ACCENT, to play it accented.'
+      Top = 326
+      Width = 38
+      Mode = jbmMomentary
+      ShowLed = False
+      FaceColor = -3159624
+      BorderColor = -2147483648
+      CornerRadius = 3
+    end
+    object CodeCH: TJuceLabel
+      Left = 28
+      Height = 18
+      Top = 335
+      Width = 36
+      Caption = 'CH'
+      FontSize = 13
+      Bold = True
+      Color = -15000803
+    end
+    object NoteCH: TJuceLabel
+      Left = 28
+      Height = 14
+      Top = 362
+      Width = 36
+      Caption = '42'
+      FontSize = 9.5
+      Color = -15000803
+    end
+  end
+  object ColMaster: TJucePanel
+    Left = 1190
+    Height = 392
+    Top = 62
+    Width = 92
+    BorderColor = -12961216
+    Color = -14342872
+    CornerRadius = 4
+    object MasterTitle: TJuceLabel
+      Left = 4
+      Height = 34
+      Top = 2
+      Width = 84
+      Caption = 'MASTER'
+      FontSize = 11
+      Bold = True
+    end
+    object MasterStrip: TJucePanel
+      Left = 8
+      Height = 2
+      Top = 39
+      Width = 76
+      BorderWidth = 0
+      Color = -4934995
+      CornerRadius = 0
+    end
+    object Volume: TJuceKnob
+      Left = 13
+      Height = 66
+      Hint = 'VOLUME'#10'Master output level.'#10'MIDI CC 7. Right-click to learn another.'
+      Top = 44
+      Width = 66
+      ParameterId = 'volume'
+      DefaultValue = 0.7
+      ShowValue = False
+      Sensitivity = 180
+      ArcColor = -642469203
+      TrackColor = -16053492
+      BodyColor = -13355974
+      PointerColor = -4934995
+      ValueBubble = jvbDragAndHover
+    end
+    object VolumeLegend: TJuceLabel
+      Left = 4
+      Height = 12
+      Top = 110
+      Width = 84
+      Caption = 'VOLUME'
+      FontSize = 10.5
+      Bold = True
+    end
+  end
+  object HelpLine: TJuceLabel
+    Left = 14
+    Height = 24
+    Top = 464
+    Width = 1268
+    Caption = 'Plays from MIDI on the General MIDI drum map - the number on each pad is its note. Velocity above 100 is an accent. Right-click a knob to MIDI-learn it.'
+    FontSize = 11
+    Alignment = jaLeft
+    Color = -7435128
+  end
+  object Copyright: TJuceLabel
+    Left = 14
+    Height = 24
+    Top = 464
+    Width = 1268
+    Caption = 'Created by Simon Moscrop'
+    FontSize = 11
+    Alignment = jaRight
+    Color = -7435128
+  end
+  object Theme: TJuceThemeResource
+    Background = -15000803
+    Panel = -14342872
+    PanelBorder = -12961216
+    Text = -1513760
+    TextDim = -7435128
+    Accent = -2606805
+    Track = -16053492
+    KnobBody = -13355974
+    KnobPointer = -1513760
+    ButtonFace = -15329770
+    LedOn = -1737870
+    LedOff = -12970220
+    FontSize = 11.5
+    TooltipBackground = -15658476
+    TooltipText = -1513760
+    TooltipBorder = -2606805
+    MenuBackground = -14342872
+    MenuText = -1513760
+    MenuHighlight = -2606805
+    MenuHighlightText = -1
+    BubbleBackground = -14342872
+    BubbleText = -1513760
+    BubbleBorder = -12961216
+    BubbleFontSize = 13
+    Link = -9785089
+    Left = 12
+    Top = 460
+  end
+end

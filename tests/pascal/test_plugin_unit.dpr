@@ -88,6 +88,14 @@ begin
   Result := 44100;
 end;
 
+var
+  ProgramsChangedCalls: Integer;
+
+procedure HProgramsChanged(H: PJcpHost); cdecl;
+begin
+  Inc(ProgramsChangedCalls);
+end;
+
 procedure HGesture(H: PJcpHost; Index: Int32); cdecl;
 begin
   Inc(PFakeHost(H)^.Gestures);
@@ -108,6 +116,8 @@ begin
   HostApi.GetSampleRate := HGetSampleRate;
   HostApi.BeginParameterGesture := HGesture;
   HostApi.EndParameterGesture := HGesture;
+  HostApi.ProgramsChanged := HProgramsChanged;
+  ProgramsChangedCalls := 0;
 end;
 
 { ---------------------------------------------------------------------------- }
@@ -138,7 +148,41 @@ type
     procedure LoadState(const Data: TBytes); override;
     function TailSeconds: Double; override;
     function ParameterToText(Index: Integer; Value: Single; out Text: string): Boolean; override;
+    function ProgramCount: Integer; override;
+    function CurrentProgram: Integer; override;
+    procedure SelectProgram(Index: Integer); override;
+    function ProgramName(Index: Integer): string; override;
+  public
+    Program_: Integer;
   end;
+
+function TProbePlugin.ProgramCount: Integer;
+begin
+  Result := 3;
+end;
+
+function TProbePlugin.CurrentProgram: Integer;
+begin
+  Result := Program_;
+end;
+
+procedure TProbePlugin.SelectProgram(Index: Integer);
+begin
+  if Index = 2 then
+    raise Exception.Create('program 2 always raises; must be contained');
+  Program_ := Index;
+  ProgramsChanged;
+end;
+
+function TProbePlugin.ProgramName(Index: Integer): string;
+begin
+  case Index of
+    0: Result := 'Bass';
+    1: Result := 'Caf' + #$00E9 + ' Organ';     { non-ASCII: UTF-8 }
+  else
+    raise Exception.Create('no name; must be contained');
+  end;
+end;
 
 constructor TProbePlugin.Create;
 begin
@@ -283,9 +327,11 @@ begin
   CheckEquals(8, OffsetOf(@Ctx, @Ctx.Channels), 'jcp_process_context.channels');
   CheckEquals(40, OffsetOf(@Ctx, @Ctx.NumChannels), 'jcp_process_context.num_channels');
   CheckEquals(68, OffsetOf(@Ctx, @Ctx.IsNonRealtime), 'jcp_process_context.is_non_realtime');
-  CheckEquals(88, SizeOf(TJcpHostApi), 'jcp_host_api size (with set_meter)');
+  CheckEquals(96, SizeOf(TJcpHostApi), 'jcp_host_api size (with programs_changed)');
   CheckEquals(72, OffsetOf(@Api, @@Api.GetExtension), 'jcp_host_api.get_extension');
-  CheckEquals(96, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size (with create_editor)');
+  CheckEquals(88, OffsetOf(@Api, @@Api.ProgramsChanged), 'jcp_host_api.programs_changed');
+  CheckEquals(128, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size (with the program functions)');
+  CheckEquals(120, OffsetOf(@VT, @@VT.GetProgramName), 'jcp_plugin_vtable.get_program_name');
   CheckEquals(40, OffsetOf(@VT, @@VT.Process), 'jcp_plugin_vtable.process');
   CheckEquals(72, OffsetOf(@VT, @@VT.GetParameterText), 'jcp_plugin_vtable.get_parameter_text');
   CheckEquals(48, SizeOf(TJcpPluginFactory), 'jcp_plugin_factory size');
@@ -526,6 +572,31 @@ begin
   CheckEquals(5, LoadStateCalls, 'exception in LoadState contained');
 
   CheckEquals(1.25, VT.GetTailSeconds(Inst), 0, 'TailSeconds');
+
+  { host programs }
+  Check(Assigned(VT.GetProgramCount) and Assigned(VT.GetCurrentProgram) and Assigned(VT.SetCurrentProgram)
+    and Assigned(VT.GetProgramName), 'the program callbacks are filled');
+  CheckEquals(3, VT.GetProgramCount(Inst), 'ProgramCount');
+  CheckEquals(0, VT.GetCurrentProgram(Inst), 'CurrentProgram');
+  VT.SetCurrentProgram(Inst, 1);
+  CheckEquals(1, VT.GetCurrentProgram(Inst), 'SelectProgram(1)');
+  CheckEquals(1, ProgramsChangedCalls, 'ProgramsChanged reaches the host');
+  VT.SetCurrentProgram(Inst, 2);
+  CheckEquals(1, VT.GetCurrentProgram(Inst), 'an exception in SelectProgram is contained');
+  VT.SetCurrentProgram(Inst, 3);
+  VT.SetCurrentProgram(Inst, -1);
+  CheckEquals(1, VT.GetCurrentProgram(Inst), 'out-of-range programs are not selected');
+  FillChar(Text, SizeOf(Text), 'x');
+  CheckEquals(1, VT.GetProgramName(Inst, 1, @Text[0], SizeOf(Text)), 'ProgramName');
+  R := PAnsiChar(@Text[0]);
+  Check((Length(R) = 11) and (Copy(R, 1, 3) = 'Caf') and (Ord(R[4]) = $C3) and (Ord(R[5]) = $A9)
+    and (Copy(R, 6, 6) = ' Organ'), 'the name in UTF-8');
+  FillChar(Text, SizeOf(Text), 'x');
+  CheckEquals(1, VT.GetProgramName(Inst, 1, @Text[0], 5), 'a short buffer');
+  R := PAnsiChar(@Text[0]);
+  Check(R = 'Caf', 'cut, never inside a character');
+  CheckEquals(0, VT.GetProgramName(Inst, 7, @Text[0], SizeOf(Text)), 'an exception in ProgramName is contained');
+  CheckEquals(0, VT.GetProgramName(Inst, 0, nil, 10), 'no buffer');
   Check(VT.GetExtension(Inst, 'anything') = nil, 'no extensions yet');
   VT.Release(Inst);
   VT.Destroy(Inst);

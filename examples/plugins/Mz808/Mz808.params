@@ -1,0 +1,26 @@
+# PascalJUCE parameter list 1 (written by pascaljuce_params; do not edit)
+# id	kind	name	units	min	max	default	step	choices
+accent	float	Accent		0	10	5	0	
+bdLevel	float	Bass Drum Level		0	10	8	0	
+bdTone	float	Bass Drum Tone		0	10	5	0	
+bdDecay	float	Bass Drum Decay		0	10	5	0	
+sdLevel	float	Snare Drum Level		0	10	7	0	
+sdTone	float	Snare Drum Tone		0	10	5	0	
+sdSnappy	float	Snare Drum Snappy		0	10	5	0	
+ltLevel	float	Low Tom Level		0	10	7	0	
+ltTuning	float	Low Tom Tuning		0	10	5	0	
+mtLevel	float	Mid Tom Level		0	10	7	0	
+mtTuning	float	Mid Tom Tuning		0	10	5	0	
+htLevel	float	Hi Tom Level		0	10	7	0	
+htTuning	float	Hi Tom Tuning		0	10	5	0	
+rsLevel	float	Rim Shot Level		0	10	6	0	
+cpLevel	float	Hand Clap Level		0	10	7	0	
+cbLevel	float	Cow Bell Level		0	10	6	0	
+cyLevel	float	Cymbal Level		0	10	6	0	
+cyTone	float	Cymbal Tone		0	10	5	0	
+cyDecay	float	Cymbal Decay		0	10	5	0	
+ohLevel	float	Open Hihat Level		0	10	6	0	
+ohDecay	float	Open Hihat Decay		0	10	4	0	
+chLevel	float	Closed Hihat Level		0	10	6	0	
+volume	float	Volume		0	10	7	0	
+patch	choice	Patch		0	8	0	1	Init|Long Boom|Tight|Electro|Deep Toms|Latin|Bright Metal|Soft Accents|Hard Accents

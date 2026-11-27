@@ -131,6 +131,9 @@ type
     dragged, or also for a while when the mouse is over it. }
   TJuceValueBubble = (jvbNone, jvbDrag, jvbDragAndHover);
   TJuceMenuResultEvent = procedure(Sender: TJuceEditor; MenuId, ItemId: Integer) of object;
+  { The answer to TJuceEditor.OpenFile / SaveFile: Chosen and the full path,
+    or not Chosen if the user cancelled. }
+  TJuceFileChosenEvent = procedure(Sender: TJuceEditor; Chosen: Boolean; const Path: string) of object;
 
   { Base of every control. Coordinates of mouse methods are local (0,0 is the
     control's top left). }
@@ -354,6 +357,9 @@ type
     FNextMenuId: Integer;
     FMenuId: Integer;
     FOnMenuResult: TJuceMenuResultEvent;
+    FFileRequest: Integer;          { the dialog waiting for its answer, 0 none }
+    FNextFileRequest: Integer;
+    FOnFileChosen: TJuceFileChosenEvent;
     FDestroying: Boolean;
     { the value bubble (editor coordinates) }
     FBubbleOwner: TJuceControl;
@@ -380,6 +386,8 @@ type
     procedure ParameterChanged(Index: Integer; Normalised: Single); override;
     procedure Resized; override;
     procedure PopupResult(MenuId, ItemId: Integer); override;
+    procedure FileChosen(RequestId: Integer; Chosen: Boolean; const Path: string); override;
+    function AskForFile(Save: Boolean; const Title, Patterns, Initial: string; Handler: TJuceFileChosenEvent): Boolean;
     procedure Opened; override;
     { The theme's tooltip and menu look to the wrapper (SetLook). }
     procedure ApplyLook; virtual;
@@ -403,6 +411,15 @@ type
     { A popup menu at editor coordinates; Handler gets the chosen id (0 =
       dismissed). Returns the menu id, or 0 if it could not be shown. }
     function PopupMenu(const Items: array of TJuceMenuItem; X, Y: Single; Handler: TJuceMenuResultEvent): Integer;
+    { The OS's file dialog, to open a file or name one to save: only from a
+      click (a mouse handler such as a button's OnClick, or a menu's
+      Handler), one at a time. Handler gets the answer later. Patterns like
+      '*.hfe;*.img' ('' = any file); Initial a folder or file ('' = the OS's
+      choice). False if it could not be shown. }
+    function OpenFile(const Title, Patterns, Initial: string; Handler: TJuceFileChosenEvent): Boolean;
+    function SaveFile(const Title, Patterns, Initial: string; Handler: TJuceFileChosenEvent): Boolean;
+    { A file dialog is waiting for its answer. }
+    function FileDialogOpen: Boolean;
     { Called by controls that are being freed. }
     procedure ControlGone(Control: TJuceControl);
     { Shows the hint of the control under the mouse (or its nearest parent
@@ -1936,6 +1953,57 @@ begin
   FOnMenuResult := nil;
   if Assigned(Handler) then
     Handler(Self, MenuId, ItemId);
+end;
+
+function TJuceEditor.AskForFile(Save: Boolean; const Title, Patterns, Initial: string;
+  Handler: TJuceFileChosenEvent): Boolean;
+var
+  Id: Integer;
+begin
+  Result := False;
+  if FFileRequest <> 0 then
+    Exit; { one at a time }
+  if FNextFileRequest < 1 then
+    FNextFileRequest := 1;
+  Id := FNextFileRequest;
+  if FNextFileRequest < High(Integer) then
+    Inc(FNextFileRequest)
+  else
+    FNextFileRequest := 1;
+  if ChooseFile(Id, Save, Title, Patterns, Initial) then
+  begin
+    FFileRequest := Id;
+    FOnFileChosen := Handler;
+    Result := True;
+  end;
+end;
+
+function TJuceEditor.OpenFile(const Title, Patterns, Initial: string; Handler: TJuceFileChosenEvent): Boolean;
+begin
+  Result := AskForFile(False, Title, Patterns, Initial, Handler);
+end;
+
+function TJuceEditor.SaveFile(const Title, Patterns, Initial: string; Handler: TJuceFileChosenEvent): Boolean;
+begin
+  Result := AskForFile(True, Title, Patterns, Initial, Handler);
+end;
+
+function TJuceEditor.FileDialogOpen: Boolean;
+begin
+  Result := FFileRequest <> 0;
+end;
+
+procedure TJuceEditor.FileChosen(RequestId: Integer; Chosen: Boolean; const Path: string);
+var
+  Handler: TJuceFileChosenEvent;
+begin
+  if (RequestId = 0) or (RequestId <> FFileRequest) then
+    Exit;
+  Handler := FOnFileChosen;
+  FFileRequest := 0;
+  FOnFileChosen := nil;
+  if Assigned(Handler) then
+    Handler(Self, Chosen, Path);
 end;
 
 function TJuceEditor.CreateCanvasImage(const Data: TBytes): TJuceImage;

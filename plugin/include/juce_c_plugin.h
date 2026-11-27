@@ -154,6 +154,12 @@ typedef struct jcp_host_api {
        editor to show, e.g. an output peak from process(). index is
        0..JCP_MAX_METERS-1; non-finite values are stored as 0. */
     void   (JCP_CALL *set_meter)(jcp_host* host, int32_t index, float value);
+    /* --- added for host programs (check struct_size) --- */
+    /* Any thread but the audio thread (not from process()): the library's
+       program list (get_program_count / get_program_name) or its current
+       program changed. The wrapper tells the host from the message thread,
+       coalesced, never from inside a library call. */
+    void   (JCP_CALL *programs_changed)(jcp_host* host);
 } jcp_host_api;
 
 /* ===========================================================================
@@ -246,6 +252,10 @@ typedef struct jcp_editor_vtable {
     void (JCP_CALL *resized)(void* editor, int32_t width, int32_t height);
     /* Answer to show_popup_menu: the chosen item id, or 0 if dismissed. */
     void (JCP_CALL *popup_result)(void* editor, int32_t menu_id, int32_t item_id);
+    /* --- added later (the wrapper checks struct_size) --- */
+    /* Answer to choose_file: the full path chosen (UTF-8), or NULL if the
+       user cancelled. The library opens or writes the file itself. */
+    void (JCP_CALL *file_chosen)(void* editor, int32_t request_id, const char* path);
 } jcp_editor_vtable;
 
 /* Popup-menu item flags */
@@ -296,6 +306,16 @@ typedef struct jcp_menu_item {
 
 /* open_url: at most this many bytes (without the NUL). */
 #define JCP_MAX_URL 2048
+
+/* choose_file */
+#define JCP_FILE_OPEN 0   /* pick an existing file                                  */
+#define JCP_FILE_SAVE 1   /* name a file to write (the user is asked before replacing) */
+#define JCP_MAX_FILE_PATTERNS 256  /* bytes of the pattern list                     */
+#define JCP_MAX_PATH          4096 /* bytes of a path, either way                   */
+
+/* Host programs */
+#define JCP_MAX_PROGRAMS      1024
+#define JCP_MAX_PROGRAM_NAME  256  /* bytes, without the NUL                         */
 
 /* The look of the wrapper's own windows: tooltips and popup menus (set_look).
    Colours are 0xAARRGGBB; 0 keeps JUCE's default for that colour. Font
@@ -438,6 +458,20 @@ typedef struct jcp_editor_api {
        JUCE's defaults again). struct_size must be at least
        sizeof(jcp_editor_look). */
     void    (JCP_CALL *set_look)(jcp_editor* e, const jcp_editor_look* look);
+    /* The OS's file dialog, to open a file (JCP_FILE_OPEN) or name one to
+       write (JCP_FILE_SAVE). Returns at once (1 = shown); the answer comes
+       later through file_chosen(request_id, path or NULL), and is dropped if
+       the editor has closed by then. Like open_url, only as the answer to a
+       user's click (inside the library's mouse press, release or double
+       click callback, or its popup_result for a chosen item), and one dialog
+       per editor at a time. title: UTF-8, at most 256 bytes (NULL or "":
+       a default). patterns: e.g. "*.hfe;*.img" - only letters, digits and
+       * ? . ; _ - characters, at most JCP_MAX_FILE_PATTERNS bytes (NULL or
+       "": any file). initial: a folder, or a file to start at (UTF-8, at
+       most JCP_MAX_PATH bytes; NULL or "": the OS's choice). The library
+       needs the editor vtable's file_chosen; without it this returns 0. */
+    int32_t (JCP_CALL *choose_file)(jcp_editor* e, int32_t request_id, int32_t mode, const char* title,
+                                    const char* patterns, const char* initial);
 } jcp_editor_api;
 
 typedef void (JCP_CALL *jcp_state_writer)(void* writer, const void* data, int32_t size);
@@ -470,6 +504,24 @@ typedef struct jcp_plugin_vtable {
        `api` stays valid while the library is loaded. */
     void*  (JCP_CALL *create_editor)(void* self, const jcp_editor_api* api, jcp_editor* editor,
                                      jcp_editor_vtable* vtable, int32_t* width, int32_t* height);
+    /* --- added for host programs (check struct_size) --- */
+    /* Optional, all four or none. The library's own programs (presets, or
+       e.g. the programmes of a loaded sound bank), offered to the host as the
+       plug-in's programs. A count of 0 (or these absent) gives the host one
+       program, "Default", as before; the wrapper offers at most
+       JCP_MAX_PROGRAMS. Call jcp_host_api.programs_changed when the list or
+       the current program changes.
+       get_program_count, get_current_program, get_program_name: any thread,
+       possibly concurrently with process (keep them quick and lock-free).
+       get_program_name writes NUL-terminated UTF-8 (at most
+       JCP_MAX_PROGRAM_NAME bytes are used) and returns 1, or 0 for none.
+       set_current_program: a non-real-time thread, with index in range;
+       never concurrently with process (the wrapper holds the processing
+       lock, as for set_state). */
+    int32_t (JCP_CALL *get_program_count)(void* self);
+    int32_t (JCP_CALL *get_current_program)(void* self);
+    void    (JCP_CALL *set_current_program)(void* self, int32_t index);
+    int32_t (JCP_CALL *get_program_name)(void* self, int32_t index, char* buffer, int32_t buffer_size);
 } jcp_plugin_vtable;
 
 typedef struct jcp_plugin_factory {

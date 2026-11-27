@@ -113,6 +113,16 @@ const
   { open_url }
   JCP_MAX_URL = 2048;
 
+  { choose_file }
+  JCP_FILE_OPEN = 0;
+  JCP_FILE_SAVE = 1;
+  JCP_MAX_FILE_PATTERNS = 256;
+  JCP_MAX_PATH = 4096;
+
+  { host programs }
+  JCP_MAX_PROGRAMS = 1024;
+  JCP_MAX_PROGRAM_NAME = 256;
+
 type
   TJucePluginKind = (jkInstrument, jkEffect, jkMidiEffect);   { = JCP_KIND_* }
   TJuceParameterKind = (jpkFloat, jpkInt, jpkBool, jpkChoice); { = JCP_PARAM_* }
@@ -211,6 +221,7 @@ type
     EndParameterGesture: TJcpGesture;
     GetExtension: TJcpHostExtension;
     SetMeter: TJcpSetMeter;           { custom editors; absent in older wrappers }
+    ProgramsChanged: procedure(Host: PJcpHost); cdecl;  { host programs; absent in older wrappers }
   end;
   PJcpHostApi = ^TJcpHostApi;
 
@@ -246,6 +257,7 @@ type
     ParameterChanged: procedure(Ed: Pointer; Index: Int32; Normalised: Single); cdecl;
     Resized: procedure(Ed: Pointer; Width, Height: Int32); cdecl;
     PopupResult: procedure(Ed: Pointer; MenuId, ItemId: Int32); cdecl;
+    FileChosen: procedure(Ed: Pointer; RequestId: Int32; Path: PAnsiChar); cdecl;  { newer wrappers }
   end;
   PJcpEditorVTable = ^TJcpEditorVTable;
 
@@ -321,6 +333,7 @@ type
     GetScale: function(E: PJcpEditor): Single; cdecl;
     OpenUrl: function(E: PJcpEditor; Url: PAnsiChar): Int32; cdecl;
     SetLook: procedure(E: PJcpEditor; Look: PJcpEditorLook); cdecl;
+    ChooseFile: function(E: PJcpEditor; RequestId, Mode: Int32; Title, Patterns, Initial: PAnsiChar): Int32; cdecl;
   end;
   PJcpEditorApi = ^TJcpEditorApi;
 
@@ -342,6 +355,11 @@ type
     GetExtension: function(Inst: Pointer; Id: PAnsiChar): Pointer; cdecl;
     CreateEditor: function(Inst: Pointer; Api: PJcpEditorApi; Editor: PJcpEditor; VTable: PJcpEditorVTable;
       var Width, Height: Int32): Pointer; cdecl;
+    { host programs (newer wrappers) }
+    GetProgramCount: function(Inst: Pointer): Int32; cdecl;
+    GetCurrentProgram: function(Inst: Pointer): Int32; cdecl;
+    SetCurrentProgram: procedure(Inst: Pointer; Index: Int32); cdecl;
+    GetProgramName: function(Inst: Pointer; Index: Int32; Buffer: PAnsiChar; BufferSize: Int32): Int32; cdecl;
   end;
   PJcpPluginVTable = ^TJcpPluginVTable;
 
@@ -392,6 +410,9 @@ type
     procedure ParameterChanged(Index: Integer; Normalised: Single); virtual;
     procedure Resized; virtual;
     procedure PopupResult(MenuId, ItemId: Integer); virtual;
+    { Answer to ChooseFile: Chosen and the full Path, or not Chosen (Path '')
+      if the user cancelled. }
+    procedure FileChosen(RequestId: Integer; Chosen: Boolean; const Path: string); virtual;
     { After the constructor, before the window is shown: host services work. }
     procedure Opened; virtual;
   public
@@ -432,6 +453,14 @@ type
       PopupResult(MenuId, item id or 0). False if it could not be shown (for
       example while another menu of this editor is open). }
     function ShowPopupMenu(MenuId: Integer; const Items: array of TJuceMenuItem; X, Y: Single): Boolean;
+    { The OS's file dialog: open an existing file (Save False) or name one to
+      write (Save True; the user confirms replacing one). Only while answering
+      a click (as OpenUrl), one dialog at a time. Returns at once; the answer
+      arrives in FileChosen(RequestId, ...). Patterns: '*.hfe;*.img' (letters,
+      digits and * ? . ; _ - only; '' = any file). Initial: a folder or a file
+      to start at ('' = the OS's choice). False if refused or the wrapper is
+      too old. The library reads or writes the file itself. }
+    function ChooseFile(RequestId: Integer; Save: Boolean; const Title, Patterns, Initial: string): Boolean;
 
     { Parameters, by index (declaration order). Values are normalised 0..1.
       Virtual so that a design-time editor (see packages/) can answer from a
@@ -534,6 +563,18 @@ type
       must not touch DSP state: it reads parameters through its host services
       and meters published with SetMeter. }
     function CreateEditor: TJuceEditorBase; virtual;
+    { Your own programs (presets, or the programmes of a loaded sound bank),
+      offered to the host as the plug-in's programs, so its program selector
+      changes them. ProgramCount 0 (the default): the host sees one program,
+      "Default". ProgramCount, CurrentProgram and ProgramName may run on any
+      thread, concurrently with Process: keep them quick and lock-free (read
+      what the message thread published). SelectProgram (Index in range) runs
+      on a non-real-time thread, never concurrently with Process. Call
+      ProgramsChanged when the list or the current program changes. }
+    function ProgramCount: Integer; virtual;
+    function CurrentProgram: Integer; virtual;
+    procedure SelectProgram(Index: Integer); virtual;
+    function ProgramName(Index: Integer): string; virtual;
 
     { Host services }
     { Process only: emit one complete MIDI message (needs KIND midi_effect or
@@ -550,6 +591,9 @@ type
     { Any thread, real-time safe: publish a value (e.g. an output peak) for the
       editor to show. Index 0..JCP_MAX_METERS - 1. }
     procedure SetMeter(Index: Integer; Value: Single);
+    { The program list or the current program changed: the host is told (from
+      its message thread). Any thread but the audio thread. }
+    procedure ProgramsChanged;
     { Oscilloscope feed (JuceControls.TJuceScope). While a scope is open, the
       outputs are captured after every Process call, so a scope shows the
       plug-in's output with no code of yours. To show something else (one
@@ -1136,6 +1180,31 @@ begin
   Result := nil;
 end;
 
+function TJucePlugin.ProgramCount: Integer;
+begin
+  Result := 0;
+end;
+
+function TJucePlugin.CurrentProgram: Integer;
+begin
+  Result := 0;
+end;
+
+procedure TJucePlugin.SelectProgram(Index: Integer);
+begin
+end;
+
+function TJucePlugin.ProgramName(Index: Integer): string;
+begin
+  Result := '';
+end;
+
+procedure TJucePlugin.ProgramsChanged;
+begin
+  if HostHas(@@ApiProbe.ProgramsChanged) then
+    FHostApi^.ProgramsChanged(FHost);
+end;
+
 { ---------------------------------------------------------------------------- }
 { TJuceEditorBase                                                              }
 { ---------------------------------------------------------------------------- }
@@ -1255,6 +1324,28 @@ procedure TJuceEditorBase.SetLook(Look: PJcpEditorLook);
 begin
   if ApiHas(@@EditorApiProbe.SetLook) then
     FApi^.SetLook(FHandle, Look);
+end;
+
+function TJuceEditorBase.ChooseFile(RequestId: Integer; Save: Boolean; const Title, Patterns, Initial: string): Boolean;
+var
+  T, P, I: UTF8String;
+  Mode: Int32;
+begin
+  Result := False;
+  if not ApiHas(@@EditorApiProbe.ChooseFile) then
+    Exit;
+  T := Utf8(Title);
+  P := Utf8(Patterns);
+  I := Utf8(Initial);
+  if Save then
+    Mode := JCP_FILE_SAVE
+  else
+    Mode := JCP_FILE_OPEN;
+  Result := FApi^.ChooseFile(FHandle, RequestId, Mode, PAnsiChar(T), PAnsiChar(P), PAnsiChar(I)) <> 0;
+end;
+
+procedure TJuceEditorBase.FileChosen(RequestId: Integer; Chosen: Boolean; const Path: string);
+begin
 end;
 
 procedure TJuceEditorBase.StartTimer(Hz: Integer);
@@ -1681,6 +1772,61 @@ begin
   end;
 end;
 
+function VGetProgramCount(Inst: Pointer): Int32; cdecl;
+begin
+  try
+    Result := TJucePlugin(Inst).ProgramCount;
+    if Result < 0 then
+      Result := 0;
+  except
+    Result := 0;
+  end;
+end;
+
+function VGetCurrentProgram(Inst: Pointer): Int32; cdecl;
+begin
+  try
+    Result := TJucePlugin(Inst).CurrentProgram;
+  except
+    Result := 0;
+  end;
+end;
+
+procedure VSetCurrentProgram(Inst: Pointer; Index: Int32); cdecl;
+begin
+  try
+    if (Index >= 0) and (Index < TJucePlugin(Inst).ProgramCount) then
+      TJucePlugin(Inst).SelectProgram(Index);
+  except
+  end;
+end;
+
+function VGetProgramName(Inst: Pointer; Index: Int32; Buffer: PAnsiChar; BufferSize: Int32): Int32; cdecl;
+var
+  U: UTF8String;
+  N: Integer;
+begin
+  Result := 0;
+  try
+    if (Buffer = nil) or (BufferSize <= 1) then
+      Exit;
+    U := Utf8(TJucePlugin(Inst).ProgramName(Index));
+    N := Length(U);
+    if N > BufferSize - 1 then
+    begin
+      N := BufferSize - 1;
+      while (N > 0) and ((Ord(U[N + 1]) and $C0) = $80) do { don't split a UTF-8 sequence }
+        Dec(N);
+    end;
+    if N > 0 then
+      Move(PAnsiChar(U)^, Buffer^, N);
+    Buffer[N] := #0;
+    Result := 1;
+  except
+    Result := 0;
+  end;
+end;
+
 function VGetExtension(Inst: Pointer; Id: PAnsiChar): Pointer; cdecl;
 begin
   Result := nil;
@@ -1749,6 +1895,22 @@ begin
   end;
 end;
 
+procedure EFileChosen(Ed: Pointer; RequestId: Int32; Path: PAnsiChar); cdecl;
+var
+  U: UTF8String;
+begin
+  try
+    if Path = nil then
+      TJuceEditorBase(Ed).FileChosen(RequestId, False, '')
+    else
+    begin
+      U := Path;
+      TJuceEditorBase(Ed).FileChosen(RequestId, True, string(U));
+    end;
+  except
+  end;
+end;
+
 function VCreateEditor(Inst: Pointer; Api: PJcpEditorApi; Editor: PJcpEditor; VTable: PJcpEditorVTable;
   var Width, Height: Int32): Pointer; cdecl;
 var
@@ -1787,6 +1949,7 @@ begin
     if Fits(VTable^.StructSize, VTable, @@VTable^.ParameterChanged) then VTable^.ParameterChanged := EParameterChanged;
     if Fits(VTable^.StructSize, VTable, @@VTable^.Resized) then VTable^.Resized := EResized;
     if Fits(VTable^.StructSize, VTable, @@VTable^.PopupResult) then VTable^.PopupResult := EPopupResult;
+    if Fits(VTable^.StructSize, VTable, @@VTable^.FileChosen) then VTable^.FileChosen := EFileChosen;
     Result := Ed;
   except
     try
@@ -1858,6 +2021,13 @@ begin
     if Fits(VTable^.StructSize, VTable, @@VTable^.GetParameterText) then VTable^.GetParameterText := VGetParameterText;
     if Fits(VTable^.StructSize, VTable, @@VTable^.GetExtension) then VTable^.GetExtension := VGetExtension;
     if Fits(VTable^.StructSize, VTable, @@VTable^.CreateEditor) then VTable^.CreateEditor := VCreateEditor;
+    if Fits(VTable^.StructSize, VTable, @@VTable^.GetProgramName) then
+    begin
+      VTable^.GetProgramCount := VGetProgramCount;
+      VTable^.GetCurrentProgram := VGetCurrentProgram;
+      VTable^.SetCurrentProgram := VSetCurrentProgram;
+      VTable^.GetProgramName := VGetProgramName;
+    end;
     Result := Plugin;
   except
     Result := nil;

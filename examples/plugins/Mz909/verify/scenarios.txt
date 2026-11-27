@@ -1,0 +1,2682 @@
+# Mz909 equivalence scenarios: read by both render_cpp.cpp (the original C++ engine) and
+# render_pas.dpr (the Pascal port). Each renders to <name>.f32 (raw little-endian floats).
+#
+#   scenario NAME RATE        new engine, prepare(RATE), pending settings = defaults
+#   set ID VALUE              change a pending setting (parameter IDs as in Params.cpp)
+#   patch NAME                pending settings = defaults + factory preset NAME
+#   apply                     engine.setSettings(pending)
+#   on N [VEL]                note on (velocity 100 if none given; 101 or more is an accent)
+#   hit VOICE [ACCENT]        engine.trigger(VOICE, ACCENT != 0), VOICE 0..10 (BD .. RC)
+#   allsoundoff
+#   prepare RATE              prepare again (the host changing its rate), settings kept
+#   render SAMPLES [BLOCK]    render, in blocks of BLOCK (default: one block)
+#   roms                      append the four ROMs (clock, length, bytes) as floats
+#   end
+#
+# The engine puts rung-out circuits to sleep every 32 samples counted from the top of each
+# render call, so the block size changes the output: the odd block sizes check that too.
+
+# The ROMs themselves: synthesized from noise and sines, shaped, 6-bit.
+scenario roms 48000
+roms
+end
+
+# Every voice on its own: plain, then accented, each left to ring out and sleep.
+scenario voice_bd 48000
+apply
+on 36
+render 36000 512
+on 36 127
+render 36000 512
+end
+
+scenario voice_sd 48000
+apply
+on 38
+render 18000 512
+on 38 127
+render 18000 512
+end
+
+scenario voice_lt 48000
+apply
+on 43
+render 36000 512
+on 43 127
+render 36000 512
+end
+
+scenario voice_mt 48000
+apply
+on 47
+render 30000 512
+on 47 127
+render 30000 512
+end
+
+scenario voice_ht 48000
+apply
+on 50
+render 26000 512
+on 50 127
+render 26000 512
+end
+
+scenario voice_rs 48000
+apply
+on 37
+render 6000 512
+on 37 127
+render 6000 512
+end
+
+scenario voice_cp 48000
+apply
+on 39
+render 18000 512
+on 39 127
+render 18000 512
+end
+
+scenario voice_ch 48000
+apply
+on 42
+render 18000 512
+on 42 127
+render 18000 512
+end
+
+scenario voice_oh 48000
+apply
+on 46
+render 36000 512
+on 46 127
+render 36000 512
+end
+
+scenario voice_cc 48000
+apply
+on 49
+render 72000 512
+on 49 127
+render 72000 512
+end
+
+scenario voice_rc 48000
+apply
+on 51
+render 72000 512
+on 51 127
+render 72000 512
+end
+
+# Accent: the ACCENT knob at 0 and full, an accented hit of every voice; and 100 against 101.
+scenario accent_0 48000
+set accent 0
+apply
+on 36 127
+render 4800 256
+on 38 127
+render 4800 256
+on 43 127
+render 4800 256
+on 47 127
+render 4800 256
+on 50 127
+render 4800 256
+on 37 127
+render 4800 256
+on 39 127
+render 4800 256
+on 42 127
+render 4800 256
+on 46 127
+render 4800 256
+on 49 127
+render 4800 256
+on 51 127
+render 4800 256
+render 48000 256
+end
+
+scenario accent_10 48000
+set accent 10
+apply
+on 36 127
+render 4800 256
+on 38 127
+render 4800 256
+on 43 127
+render 4800 256
+on 47 127
+render 4800 256
+on 50 127
+render 4800 256
+on 37 127
+render 4800 256
+on 39 127
+render 4800 256
+on 42 127
+render 4800 256
+on 46 127
+render 4800 256
+on 49 127
+render 4800 256
+on 51 127
+render 4800 256
+render 48000 256
+end
+
+scenario accent_threshold 48000
+set accent 10
+apply
+on 36 100
+render 12000
+on 36 101
+render 12000
+on 38 100
+render 9000
+on 38 101
+render 9000
+end
+
+# Every knob at its ends (and a step between), with the voice it shapes.
+scenario knob_bdTune 48000
+set bdTune 0
+apply
+on 36 110
+render 36000 480
+set bdTune 2.5
+apply
+on 36 110
+render 36000 480
+set bdTune 10
+apply
+on 36 110
+render 36000 480
+end
+
+scenario knob_bdAttack 48000
+set bdAttack 0
+apply
+on 36 110
+render 36000 480
+set bdAttack 2.5
+apply
+on 36 110
+render 36000 480
+set bdAttack 10
+apply
+on 36 110
+render 36000 480
+end
+
+scenario knob_bdDecay 48000
+set bdDecay 0
+apply
+on 36 110
+render 36000 480
+set bdDecay 2.5
+apply
+on 36 110
+render 36000 480
+set bdDecay 10
+apply
+on 36 110
+render 36000 480
+end
+
+scenario knob_bdLevel 48000
+set bdLevel 0
+apply
+on 36 110
+render 36000 480
+set bdLevel 2.5
+apply
+on 36 110
+render 36000 480
+set bdLevel 10
+apply
+on 36 110
+render 36000 480
+end
+
+scenario knob_sdTune 48000
+set sdTune 0
+apply
+on 38 110
+render 18000 480
+set sdTune 2.5
+apply
+on 38 110
+render 18000 480
+set sdTune 10
+apply
+on 38 110
+render 18000 480
+end
+
+scenario knob_sdTone 48000
+set sdTone 0
+apply
+on 38 110
+render 18000 480
+set sdTone 2.5
+apply
+on 38 110
+render 18000 480
+set sdTone 10
+apply
+on 38 110
+render 18000 480
+end
+
+scenario knob_sdSnappy 48000
+set sdSnappy 0
+apply
+on 38 110
+render 18000 480
+set sdSnappy 2.5
+apply
+on 38 110
+render 18000 480
+set sdSnappy 10
+apply
+on 38 110
+render 18000 480
+end
+
+scenario knob_sdLevel 48000
+set sdLevel 0
+apply
+on 38 110
+render 18000 480
+set sdLevel 2.5
+apply
+on 38 110
+render 18000 480
+set sdLevel 10
+apply
+on 38 110
+render 18000 480
+end
+
+scenario knob_ltTune 48000
+set ltTune 0
+apply
+on 43 110
+render 36000 480
+set ltTune 2.5
+apply
+on 43 110
+render 36000 480
+set ltTune 10
+apply
+on 43 110
+render 36000 480
+end
+
+scenario knob_ltDecay 48000
+set ltDecay 0
+apply
+on 43 110
+render 36000 480
+set ltDecay 2.5
+apply
+on 43 110
+render 36000 480
+set ltDecay 10
+apply
+on 43 110
+render 36000 480
+end
+
+scenario knob_ltLevel 48000
+set ltLevel 0
+apply
+on 43 110
+render 36000 480
+set ltLevel 2.5
+apply
+on 43 110
+render 36000 480
+set ltLevel 10
+apply
+on 43 110
+render 36000 480
+end
+
+scenario knob_mtTune 48000
+set mtTune 0
+apply
+on 47 110
+render 30000 480
+set mtTune 2.5
+apply
+on 47 110
+render 30000 480
+set mtTune 10
+apply
+on 47 110
+render 30000 480
+end
+
+scenario knob_mtDecay 48000
+set mtDecay 0
+apply
+on 47 110
+render 30000 480
+set mtDecay 2.5
+apply
+on 47 110
+render 30000 480
+set mtDecay 10
+apply
+on 47 110
+render 30000 480
+end
+
+scenario knob_mtLevel 48000
+set mtLevel 0
+apply
+on 47 110
+render 30000 480
+set mtLevel 2.5
+apply
+on 47 110
+render 30000 480
+set mtLevel 10
+apply
+on 47 110
+render 30000 480
+end
+
+scenario knob_htTune 48000
+set htTune 0
+apply
+on 50 110
+render 26000 480
+set htTune 2.5
+apply
+on 50 110
+render 26000 480
+set htTune 10
+apply
+on 50 110
+render 26000 480
+end
+
+scenario knob_htDecay 48000
+set htDecay 0
+apply
+on 50 110
+render 26000 480
+set htDecay 2.5
+apply
+on 50 110
+render 26000 480
+set htDecay 10
+apply
+on 50 110
+render 26000 480
+end
+
+scenario knob_htLevel 48000
+set htLevel 0
+apply
+on 50 110
+render 26000 480
+set htLevel 2.5
+apply
+on 50 110
+render 26000 480
+set htLevel 10
+apply
+on 50 110
+render 26000 480
+end
+
+scenario knob_rsLevel 48000
+set rsLevel 0
+apply
+on 37 110
+render 6000 480
+set rsLevel 2.5
+apply
+on 37 110
+render 6000 480
+set rsLevel 10
+apply
+on 37 110
+render 6000 480
+end
+
+scenario knob_cpLevel 48000
+set cpLevel 0
+apply
+on 39 110
+render 18000 480
+set cpLevel 2.5
+apply
+on 39 110
+render 18000 480
+set cpLevel 10
+apply
+on 39 110
+render 18000 480
+end
+
+scenario knob_chDecay 48000
+set chDecay 0
+apply
+on 42 110
+render 18000 480
+set chDecay 2.5
+apply
+on 42 110
+render 18000 480
+set chDecay 10
+apply
+on 42 110
+render 18000 480
+end
+
+scenario knob_ohDecay 48000
+set ohDecay 0
+apply
+on 46 110
+render 36000 480
+set ohDecay 2.5
+apply
+on 46 110
+render 36000 480
+set ohDecay 10
+apply
+on 46 110
+render 36000 480
+end
+
+scenario knob_hhLevel 48000
+set hhLevel 0
+apply
+on 46 110
+render 36000 480
+set hhLevel 2.5
+apply
+on 46 110
+render 36000 480
+set hhLevel 10
+apply
+on 46 110
+render 36000 480
+end
+
+scenario knob_crTune 48000
+set crTune 0
+apply
+on 49 110
+render 115200 480
+set crTune 2.5
+apply
+on 49 110
+render 115200 480
+set crTune 10
+apply
+on 49 110
+render 115200 480
+end
+
+scenario knob_crLevel 48000
+set crLevel 0
+apply
+on 49 110
+render 115200 480
+set crLevel 2.5
+apply
+on 49 110
+render 115200 480
+set crLevel 10
+apply
+on 49 110
+render 115200 480
+end
+
+scenario knob_rdTune 48000
+set rdTune 0
+apply
+on 51 110
+render 115200 480
+set rdTune 2.5
+apply
+on 51 110
+render 115200 480
+set rdTune 10
+apply
+on 51 110
+render 115200 480
+end
+
+scenario knob_rdLevel 48000
+set rdLevel 0
+apply
+on 51 110
+render 115200 480
+set rdLevel 2.5
+apply
+on 51 110
+render 115200 480
+set rdLevel 10
+apply
+on 51 110
+render 115200 480
+end
+
+scenario knob_volume 48000
+set volume 0
+apply
+on 36
+on 42
+render 12000 480
+set volume 3
+apply
+on 36
+on 42
+render 12000 480
+set volume 10
+apply
+on 36
+on 42
+render 12000 480
+end
+
+# Every factory kit, with a bar of every voice.
+scenario patch_init 48000
+patch Init
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_house 48000
+patch House
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_techno 48000
+patch Techno
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_long_kick 48000
+patch Long Kick
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_punchy 48000
+patch Punchy
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_deep_toms 48000
+patch Deep Toms
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_bright_metal 48000
+patch Bright Metal
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_dark_metal 48000
+patch Dark Metal
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+scenario patch_hard_accents 48000
+patch Hard Accents
+apply
+on 36 120
+render 6000 512
+on 38 120
+render 6000 512
+on 43 90
+render 6000 512
+on 47 90
+render 6000 512
+on 50 90
+render 6000 512
+on 37 90
+render 6000 512
+on 39 90
+render 6000 512
+on 42 120
+render 6000 512
+on 46 90
+render 6000 512
+on 49 120
+render 6000 512
+on 51 90
+render 6000 512
+on 46 120
+render 2400 512
+on 42
+render 72000 512
+end
+
+# A two-bar pattern of everything at every sample rate the host might run at.
+scenario pattern_44k 44100
+apply
+on 36 127
+on 42 110
+on 49 127
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+render 5512 512
+on 36 100
+on 38 100
+on 42 110
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+on 37
+render 5512 512
+on 36 127
+on 42 110
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+render 5512 512
+on 36 100
+on 38 127
+on 42 110
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+on 37
+render 5512 512
+on 42 90
+render 5512 512
+on 36 127
+on 42 110
+on 51
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+render 5512 512
+on 36 100
+on 38 100
+on 42 110
+on 51
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+on 37
+render 5512 512
+on 36 127
+on 42 110
+on 51
+render 5512 512
+on 42 90
+render 5512 512
+on 46
+render 5512 512
+on 42 90
+render 5512 512
+on 36 100
+on 38 127
+on 39
+on 42 110
+on 51
+render 5512 512
+on 42 90
+on 45
+render 5512 512
+on 46
+on 37
+on 43
+render 5512 512
+on 42 90
+on 50
+render 5512 512
+render 88200 512
+end
+
+scenario pattern_48k 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+render 6000 512
+on 36 100
+on 38 100
+on 42 110
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+on 37
+render 6000 512
+on 36 127
+on 42 110
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+render 6000 512
+on 36 100
+on 38 127
+on 42 110
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+on 37
+render 6000 512
+on 42 90
+render 6000 512
+on 36 127
+on 42 110
+on 51
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+render 6000 512
+on 36 100
+on 38 100
+on 42 110
+on 51
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+on 37
+render 6000 512
+on 36 127
+on 42 110
+on 51
+render 6000 512
+on 42 90
+render 6000 512
+on 46
+render 6000 512
+on 42 90
+render 6000 512
+on 36 100
+on 38 127
+on 39
+on 42 110
+on 51
+render 6000 512
+on 42 90
+on 45
+render 6000 512
+on 46
+on 37
+on 43
+render 6000 512
+on 42 90
+on 50
+render 6000 512
+render 96000 512
+end
+
+scenario pattern_96k 96000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+render 12000 512
+on 36 100
+on 38 100
+on 42 110
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+on 37
+render 12000 512
+on 36 127
+on 42 110
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+render 12000 512
+on 36 100
+on 38 127
+on 42 110
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+on 37
+render 12000 512
+on 42 90
+render 12000 512
+on 36 127
+on 42 110
+on 51
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+render 12000 512
+on 36 100
+on 38 100
+on 42 110
+on 51
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+on 37
+render 12000 512
+on 36 127
+on 42 110
+on 51
+render 12000 512
+on 42 90
+render 12000 512
+on 46
+render 12000 512
+on 42 90
+render 12000 512
+on 36 100
+on 38 127
+on 39
+on 42 110
+on 51
+render 12000 512
+on 42 90
+on 45
+render 12000 512
+on 46
+on 37
+on 43
+render 12000 512
+on 42 90
+on 50
+render 12000 512
+render 192000 512
+end
+
+scenario pattern_192k 192000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+render 24000 512
+on 36 100
+on 38 100
+on 42 110
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+on 37
+render 24000 512
+on 36 127
+on 42 110
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+render 24000 512
+on 36 100
+on 38 127
+on 42 110
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+on 37
+render 24000 512
+on 42 90
+render 24000 512
+on 36 127
+on 42 110
+on 51
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+render 24000 512
+on 36 100
+on 38 100
+on 42 110
+on 51
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+on 37
+render 24000 512
+on 36 127
+on 42 110
+on 51
+render 24000 512
+on 42 90
+render 24000 512
+on 46
+render 24000 512
+on 42 90
+render 24000 512
+on 36 100
+on 38 127
+on 39
+on 42 110
+on 51
+render 24000 512
+on 42 90
+on 45
+render 24000 512
+on 46
+on 37
+on 43
+render 24000 512
+on 42 90
+on 50
+render 24000 512
+render 384000 512
+end
+
+# Odd block sizes: the sleep check runs every 32 samples from the top of each block.
+scenario blocks_1 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 1
+on 42 90
+render 6000 1
+on 46
+render 6000 1
+on 42 90
+render 6000 1
+on 36 100
+on 38 100
+on 42 110
+render 6000 1
+on 42 90
+render 6000 1
+on 46
+render 6000 1
+on 42 90
+on 37
+render 6000 1
+on 36 127
+on 42 110
+render 6000 1
+on 42 90
+render 6000 1
+on 46
+render 6000 1
+on 42 90
+render 6000 1
+on 36 100
+on 38 127
+on 42 110
+render 6000 1
+on 42 90
+on 45
+render 6000 1
+on 46
+on 37
+on 43
+render 6000 1
+on 42 90
+on 50
+render 6000 1
+render 96000 1
+end
+
+scenario blocks_7 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 7
+on 42 90
+render 6000 7
+on 46
+render 6000 7
+on 42 90
+render 6000 7
+on 36 100
+on 38 100
+on 42 110
+render 6000 7
+on 42 90
+render 6000 7
+on 46
+render 6000 7
+on 42 90
+on 37
+render 6000 7
+on 36 127
+on 42 110
+render 6000 7
+on 42 90
+render 6000 7
+on 46
+render 6000 7
+on 42 90
+render 6000 7
+on 36 100
+on 38 127
+on 42 110
+render 6000 7
+on 42 90
+on 45
+render 6000 7
+on 46
+on 37
+on 43
+render 6000 7
+on 42 90
+on 50
+render 6000 7
+render 96000 7
+end
+
+scenario blocks_31 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 31
+on 42 90
+render 6000 31
+on 46
+render 6000 31
+on 42 90
+render 6000 31
+on 36 100
+on 38 100
+on 42 110
+render 6000 31
+on 42 90
+render 6000 31
+on 46
+render 6000 31
+on 42 90
+on 37
+render 6000 31
+on 36 127
+on 42 110
+render 6000 31
+on 42 90
+render 6000 31
+on 46
+render 6000 31
+on 42 90
+render 6000 31
+on 36 100
+on 38 127
+on 42 110
+render 6000 31
+on 42 90
+on 45
+render 6000 31
+on 46
+on 37
+on 43
+render 6000 31
+on 42 90
+on 50
+render 6000 31
+render 96000 31
+end
+
+scenario blocks_33 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 33
+on 42 90
+render 6000 33
+on 46
+render 6000 33
+on 42 90
+render 6000 33
+on 36 100
+on 38 100
+on 42 110
+render 6000 33
+on 42 90
+render 6000 33
+on 46
+render 6000 33
+on 42 90
+on 37
+render 6000 33
+on 36 127
+on 42 110
+render 6000 33
+on 42 90
+render 6000 33
+on 46
+render 6000 33
+on 42 90
+render 6000 33
+on 36 100
+on 38 127
+on 42 110
+render 6000 33
+on 42 90
+on 45
+render 6000 33
+on 46
+on 37
+on 43
+render 6000 33
+on 42 90
+on 50
+render 6000 33
+render 96000 33
+end
+
+scenario blocks_127 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 127
+on 42 90
+render 6000 127
+on 46
+render 6000 127
+on 42 90
+render 6000 127
+on 36 100
+on 38 100
+on 42 110
+render 6000 127
+on 42 90
+render 6000 127
+on 46
+render 6000 127
+on 42 90
+on 37
+render 6000 127
+on 36 127
+on 42 110
+render 6000 127
+on 42 90
+render 6000 127
+on 46
+render 6000 127
+on 42 90
+render 6000 127
+on 36 100
+on 38 127
+on 42 110
+render 6000 127
+on 42 90
+on 45
+render 6000 127
+on 46
+on 37
+on 43
+render 6000 127
+on 42 90
+on 50
+render 6000 127
+render 96000 127
+end
+
+scenario blocks_509 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 509
+on 42 90
+render 6000 509
+on 46
+render 6000 509
+on 42 90
+render 6000 509
+on 36 100
+on 38 100
+on 42 110
+render 6000 509
+on 42 90
+render 6000 509
+on 46
+render 6000 509
+on 42 90
+on 37
+render 6000 509
+on 36 127
+on 42 110
+render 6000 509
+on 42 90
+render 6000 509
+on 46
+render 6000 509
+on 42 90
+render 6000 509
+on 36 100
+on 38 127
+on 42 110
+render 6000 509
+on 42 90
+on 45
+render 6000 509
+on 46
+on 37
+on 43
+render 6000 509
+on 42 90
+on 50
+render 6000 509
+render 96000 509
+end
+
+scenario blocks_4096 48000
+apply
+on 36 127
+on 42 110
+on 49 127
+render 6000 4096
+on 42 90
+render 6000 4096
+on 46
+render 6000 4096
+on 42 90
+render 6000 4096
+on 36 100
+on 38 100
+on 42 110
+render 6000 4096
+on 42 90
+render 6000 4096
+on 46
+render 6000 4096
+on 42 90
+on 37
+render 6000 4096
+on 36 127
+on 42 110
+render 6000 4096
+on 42 90
+render 6000 4096
+on 46
+render 6000 4096
+on 42 90
+render 6000 4096
+on 36 100
+on 38 127
+on 42 110
+render 6000 4096
+on 42 90
+on 45
+render 6000 4096
+on 46
+on 37
+on 43
+render 6000 4096
+on 42 90
+on 50
+render 6000 4096
+render 96000 4096
+end
+
+# The hihats: closed chokes open (one DAC, one VCA), open over closed, and DECAY moved
+# while one rings - the VCA lets go the new way at once.
+scenario hat_choke 48000
+apply
+on 46 120
+render 4800
+on 42
+render 9600
+on 46
+render 2400
+on 46 127
+render 7000
+on 42 127
+render 300
+on 46
+render 30000
+end
+
+scenario hat_closed_then_open 48000
+set chDecay 10
+apply
+on 42
+render 2000
+on 46
+render 24000
+on 44
+render 1
+on 46
+render 1
+on 42
+render 24000
+end
+
+scenario hat_decay_moves 48000
+apply
+on 46
+render 4800 64
+set ohDecay 0
+apply
+render 4800 64
+set ohDecay 10
+apply
+on 46
+render 2400 64
+set chDecay 0
+apply
+render 2400 64
+on 42
+render 1200 64
+set chDecay 10
+apply
+render 20000 64
+end
+
+# Retriggers: a flam inside the trigger pulse, the clap inside its burst, cymbals
+# restarted, the tune of a cymbal changed while it plays (it takes from the next hit).
+scenario retrigger 48000
+apply
+on 36
+render 20
+on 36 127
+render 6000
+on 39
+render 300
+on 39 127
+render 400
+on 39
+render 12000
+on 49
+render 9000
+on 49 127
+render 4000
+set crTune 0
+apply
+render 4000
+on 49
+render 4000
+set crTune 10
+apply
+on 49
+on 51
+render 70000
+on 50
+render 100
+on 50
+render 3
+on 50 127
+render 20000
+end
+
+# Levels and volume moved mid-sound: each one glides over 5 ms.
+scenario levels_glide 48000
+apply
+on 36
+on 38
+on 42
+on 49
+on 51
+render 2000 128
+set bdLevel 0
+set sdLevel 10
+set hhLevel 0
+set crLevel 0
+set rdLevel 9.9
+set volume 3
+apply
+render 960 128
+set bdLevel 10
+set sdLevel 0
+set hhLevel 10
+set crLevel 1.1
+set rdLevel 8.9
+set volume 3.7
+apply
+render 960 128
+set bdLevel 0
+set sdLevel 10
+set hhLevel 0
+set crLevel 2.2
+set rdLevel 7.9
+set volume 4.4
+apply
+render 960 128
+set bdLevel 10
+set sdLevel 0
+set hhLevel 10
+set crLevel 3.3
+set rdLevel 6.9
+set volume 5.1
+apply
+render 960 128
+set bdLevel 0
+set sdLevel 10
+set hhLevel 0
+set crLevel 4.4
+set rdLevel 5.9
+set volume 5.8
+apply
+render 960 128
+set bdLevel 10
+set sdLevel 0
+set hhLevel 10
+set crLevel 5.5
+set rdLevel 4.9
+set volume 6.5
+apply
+render 960 128
+set bdLevel 0
+set sdLevel 10
+set hhLevel 0
+set crLevel 6.6
+set rdLevel 3.9
+set volume 7.2
+apply
+render 960 128
+set bdLevel 10
+set sdLevel 0
+set hhLevel 10
+set crLevel 7.7
+set rdLevel 2.9
+set volume 7.9
+apply
+render 960 128
+set bdLevel 0
+set sdLevel 10
+set hhLevel 0
+set crLevel 8.8
+set rdLevel 1.9
+set volume 8.6
+apply
+render 960 128
+set bdLevel 10
+set sdLevel 0
+set hhLevel 10
+set crLevel 9.9
+set rdLevel 0.9
+set volume 9.3
+apply
+render 960 128
+render 40000 128
+end
+
+# Knobs automated every block while the drums play: tunes, decays, tone, snappy, attack.
+scenario automation 48000
+apply
+set bdTune 5.00
+set bdDecay 10.00
+set sdTone 5.00
+set sdSnappy 10.00
+set ltTune 5.00
+set mtDecay 10.00
+set htTune 10.00
+set chDecay 5.00
+set ohDecay 10.00
+set bdAttack 10.00
+set sdTune 10.00
+set ltDecay 5.00
+set mtTune 5.00
+set htDecay 5.00
+apply
+on 36
+on 42
+render 1200 300
+set bdTune 6.64
+set bdDecay 9.90
+set sdTone 6.64
+set sdSnappy 9.90
+set ltTune 6.64
+set mtDecay 9.90
+set htTune 9.90
+set chDecay 6.64
+set ohDecay 9.90
+set bdAttack 9.90
+set sdTune 9.90
+set ltDecay 6.64
+set mtTune 6.64
+set htDecay 6.64
+apply
+render 1200 300
+set bdTune 8.09
+set bdDecay 9.61
+set sdTone 8.09
+set sdSnappy 9.61
+set ltTune 8.09
+set mtDecay 9.61
+set htTune 9.61
+set chDecay 8.09
+set ohDecay 9.61
+set bdAttack 9.61
+set sdTune 9.61
+set ltDecay 8.09
+set mtTune 8.09
+set htDecay 8.09
+apply
+on 42
+render 1200 300
+set bdTune 9.21
+set bdDecay 9.13
+set sdTone 9.21
+set sdSnappy 9.13
+set ltTune 9.21
+set mtDecay 9.13
+set htTune 9.13
+set chDecay 9.21
+set ohDecay 9.13
+set bdAttack 9.13
+set sdTune 9.13
+set ltDecay 9.21
+set mtTune 9.21
+set htDecay 9.21
+apply
+on 43
+render 1200 300
+set bdTune 9.86
+set bdDecay 8.48
+set sdTone 9.86
+set sdSnappy 8.48
+set ltTune 9.86
+set mtDecay 8.48
+set htTune 8.48
+set chDecay 9.86
+set ohDecay 8.48
+set bdAttack 8.48
+set sdTune 8.48
+set ltDecay 9.86
+set mtTune 9.86
+set htDecay 9.86
+apply
+on 38
+on 42
+render 1200 300
+set bdTune 9.98
+set bdDecay 7.70
+set sdTone 9.98
+set sdSnappy 7.70
+set ltTune 9.98
+set mtDecay 7.70
+set htTune 7.70
+set chDecay 9.98
+set ohDecay 7.70
+set bdAttack 7.70
+set sdTune 7.70
+set ltDecay 9.98
+set mtTune 9.98
+set htDecay 9.98
+apply
+on 47
+render 1200 300
+set bdTune 9.55
+set bdDecay 6.81
+set sdTone 9.55
+set sdSnappy 6.81
+set ltTune 9.55
+set mtDecay 6.81
+set htTune 6.81
+set chDecay 9.55
+set ohDecay 6.81
+set bdAttack 6.81
+set sdTune 6.81
+set ltDecay 9.55
+set mtTune 9.55
+set htDecay 9.55
+apply
+on 42
+on 46
+render 1200 300
+set bdTune 8.62
+set bdDecay 5.85
+set sdTone 8.62
+set sdSnappy 5.85
+set ltTune 8.62
+set mtDecay 5.85
+set htTune 5.85
+set chDecay 8.62
+set ohDecay 5.85
+set bdAttack 5.85
+set sdTune 5.85
+set ltDecay 8.62
+set mtTune 8.62
+set htDecay 8.62
+apply
+on 50
+render 1200 300
+set bdTune 7.29
+set bdDecay 4.85
+set sdTone 7.29
+set sdSnappy 4.85
+set ltTune 7.29
+set mtDecay 4.85
+set htTune 4.85
+set chDecay 7.29
+set ohDecay 4.85
+set bdAttack 4.85
+set sdTune 4.85
+set ltDecay 7.29
+set mtTune 7.29
+set htDecay 7.29
+apply
+on 36
+on 42
+render 1200 300
+set bdTune 5.71
+set bdDecay 3.86
+set sdTone 5.71
+set sdSnappy 3.86
+set ltTune 5.71
+set mtDecay 3.86
+set htTune 3.86
+set chDecay 5.71
+set ohDecay 3.86
+set bdAttack 3.86
+set sdTune 3.86
+set ltDecay 5.71
+set mtTune 5.71
+set htDecay 5.71
+apply
+render 1200 300
+set bdTune 4.05
+set bdDecay 2.92
+set sdTone 4.05
+set sdSnappy 2.92
+set ltTune 4.05
+set mtDecay 2.92
+set htTune 2.92
+set chDecay 4.05
+set ohDecay 2.92
+set bdAttack 2.92
+set sdTune 2.92
+set ltDecay 4.05
+set mtTune 4.05
+set htDecay 4.05
+apply
+on 42
+render 1200 300
+set bdTune 2.49
+set bdDecay 2.06
+set sdTone 2.49
+set sdSnappy 2.06
+set ltTune 2.49
+set mtDecay 2.06
+set htTune 2.06
+set chDecay 2.49
+set ohDecay 2.06
+set bdAttack 2.06
+set sdTune 2.06
+set ltDecay 2.49
+set mtTune 2.49
+set htDecay 2.49
+apply
+render 1200 300
+set bdTune 1.22
+set bdDecay 1.31
+set sdTone 1.22
+set sdSnappy 1.31
+set ltTune 1.22
+set mtDecay 1.31
+set htTune 1.31
+set chDecay 1.22
+set ohDecay 1.31
+set bdAttack 1.31
+set sdTune 1.31
+set ltDecay 1.22
+set mtTune 1.22
+set htDecay 1.22
+apply
+on 38
+on 42
+render 1200 300
+set bdTune 0.35
+set bdDecay 0.72
+set sdTone 0.35
+set sdSnappy 0.72
+set ltTune 0.35
+set mtDecay 0.72
+set htTune 0.72
+set chDecay 0.35
+set ohDecay 0.72
+set bdAttack 0.72
+set sdTune 0.72
+set ltDecay 0.35
+set mtTune 0.35
+set htDecay 0.35
+apply
+on 43
+render 1200 300
+set bdTune 0.01
+set bdDecay 0.29
+set sdTone 0.01
+set sdSnappy 0.29
+set ltTune 0.01
+set mtDecay 0.29
+set htTune 0.29
+set chDecay 0.01
+set ohDecay 0.29
+set bdAttack 0.29
+set sdTune 0.29
+set ltDecay 0.01
+set mtTune 0.01
+set htDecay 0.01
+apply
+on 42
+on 46
+render 1200 300
+set bdTune 0.21
+set bdDecay 0.05
+set sdTone 0.21
+set sdSnappy 0.05
+set ltTune 0.21
+set mtDecay 0.05
+set htTune 0.05
+set chDecay 0.21
+set ohDecay 0.05
+set bdAttack 0.05
+set sdTune 0.05
+set ltDecay 0.21
+set mtTune 0.21
+set htDecay 0.21
+apply
+on 47
+render 1200 300
+set bdTune 0.93
+set bdDecay 0.01
+set sdTone 0.93
+set sdSnappy 0.01
+set ltTune 0.93
+set mtDecay 0.01
+set htTune 0.01
+set chDecay 0.93
+set ohDecay 0.01
+set bdAttack 0.01
+set sdTune 0.01
+set ltDecay 0.93
+set mtTune 0.93
+set htDecay 0.93
+apply
+on 36
+on 42
+render 1200 300
+set bdTune 2.11
+set bdDecay 0.17
+set sdTone 2.11
+set sdSnappy 0.17
+set ltTune 2.11
+set mtDecay 0.17
+set htTune 0.17
+set chDecay 2.11
+set ohDecay 0.17
+set bdAttack 0.17
+set sdTune 0.17
+set ltDecay 2.11
+set mtTune 2.11
+set htDecay 2.11
+apply
+on 50
+render 1200 300
+set bdTune 3.60
+set bdDecay 0.52
+set sdTone 3.60
+set sdSnappy 0.52
+set ltTune 3.60
+set mtDecay 0.52
+set htTune 0.52
+set chDecay 3.60
+set ohDecay 0.52
+set bdAttack 0.52
+set sdTune 0.52
+set ltDecay 3.60
+set mtTune 3.60
+set htDecay 3.60
+apply
+on 42
+render 1200 300
+set bdTune 5.25
+set bdDecay 1.05
+set sdTone 5.25
+set sdSnappy 1.05
+set ltTune 5.25
+set mtDecay 1.05
+set htTune 1.05
+set chDecay 5.25
+set ohDecay 1.05
+set bdAttack 1.05
+set sdTune 1.05
+set ltDecay 5.25
+set mtTune 5.25
+set htDecay 5.25
+apply
+render 1200 300
+set bdTune 6.87
+set bdDecay 1.73
+set sdTone 6.87
+set sdSnappy 1.73
+set ltTune 6.87
+set mtDecay 1.73
+set htTune 1.73
+set chDecay 6.87
+set ohDecay 1.73
+set bdAttack 1.73
+set sdTune 1.73
+set ltDecay 6.87
+set mtTune 6.87
+set htDecay 6.87
+apply
+on 38
+on 42
+render 1200 300
+set bdTune 8.28
+set bdDecay 2.55
+set sdTone 8.28
+set sdSnappy 2.55
+set ltTune 8.28
+set mtDecay 2.55
+set htTune 2.55
+set chDecay 8.28
+set ohDecay 2.55
+set bdAttack 2.55
+set sdTune 2.55
+set ltDecay 8.28
+set mtTune 8.28
+set htDecay 8.28
+apply
+render 1200 300
+set bdTune 9.34
+set bdDecay 3.46
+set sdTone 9.34
+set sdSnappy 3.46
+set ltTune 9.34
+set mtDecay 3.46
+set htTune 3.46
+set chDecay 9.34
+set ohDecay 3.46
+set bdAttack 3.46
+set sdTune 3.46
+set ltDecay 9.34
+set mtTune 9.34
+set htDecay 9.34
+apply
+on 42
+on 46
+render 1200 300
+set bdTune 9.91
+set bdDecay 4.44
+set sdTone 9.91
+set sdSnappy 4.44
+set ltTune 9.91
+set mtDecay 4.44
+set htTune 4.44
+set chDecay 9.91
+set ohDecay 4.44
+set bdAttack 4.44
+set sdTune 4.44
+set ltDecay 9.91
+set mtTune 9.91
+set htDecay 9.91
+apply
+on 43
+render 1200 300
+set bdTune 9.95
+set bdDecay 5.44
+set sdTone 9.95
+set sdSnappy 5.44
+set ltTune 9.95
+set mtDecay 5.44
+set htTune 5.44
+set chDecay 9.95
+set ohDecay 5.44
+set bdAttack 5.44
+set sdTune 5.44
+set ltDecay 9.95
+set mtTune 9.95
+set htDecay 9.95
+apply
+on 36
+on 42
+render 1200 300
+set bdTune 9.44
+set bdDecay 6.42
+set sdTone 9.44
+set sdSnappy 6.42
+set ltTune 9.44
+set mtDecay 6.42
+set htTune 6.42
+set chDecay 9.44
+set ohDecay 6.42
+set bdAttack 6.42
+set sdTune 6.42
+set ltDecay 9.44
+set mtTune 9.44
+set htDecay 9.44
+apply
+on 47
+render 1200 300
+set bdTune 8.44
+set bdDecay 7.34
+set sdTone 8.44
+set sdSnappy 7.34
+set ltTune 8.44
+set mtDecay 7.34
+set htTune 7.34
+set chDecay 8.44
+set ohDecay 7.34
+set bdAttack 7.34
+set sdTune 7.34
+set ltDecay 8.44
+set mtTune 8.44
+set htDecay 8.44
+apply
+on 42
+render 1200 300
+set bdTune 7.06
+set bdDecay 8.17
+set sdTone 7.06
+set sdSnappy 8.17
+set ltTune 7.06
+set mtDecay 8.17
+set htTune 8.17
+set chDecay 7.06
+set ohDecay 8.17
+set bdAttack 8.17
+set sdTune 8.17
+set ltDecay 7.06
+set mtTune 7.06
+set htDecay 7.06
+apply
+on 50
+render 1200 300
+set bdTune 5.46
+set bdDecay 8.88
+set sdTone 5.46
+set sdSnappy 8.88
+set ltTune 5.46
+set mtDecay 8.88
+set htTune 8.88
+set chDecay 5.46
+set ohDecay 8.88
+set bdAttack 8.88
+set sdTune 8.88
+set ltDecay 5.46
+set mtTune 5.46
+set htDecay 5.46
+apply
+on 38
+on 42
+render 1200 300
+set bdTune 3.80
+set bdDecay 9.43
+set sdTone 3.80
+set sdSnappy 9.43
+set ltTune 3.80
+set mtDecay 9.43
+set htTune 9.43
+set chDecay 3.80
+set ohDecay 9.43
+set bdAttack 9.43
+set sdTune 9.43
+set ltDecay 3.80
+set mtTune 3.80
+set htDecay 3.80
+apply
+render 1200 300
+set bdTune 2.28
+set bdDecay 9.80
+set sdTone 2.28
+set sdSnappy 9.80
+set ltTune 2.28
+set mtDecay 9.80
+set htTune 9.80
+set chDecay 2.28
+set ohDecay 9.80
+set bdAttack 9.80
+set sdTune 9.80
+set ltDecay 2.28
+set mtTune 2.28
+set htDecay 2.28
+apply
+on 42
+on 46
+render 1200 300
+set bdTune 1.06
+set bdDecay 9.98
+set sdTone 1.06
+set sdSnappy 9.98
+set ltTune 1.06
+set mtDecay 9.98
+set htTune 9.98
+set chDecay 1.06
+set ohDecay 9.98
+set bdAttack 9.98
+set sdTune 9.98
+set ltDecay 1.06
+set mtTune 1.06
+set htDecay 1.06
+apply
+render 1200 300
+set bdTune 0.27
+set bdDecay 9.97
+set sdTone 0.27
+set sdSnappy 9.97
+set ltTune 0.27
+set mtDecay 9.97
+set htTune 9.97
+set chDecay 0.27
+set ohDecay 9.97
+set bdAttack 9.97
+set sdTune 9.97
+set ltDecay 0.27
+set mtTune 0.27
+set htDecay 0.27
+apply
+on 36
+on 42
+render 1200 300
+set bdTune 0.00
+set bdDecay 9.75
+set sdTone 0.00
+set sdSnappy 9.75
+set ltTune 0.00
+set mtDecay 9.75
+set htTune 9.75
+set chDecay 0.00
+set ohDecay 9.75
+set bdAttack 9.75
+set sdTune 9.75
+set ltDecay 0.00
+set mtTune 0.00
+set htDecay 0.00
+apply
+on 43
+render 1200 300
+set bdTune 0.28
+set bdDecay 9.35
+set sdTone 0.28
+set sdSnappy 9.35
+set ltTune 0.28
+set mtDecay 9.35
+set htTune 9.35
+set chDecay 0.28
+set ohDecay 9.35
+set bdAttack 9.35
+set sdTune 9.35
+set ltDecay 0.28
+set mtTune 0.28
+set htDecay 0.28
+apply
+on 42
+render 1200 300
+set bdTune 1.08
+set bdDecay 8.77
+set sdTone 1.08
+set sdSnappy 8.77
+set ltTune 1.08
+set mtDecay 8.77
+set htTune 8.77
+set chDecay 1.08
+set ohDecay 8.77
+set bdAttack 8.77
+set sdTune 8.77
+set ltDecay 1.08
+set mtTune 1.08
+set htDecay 1.08
+apply
+on 47
+render 1200 300
+set bdTune 2.32
+set bdDecay 8.04
+set sdTone 2.32
+set sdSnappy 8.04
+set ltTune 2.32
+set mtDecay 8.04
+set htTune 8.04
+set chDecay 2.32
+set ohDecay 8.04
+set bdAttack 8.04
+set sdTune 8.04
+set ltDecay 2.32
+set mtTune 2.32
+set htDecay 2.32
+apply
+on 38
+on 42
+render 1200 300
+set bdTune 3.85
+set bdDecay 7.19
+set sdTone 3.85
+set sdSnappy 7.19
+set ltTune 3.85
+set mtDecay 7.19
+set htTune 7.19
+set chDecay 3.85
+set ohDecay 7.19
+set bdAttack 7.19
+set sdTune 7.19
+set ltDecay 3.85
+set mtTune 3.85
+set htDecay 3.85
+apply
+on 50
+render 1200 300
+set bdTune 5.50
+set bdDecay 6.26
+set sdTone 5.50
+set sdSnappy 6.26
+set ltTune 5.50
+set mtDecay 6.26
+set htTune 6.26
+set chDecay 5.50
+set ohDecay 6.26
+set bdAttack 6.26
+set sdTune 6.26
+set ltDecay 5.50
+set mtTune 5.50
+set htDecay 5.50
+apply
+on 42
+on 46
+render 1200 300
+set bdTune 7.10
+set bdDecay 5.27
+set sdTone 7.10
+set sdSnappy 5.27
+set ltTune 7.10
+set mtDecay 5.27
+set htTune 5.27
+set chDecay 7.10
+set ohDecay 5.27
+set bdAttack 5.27
+set sdTune 5.27
+set ltDecay 7.10
+set mtTune 7.10
+set htDecay 7.10
+apply
+render 1200 300
+render 48000 300
+end
+
+# The GM drum map's other notes (kick 1, the second snare, the toms in pairs, the pedal
+# hat, crash 2, the ride bell, splash, ride 2), notes that play nothing, velocity 0.
+scenario note_map 48000
+apply
+on 35
+render 3000 256
+on 40
+render 3000 256
+on 41
+render 3000 256
+on 44
+render 3000 256
+on 45
+render 3000 256
+on 48
+render 3000 256
+on 52
+render 3000 256
+on 53
+render 3000 256
+on 55
+render 3000 256
+on 57
+render 3000 256
+on 59
+render 3000 256
+on 60
+render 3000 256
+on 34
+render 3000 256
+on 0
+render 3000 256
+on 127
+render 3000 256
+on 56
+render 3000 256
+on 36 0
+render 3000
+on 51 0
+render 3000
+render 48000 256
+end
+
+# Every voice by trigger() directly, plain and accented; voices out of range do nothing.
+scenario triggers 48000
+set accent 7.5
+apply
+hit 0
+render 2400 200
+hit 0 1
+render 2400 200
+hit 1
+render 2400 200
+hit 1 1
+render 2400 200
+hit 2
+render 2400 200
+hit 2 1
+render 2400 200
+hit 3
+render 2400 200
+hit 3 1
+render 2400 200
+hit 4
+render 2400 200
+hit 4 1
+render 2400 200
+hit 5
+render 2400 200
+hit 5 1
+render 2400 200
+hit 6
+render 2400 200
+hit 6 1
+render 2400 200
+hit 7
+render 2400 200
+hit 7 1
+render 2400 200
+hit 8
+render 2400 200
+hit 8 1
+render 2400 200
+hit 9
+render 2400 200
+hit 9 1
+render 2400 200
+hit 10
+render 2400 200
+hit 10 1
+render 2400 200
+hit 11
+hit -1
+render 72000 200
+end
+
+# All sound off mid-sound, then everything again from rest.
+scenario allsoundoff 48000
+apply
+on 36 127
+on 38 127
+on 43 127
+on 47 127
+on 50 127
+on 37 127
+on 39 127
+on 42 127
+on 46 127
+on 49 127
+on 51 127
+render 3000
+allsoundoff
+render 1000
+on 36
+on 38
+on 43
+on 47
+on 50
+on 37
+on 39
+on 42
+on 46
+on 49
+on 51
+render 1500
+allsoundoff
+render 500
+on 36
+on 46
+render 30000
+end
+
+# The host changing its sample rate between blocks (prepare again, settings kept).
+scenario reprepare 44100
+set bdTune 8
+set crTune 3
+apply
+on 36
+on 49
+render 8000
+prepare 96000
+on 36
+on 49
+render 16000 1000
+prepare 48000
+on 38
+on 51
+render 60000 1000
+end
+
+# Everything at once, accented, at full volume and full levels: the saturations.
+scenario everything_loud 48000
+set bdLevel 10
+set sdLevel 10
+set ltLevel 10
+set mtLevel 10
+set htLevel 10
+set rsLevel 10
+set cpLevel 10
+set hhLevel 10
+set crLevel 10
+set rdLevel 10
+set volume 10
+set accent 10
+apply
+on 36 127
+on 38 127
+on 43 127
+on 47 127
+on 50 127
+on 37 127
+on 39 127
+on 42 127
+on 46 127
+on 49 127
+on 51 127
+render 6000 333
+on 36 127
+on 38 127
+on 43 127
+on 47 127
+on 50 127
+on 37 127
+on 39 127
+on 42 127
+on 46 127
+on 49 127
+on 51 127
+render 6000 333
+on 36 127
+on 38 127
+on 43 127
+on 47 127
+on 50 127
+on 37 127
+on 39 127
+on 42 127
+on 46 127
+on 49 127
+on 51 127
+render 6000 333
+on 36 127
+on 38 127
+on 43 127
+on 47 127
+on 50 127
+on 37 127
+on 39 127
+on 42 127
+on 46 127
+on 49 127
+on 51 127
+render 6000 333
+render 72000 333
+end

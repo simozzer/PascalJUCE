@@ -53,7 +53,10 @@ cmake --build --preset windows-x64-clang-release   # or: --preset linux-x64 / ma
 ### Where to install
 
 Copy the whole bundle folder: it contains `<target>_pascal.dll` / `.so` /
-`.dylib` next to the wrapper binary, and the `licenses` folder.
+`.dylib` next to the wrapper binary, and the `licenses` folder. (When
+`PRODUCT_NAME` is `<target>_Pascal` in any case, the library is
+`<target>_pascal_lib`, so that the two never share a file name on a
+case-insensitive file system.)
 
 | Format | Output | Windows | Linux | macOS |
 |---|---|---|---|---|
@@ -146,6 +149,7 @@ Host services on `TJucePlugin`:
 - `SetMeter`: publish a level for the editor; any thread, real-time safe
 - `ScopeWrite`: send samples to the editor's oscilloscopes (`TJuceScope`)
   instead of the output; see [Oscilloscopes](#oscilloscopes)
+- `ProgramsChanged`: your program list changed; see [Programs](#programs)
 - `Log`
 
 Called from inside `Prepare`, `Process`, `Reset` or the state methods,
@@ -156,6 +160,28 @@ Latency set in `Prepare` is delivered before activation completes.
 Hosts react to these synchronously (VST3 hosts restart the plug-in on a
 latency change), which would otherwise re-enter your library from inside its
 own callback. `GetParameter` still returns the value the host last delivered.
+
+### Programs
+
+Hosts have a program selector (Ableton Live's in the device's title bar, a
+preset menu elsewhere). To fill it with your own programs - factory presets,
+or the programmes of a sound bank the user loaded - override four methods:
+
+```pascal
+function ProgramCount: Integer; override;          // 0: one program, "Default"
+function CurrentProgram: Integer; override;
+procedure SelectProgram(Index: Integer); override;  // Index is in range
+function ProgramName(Index: Integer): string; override;
+```
+
+and call `ProgramsChanged` whenever the list or the current program changes
+(a bank loaded, your editor's own menu used): the host is told from its
+message thread. `ProgramCount`, `CurrentProgram` and `ProgramName` may be
+called on any thread, also while `Process` runs, so answer from data the
+message thread has published, without locks or allocation. `SelectProgram`
+runs on a non-real-time thread and never alongside `Process`. The host sees at
+most 1024 programs; names are cut to 256 bytes of UTF-8. Hosts save the
+current program in their own way, so save what matters in `SaveState` too.
 
 ### Rules
 
@@ -409,6 +435,15 @@ about JUCE, so the same control can later be drawn on other surfaces.
   `https://` pages on a DNS host name in plain printable ASCII (see
   `open_url` in `juce_c_plugin.h`). Don't pass URLs from presets or project
   files to it: they are the user's data, not yours.
+- `OpenFile(Title, Patterns, Initial, Handler)` and `SaveFile(...)` show the
+  OS's file dialog (`TJuceEditorBase.ChooseFile` underneath), over the plug-in
+  window, and return at once; `Handler(Sender, Chosen, Path)` gets the answer
+  later - or never, if the window closed first. As with URLs, the wrapper
+  shows one only while it delivers a user's click (a button's `OnClick`, a
+  menu choice), one at a time. `Patterns` like `'*.hfe;*.img'` (letters,
+  digits and `* ? . ; _ -`), `Initial` a folder or a file to start at (`''`:
+  the OS's choice). Your library then reads or writes the file itself - and
+  should treat what it reads as untrusted, like a project file.
 - The theme's `TooltipBackground`, `TooltipText`, `TooltipBorder`,
   `TooltipFontSize`, `MenuBackground`, `MenuText`, `MenuHighlight`,
   `MenuHighlightText`, `MenuHeader`, `MenuFontSize` (and `FontName`) style

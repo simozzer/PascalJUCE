@@ -3,7 +3,7 @@
 //
 // mz101_editor_test - the Mz101_Pascal panel (Mz101Editor.pas, built from
 // Mz101EditorForm.lfm), driven offscreen through the real PascalJUCE wrapper, which loads
-// Mz101_pascal.dll from next to the executable (a ctest of the PascalJUCE build):
+// Mz101_pascal_lib.dll from next to the executable (a ctest of the PascalJUCE build):
 //
 //   - renders the panel and compares it with verify/ui/mz101_default.png (small per-pixel
 //     tolerance for font rasterisation);

@@ -435,14 +435,14 @@ if(TARGET Mz101)
     target_include_directories(mz101_editor_test PRIVATE plugin/include
         "${CMAKE_BINARY_DIR}/examples/plugins/Mz101/Mz101_pascal/hash/$<CONFIG>")
     target_compile_definitions(mz101_editor_test PRIVATE ${_editor_wrapper_defs}
-        JucePlugin_Name="Mz101_Pascal" PASCALJUCE_PLUGIN_LIBRARY="Mz101_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        JucePlugin_Name="Mz101_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:Mz101,PASCALJUCE_LIBRARY_NAME>"
         PASCALJUCE_HAS_LIBRARY_HASH=1 MZ101_VERIFY_DIR="${_mz101}/verify")
     target_link_libraries(mz101_editor_test PRIVATE
         juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
     add_dependencies(mz101_editor_test Mz101_PascalLibrary Mz101_PascalHash)
     add_custom_command(TARGET mz101_editor_test POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${CMAKE_BINARY_DIR}/examples/plugins/Mz101/Mz101_pascal/$<CONFIG>/Mz101_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz101/Mz101_pascal/$<CONFIG>/$<TARGET_PROPERTY:Mz101,PASCALJUCE_LIBRARY_NAME>"
                 "$<TARGET_FILE_DIR:mz101_editor_test>"
         VERBATIM)
     add_test(NAME mz101_editor_test COMMAND mz101_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -458,18 +458,62 @@ if(TARGET Mz303)
     target_include_directories(mz303_editor_test PRIVATE plugin/include
         "${CMAKE_BINARY_DIR}/examples/plugins/Mz303/Mz303_pascal/hash/$<CONFIG>")
     target_compile_definitions(mz303_editor_test PRIVATE ${_editor_wrapper_defs}
-        JucePlugin_Name="Mz303_Pascal" PASCALJUCE_PLUGIN_LIBRARY="Mz303_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        JucePlugin_Name="Mz303_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:Mz303,PASCALJUCE_LIBRARY_NAME>"
         PASCALJUCE_HAS_LIBRARY_HASH=1 MZ303_VERIFY_DIR="${_mz303}/verify")
     target_link_libraries(mz303_editor_test PRIVATE
         juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
     add_dependencies(mz303_editor_test Mz303_PascalLibrary Mz303_PascalHash)
     add_custom_command(TARGET mz303_editor_test POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${CMAKE_BINARY_DIR}/examples/plugins/Mz303/Mz303_pascal/$<CONFIG>/Mz303_pascal${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz303/Mz303_pascal/$<CONFIG>/$<TARGET_PROPERTY:Mz303,PASCALJUCE_LIBRARY_NAME>"
                 "$<TARGET_FILE_DIR:mz303_editor_test>"
         VERBATIM)
     add_test(NAME mz303_editor_test COMMAND mz303_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
     set_tests_properties(mz303_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
+# mz808_editor_test: the Mz808_Pascal panel (a designed form, MIDI learn, the pads), offscreen, the same way. Its source and reference image live with the example.
+if(TARGET Mz808)
+    set(_mz808 "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/Mz808")
+    juce_add_console_app(mz808_editor_test PRODUCT_NAME "mz808_editor_test")
+    target_sources(mz808_editor_test PRIVATE "${_mz808}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mz808_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/Mz808/Mz808_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mz808_editor_test PRIVATE ${_editor_wrapper_defs}
+        JucePlugin_Name="Mz808_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:Mz808,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZ808_VERIFY_DIR="${_mz808}/verify")
+    target_link_libraries(mz808_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mz808_editor_test Mz808_PascalLibrary Mz808_PascalHash)
+    add_custom_command(TARGET mz808_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz808/Mz808_pascal/$<CONFIG>/$<TARGET_PROPERTY:Mz808,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mz808_editor_test>"
+        VERBATIM)
+    add_test(NAME mz808_editor_test COMMAND mz808_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mz808_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
+endif()
+
+# mz909_editor_test: the Mz909_Pascal panel (a designed form, MIDI learn, the pads and their lights), offscreen, the same way. Its source and reference image live with the example.
+if(TARGET Mz909)
+    set(_mz909 "${CMAKE_CURRENT_SOURCE_DIR}/examples/plugins/Mz909")
+    juce_add_console_app(mz909_editor_test PRODUCT_NAME "mz909_editor_test")
+    target_sources(mz909_editor_test PRIVATE "${_mz909}/verify/editor_check.cpp" plugin/pascaljuce_plugin_processor.cpp)
+    target_include_directories(mz909_editor_test PRIVATE plugin/include
+        "${CMAKE_BINARY_DIR}/examples/plugins/Mz909/Mz909_pascal/hash/$<CONFIG>")
+    target_compile_definitions(mz909_editor_test PRIVATE ${_editor_wrapper_defs}
+        JucePlugin_Name="Mz909_Pascal" PASCALJUCE_PLUGIN_LIBRARY="$<TARGET_PROPERTY:Mz909,PASCALJUCE_LIBRARY_NAME>"
+        PASCALJUCE_HAS_LIBRARY_HASH=1 MZ909_VERIFY_DIR="${_mz909}/verify")
+    target_link_libraries(mz909_editor_test PRIVATE
+        juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_recommended_config_flags)
+    add_dependencies(mz909_editor_test Mz909_PascalLibrary Mz909_PascalHash)
+    add_custom_command(TARGET mz909_editor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_BINARY_DIR}/examples/plugins/Mz909/Mz909_pascal/$<CONFIG>/$<TARGET_PROPERTY:Mz909,PASCALJUCE_LIBRARY_NAME>"
+                "$<TARGET_FILE_DIR:mz909_editor_test>"
+        VERBATIM)
+    add_test(NAME mz909_editor_test COMMAND mz909_editor_test WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties(mz909_editor_test PROPERTIES RESOURCE_LOCK desktop_ui TIMEOUT 600)
 endif()
 
 # scope_test: the Scope example (an effect), its window offscreen, the same way.
@@ -552,7 +596,7 @@ if(PASCALJUCE_ASAN_DIR)
     endif()
     foreach(_cfg IN LISTS _configs)
         foreach(_dir "bin/${_cfg}" "plugin_host_test_artefacts/${_cfg}" "fuzz_plugin_state_artefacts/${_cfg}"
-                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}"
+                     "fuzz_editor_artefacts/${_cfg}" "editor_test_artefacts/${_cfg}" "mz101_editor_test_artefacts/${_cfg}" "mz303_editor_test_artefacts/${_cfg}" "mz808_editor_test_artefacts/${_cfg}" "mz909_editor_test_artefacts/${_cfg}"
                      "examples/plugins/PascalSynth/PascalSynth_artefacts/${_cfg}/Standalone")
             file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/${_dir}")
             file(COPY "${PASCALJUCE_ASAN_DIR}/clang_rt.asan_dynamic-x86_64.dll" DESTINATION "${CMAKE_BINARY_DIR}/${_dir}")

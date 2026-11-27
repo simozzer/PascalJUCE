@@ -334,7 +334,7 @@ void fuzzCall(ProbeEditor* e, jcp_graphics* g)
     const jcp_editor_api* a = e->api;
     std::string s1, s2;
     ++S.api_calls;
-    const int32_t which = (int32_t) (rng() % 52);
+    const int32_t which = (int32_t) (rng() % 53);
     S.current_call = which;
     struct Done { ~Done() { S.current_call = -1; } } done;
     switch (which)
@@ -490,6 +490,12 @@ void fuzzCall(ProbeEditor* e, jcp_graphics* g)
             break;
         }
         case 50: a->open_url(re(e), ru(s1)); break;
+        case 51:
+        {
+            std::string s3;
+            a->choose_file(re(e), ri(), (int32_t) (rng() % 4) - 1, rs(s1), rs(s2), rs(s3));
+            break;
+        }
         default:
         {
             jcp_editor_look look;
@@ -771,6 +777,33 @@ void runAction(ProbeEditor* e)
         case PROBE_OPEN_URL_AGAIN:
             S.url_result = a->open_url(e->handle, goodUrls[1]);
             break;
+        case PROBE_CHOOSE_FILE:
+        {
+            const std::string longTitle(300, 't'), longPatterns(300, 'p'), longPath(5000, 'd');
+            PROBE_CHECK(a->choose_file(e->handle, 1, 2, "Open", "*.txt", nullptr) == 0, "choose_file: a bad mode refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, -1, "Open", "*.txt", nullptr) == 0, "choose_file: a negative mode refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, "bad \xC3", "*.txt", nullptr) == 0,
+                        "choose_file: a title with invalid UTF-8 refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, longTitle.c_str(), "*.txt", nullptr) == 0,
+                        "choose_file: a title over 256 bytes refused");
+            for (const char* p : { "*.txt /etc/passwd", "*.txt|*.exe", "..\\*", "*.t\"xt", "*.\xC3\xA9", "a/b" })
+                PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, "Open", p, nullptr) == 0,
+                            "choose_file: patterns outside letters, digits and * ? . ; _ - refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, "Open", longPatterns.c_str(), nullptr) == 0,
+                        "choose_file: patterns over the limit refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, "Open", "*.txt", longPath.c_str()) == 0,
+                        "choose_file: an initial path over JCP_MAX_PATH refused");
+            PROBE_CHECK(a->choose_file(e->handle, 1, JCP_FILE_OPEN, "Open", "*.txt", "bad \xC3") == 0,
+                        "choose_file: an initial path with invalid UTF-8 refused");
+            PROBE_CHECK(a->choose_file(e->handle, 41, JCP_FILE_OPEN, "Open a probe file", "*.txt;*.probe", "relative/dir") == 1,
+                        "choose_file: a good request shown during a click");
+            PROBE_CHECK(a->choose_file(e->handle, 42, JCP_FILE_SAVE, "Save", "*.txt", nullptr) == 0,
+                        "choose_file: a second dialog while one is open refused");
+            break;
+        }
+        case PROBE_CHOOSE_FILE_AGAIN:
+            S.file_request_result = a->choose_file(e->handle, 43, JCP_FILE_SAVE, nullptr, nullptr, nullptr);
+            break;
         case PROBE_SCALE:
             a->set_design_size(e->handle, 320, 120, 0.5f, 2.0f, JCP_SCALE_CORNER_RESIZER);
             break;
@@ -830,6 +863,8 @@ void tryUrlOutside(ProbeEditor* e)
     ++S.url_attempts_outside;
     if (e->api->open_url(e->handle, goodUrls[0]) != 0)
         ++S.urls_accepted_outside;
+    if (e->api->choose_file(e->handle, 99, JCP_FILE_OPEN, "Open", "*.txt", nullptr) != 0)
+        ++S.files_accepted_outside;
 }
 
 //==============================================================================
@@ -936,10 +971,24 @@ void JCP_CALL edPopupResult(void* p, int32_t menu, int32_t item)
     ++S.popup_results;
     S.last_popup_menu = menu;
     S.last_popup_item = item;
-    if (item > 0 && S.url_in_menu && ! S.fuzz)
+    if (item > 0 && S.file_in_menu && ! S.fuzz)
+        S.file_request_result = e->api->choose_file(e->handle, 44, JCP_FILE_OPEN, "From a menu", "*", nullptr);
+    else if (item > 0 && S.url_in_menu && ! S.fuzz)
         S.url_result = e->api->open_url(e->handle, goodUrls[0]); // a chosen item is a click
     else if (item == 0)
         tryUrlOutside(e);
+    fuzzCalls(e, nullptr);
+}
+
+void JCP_CALL edFileChosen(void* p, int32_t request, const char* path)
+{
+    auto* e = static_cast<ProbeEditor*>(p);
+    CallbackScope scope(e);
+    ++S.files_chosen;
+    S.last_file_request = request;
+    S.last_file_cancelled = path == nullptr ? 1 : 0;
+    std::snprintf(S.last_file_path, sizeof(S.last_file_path), "%s", path != nullptr ? path : "");
+    tryUrlOutside(e);
     fuzzCalls(e, nullptr);
 }
 
@@ -1003,6 +1052,7 @@ void* JCP_CALL createEditor(void* self, const jcp_editor_api* api, jcp_editor* e
     vt->parameter_changed = &edParameterChanged;
     vt->resized = &edResized;
     vt->popup_result = &edPopupResult;
+    vt->file_chosen = &edFileChosen;
     *width = 320;
     *height = 120;
     if (S.png != nullptr)
@@ -1022,6 +1072,33 @@ void* JCP_CALL createEditor(void* self, const jcp_editor_api* api, jcp_editor* e
     return raw;
 }
 
+// Programs: as many as the driver says, named "Program <n>" (or hostile names).
+int32_t JCP_CALL programCount(void*) { return S.program_count; }
+int32_t JCP_CALL currentProgram(void*) { return S.current_program; }
+
+void JCP_CALL selectProgram(void* self, int32_t index)
+{
+    auto* inst = static_cast<Instance*>(self);
+    if (index < 0 || index >= S.program_count)
+        fail("set_current_program with an index out of range");
+    S.current_program = index;
+    ++S.program_selections;
+    inst->api->programs_changed(inst->host);
+}
+
+int32_t JCP_CALL programName(void*, int32_t index, char* buffer, int32_t size)
+{
+    if (buffer == nullptr || size < 2)
+        return 0;
+    if (S.bad_program_names)
+    {
+        std::memset(buffer, 0xC3, (size_t) size);   // invalid UTF-8, and no NUL in sight
+        return 1;
+    }
+    std::snprintf(buffer, (size_t) size, "Program %d \xC3\xA9", (int) index);
+    return 1;
+}
+
 void* JCP_CALL createInstance(const jcp_host_api* api, jcp_host* host, jcp_plugin_vtable* vt)
 {
     if (api == nullptr || vt == nullptr || vt->struct_size < (int32_t) sizeof(jcp_plugin_vtable))
@@ -1034,6 +1111,10 @@ void* JCP_CALL createInstance(const jcp_host_api* api, jcp_host* host, jcp_plugi
     vt->process = &process;
     vt->get_parameter_text = &parameterText;
     vt->create_editor = &createEditor;
+    vt->get_program_count = &programCount;
+    vt->get_current_program = &currentProgram;
+    vt->set_current_program = &selectProgram;
+    vt->get_program_name = &programName;
     return inst;
 }
 } // namespace
@@ -1077,5 +1158,6 @@ PROBE_EXPORT int32_t JCP_CALL editor_probe_poke_stale()
     notRefused += a->get_scale(lastHandle) != 0.0f;
     a->set_design_size(lastHandle, 100, 100, 1.0f, 2.0f, 0);
     a->set_look(lastHandle, nullptr);
+    notRefused += a->choose_file(lastHandle, 1, JCP_FILE_OPEN, "Open", "*.txt", nullptr) != 0;
     return notRefused;
 }

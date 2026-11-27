@@ -3,7 +3,7 @@
 //
 // mz303_editor_test - the Mz303_Pascal panel (Mz303Editor.pas, built from
 // Mz303EditorForm.lfm), driven offscreen through the real PascalJUCE wrapper, which loads
-// Mz303_pascal.dll from next to the executable (a ctest of the PascalJUCE build):
+// Mz303_pascal_lib.dll from next to the executable (a ctest of the PascalJUCE build):
 //
 //   - renders the panel and compares it with verify/ui/mz303_default.png (small per-pixel
 //     tolerance for font rasterisation);

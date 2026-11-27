@@ -84,18 +84,23 @@ static_assert(offsetof(jcp_transport, time_sig_denominator) == 64, "jcp_transpor
 static_assert(sizeof(jcp_process_context) == 72, "jcp_process_context layout");
 static_assert(offsetof(jcp_process_context, num_channels) == 40, "jcp_process_context layout");
 static_assert(offsetof(jcp_process_context, is_non_realtime) == 68, "jcp_process_context layout");
-static_assert(sizeof(jcp_host_api) == 88, "jcp_host_api layout");
+static_assert(sizeof(jcp_host_api) == 96, "jcp_host_api layout");
+static_assert(offsetof(jcp_host_api, programs_changed) == 88, "jcp_host_api layout");
 static_assert(offsetof(jcp_host_api, get_extension) == 72, "jcp_host_api layout");
 static_assert(offsetof(jcp_host_api, set_meter) == 80, "jcp_host_api layout");
-static_assert(sizeof(jcp_plugin_vtable) == 96, "jcp_plugin_vtable layout");
+static_assert(sizeof(jcp_plugin_vtable) == 128, "jcp_plugin_vtable layout");
+static_assert(offsetof(jcp_plugin_vtable, get_program_count) == 96, "jcp_plugin_vtable layout");
+static_assert(offsetof(jcp_plugin_vtable, get_program_name) == 120, "jcp_plugin_vtable layout");
 static_assert(offsetof(jcp_plugin_vtable, get_parameter_text) == 72, "jcp_plugin_vtable layout");
 static_assert(offsetof(jcp_plugin_vtable, create_editor) == 88, "jcp_plugin_vtable layout");
 static_assert(sizeof(jcp_mouse_event) == 32, "jcp_mouse_event layout");
 static_assert(offsetof(jcp_mouse_event, wheel_dy) == 28, "jcp_mouse_event layout");
-static_assert(sizeof(jcp_editor_vtable) == 64, "jcp_editor_vtable layout");
+static_assert(sizeof(jcp_editor_vtable) == 72, "jcp_editor_vtable layout");
+static_assert(offsetof(jcp_editor_vtable, file_chosen) == 64, "jcp_editor_vtable layout");
 static_assert(offsetof(jcp_editor_vtable, popup_result) == 56, "jcp_editor_vtable layout");
 static_assert(sizeof(jcp_menu_item) == 16, "jcp_menu_item layout");
-static_assert(sizeof(jcp_editor_api) == 424, "jcp_editor_api layout");
+static_assert(sizeof(jcp_editor_api) == 432, "jcp_editor_api layout");
+static_assert(offsetof(jcp_editor_api, choose_file) == 424, "jcp_editor_api layout");
 static_assert(offsetof(jcp_editor_api, set_design_size) == 392, "jcp_editor_api layout");
 static_assert(offsetof(jcp_editor_api, set_look) == 416, "jcp_editor_api layout");
 static_assert(sizeof(jcp_editor_look) == 56, "jcp_editor_look layout");
@@ -771,10 +776,92 @@ public:
         return std::isfinite(tail) ? juce::jlimit(0.0, 3600.0, tail) : 0.0;
     }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int) override {}
-    const juce::String getProgramName(int) override { return "Default"; }
+    // Programs: the library's own list (get_program_count ...), or one "Default".
+    bool hasLibraryPrograms() const noexcept
+    {
+        return instance != nullptr && vtable.get_program_count != nullptr && vtable.get_current_program != nullptr
+            && vtable.set_current_program != nullptr && vtable.get_program_name != nullptr;
+    }
+
+    // 0 if the library offers none (or cannot be asked now).
+    int libraryProgramCount() const noexcept
+    {
+        if (! hasLibraryPrograms() || insideLibraryCall())
+            return 0;
+        try
+        {
+            ScopedFpState fpGuard;
+            LibraryCall inLibrary(*this);
+            return juce::jlimit(0, (int) JCP_MAX_PROGRAMS, (int) vtable.get_program_count(instance));
+        }
+        catch (...)
+        {
+            return 0;
+        }
+    }
+
+    int getNumPrograms() override { return std::max(1, libraryProgramCount()); }
+
+    int getCurrentProgram() override
+    {
+        const int count = libraryProgramCount();
+        if (count <= 0)
+            return 0;
+        try
+        {
+            ScopedFpState fpGuard;
+            LibraryCall inLibrary(*this);
+            const int current = (int) vtable.get_current_program(instance);
+            return juce::isPositiveAndBelow(current, count) ? current : 0;
+        }
+        catch (...)
+        {
+            return 0;
+        }
+    }
+
+    void setCurrentProgram(int index) override
+    {
+        const int count = libraryProgramCount();
+        if (! juce::isPositiveAndBelow(index, count))
+            return;
+        try
+        {
+            const juce::ScopedLock lock(getCallbackLock()); // never concurrently with process()
+            ScopedFpState fpGuard;
+            LibraryCall inLibrary(*this);
+            vtable.set_current_program(instance, (int32_t) index);
+        }
+        catch (...)
+        {
+        }
+    }
+
+    const juce::String getProgramName(int index) override
+    {
+        const int count = libraryProgramCount();
+        if (count <= 0)
+            return "Default";
+        if (! juce::isPositiveAndBelow(index, count))
+            return {};
+        try
+        {
+            char buffer[JCP_MAX_PROGRAM_NAME + 1] = {};
+            int32_t named = 0;
+            {
+                ScopedFpState fpGuard;
+                LibraryCall inLibrary(*this);
+                named = vtable.get_program_name(instance, (int32_t) index, buffer, (int32_t) sizeof(buffer));
+            }
+            buffer[JCP_MAX_PROGRAM_NAME] = 0; // whatever the library wrote
+            return named != 0 ? safeText(buffer, JCP_MAX_PROGRAM_NAME) : juce::String();
+        }
+        catch (...)
+        {
+            return {};
+        }
+    }
+
     void changeProgramName(int, const juce::String&) override {}
 
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override
@@ -1461,6 +1548,16 @@ private:
                                         std::memory_order_relaxed);
     }
 
+    // Any thread but the audio thread: the host hears of it from the message thread.
+    static void JCP_CALL hostProgramsChanged(jcp_host* host) noexcept
+    {
+        auto* p = self(host);
+        if (p == nullptr)
+            return;
+        p->pendingProgramsChanged.store(true, std::memory_order_release);
+        p->requestDelivery();
+    }
+
     static const jcp_host_api& hostApi()
     {
         static const jcp_host_api api {
@@ -1468,7 +1565,7 @@ private:
             &hostAddMidiOutput, &hostSetParameter, &hostGetParameter,
             &hostSetLatency, &hostLog, &hostGetSampleRate,
             &hostBeginGesture, &hostEndGesture, &hostGetExtension,
-            &hostSetMeter
+            &hostSetMeter, &hostProgramsChanged
         };
         return api;
     }
@@ -1590,6 +1687,13 @@ private:
                     return false;
             }
 
+            if (pendingProgramsChanged.exchange(false, std::memory_order_acq_rel))
+            {
+                updateHostDisplay(ChangeDetails().withProgramChanged(true));
+                if (! alive())
+                    return false;
+            }
+
             for (size_t i = 0; i < parameters.size(); ++i)
             {
                 const bool dirty = pendingDirty[i].exchange(false, std::memory_order_acq_rel);
@@ -1630,6 +1734,7 @@ private:
     }
 
     std::atomic<int> pendingLatency { -1 };
+    std::atomic<bool> pendingProgramsChanged { false };
     std::unique_ptr<std::atomic<float>[]> pendingValue;
     std::unique_ptr<std::atomic<bool>[]> pendingDirty;
     std::unique_ptr<bool[]> hostGestureOpen; // what the host has been told (message thread only)
@@ -1893,6 +1998,24 @@ static std::vector<std::string>& testOpenedUrls()
     return urls;
 }
 
+struct EditorSession;
+
+// Test executables never show a file dialog: the latest choose_file request waits here.
+struct TestFileRequest
+{
+    std::weak_ptr<EditorSession> session;
+    int32_t requestId = 0;
+    int32_t mode = 0;
+    std::string title, patterns, initial;
+    bool pending = false;
+};
+
+static TestFileRequest& testFileRequest()
+{
+    static TestFileRequest request;
+    return request;
+}
+
 // Test executables can leave text out of the rendering, to tell text pixels from the rest.
 static std::atomic<bool>& testSkipText()
 {
@@ -2142,6 +2265,7 @@ struct EditorSession
 
     std::set<int32_t> openGestures; // begun by this editor and not yet ended
     bool menuOpen = false;
+    bool chooserOpen = false;       // a choose_file dialog is up (its answer still to come)
 };
 
 // Live editors by handle (message thread; also touched under editorMutex() by
@@ -3101,6 +3225,144 @@ struct EditorApi
     }
 
     //--------------------------------------------------------------------------
+    // choose_file's answer, delivered as a menu's is: once the editor can take a
+    // callback, or dropped if the window closed. path empty: cancelled.
+    static void deliverFileChosen(std::weak_ptr<EditorSession> weak, int32_t requestId, std::string path,
+                                  int attempt) noexcept
+    {
+        const auto s = weak.lock();
+        if (s == nullptr)
+            return;
+        {
+            const std::lock_guard<std::recursive_mutex> lock(editorMutex());
+            s->chooserOpen = false;
+            if (s->component == nullptr || s->closed || s->processor == nullptr)
+                return; // closed while the dialog was up: drop the answer
+            if ((s->callDepth > 0 || s->processor->insideLibraryCall()) && attempt < 10000)
+            {
+                s->chooserOpen = true; // still pending
+                try
+                {
+                    juce::MessageManager::callAsync([weak, requestId, path, attempt]
+                                                    { deliverFileChosen(weak, requestId, path, attempt + 1); });
+                }
+                catch (...) { s->chooserOpen = false; }
+                return;
+            }
+        }
+        PascalEditor::call(s, [requestId, &path](void* lib, const jcp_editor_vtable& vt)
+        {
+            if (vt.file_chosen != nullptr)
+                vt.file_chosen(lib, requestId, path.empty() ? nullptr : path.c_str());
+        });
+    }
+
+    // The dialogs up now. A JUCE FileChooser must outlive its async callback, and
+    // the editor that asked may close first: the chooser stays here until its
+    // answer has been handed on, then goes from the message loop.
+    static std::vector<std::unique_ptr<juce::FileChooser>>& openChoosers()
+    {
+        static std::vector<std::unique_ptr<juce::FileChooser>> choosers;
+        return choosers;
+    }
+
+    static void forgetChooser(const juce::FileChooser* chooser) noexcept
+    {
+        try
+        {
+            juce::MessageManager::callAsync([chooser]
+            {
+                auto& list = openChoosers();
+                list.erase(std::remove_if(list.begin(), list.end(),
+                                          [chooser](const auto& c) { return c.get() == chooser; }),
+                           list.end());
+            });
+        }
+        catch (...) {}
+    }
+
+    // "*.hfe;*.img": letters, digits and * ? . ; _ - only.
+    static bool validPatterns(const char* patterns) noexcept
+    {
+        if (patterns == nullptr)
+            return true;
+        const size_t n = strnlen(patterns, JCP_MAX_FILE_PATTERNS + 1);
+        if (n > JCP_MAX_FILE_PATTERNS)
+            return false;
+        for (size_t i = 0; i < n; ++i)
+        {
+            const char c = patterns[i];
+            if (! ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '*' || c == '?'
+                   || c == '.' || c == ';' || c == '_' || c == '-'))
+                return false;
+        }
+        return true;
+    }
+
+    static int32_t JCP_CALL chooseFile(jcp_editor* e, int32_t requestId, int32_t mode, const char* title,
+                                       const char* patterns, const char* initial) noexcept
+    {
+        Access a(e);
+        // As open_url: only as the answer to a user's click on this editor.
+        if (! a || a->component == nullptr || a->chooserOpen || ! a->userClick || a->callDepth != 1
+            || currentPaint != nullptr || a->graphics != nullptr || a->processor == nullptr
+            || a->vtable.file_chosen == nullptr || (mode != JCP_FILE_OPEN && mode != JCP_FILE_SAVE)
+            || (title != nullptr && strnlen(title, 257) > 256) || ! isSafeText(title, 256) || ! validPatterns(patterns)
+            || (initial != nullptr && strnlen(initial, JCP_MAX_PATH + 1) > JCP_MAX_PATH) || ! isSafeText(initial, JCP_MAX_PATH))
+            return 0;
+        try
+        {
+            auto heading = safeText(title, 256);
+            if (heading.isEmpty())
+                heading = mode == JCP_FILE_SAVE ? "Save as" : "Open";
+            const auto wildcards = patterns != nullptr && patterns[0] != 0 ? juce::String(patterns) : juce::String("*");
+            const auto start = safeText(initial, JCP_MAX_PATH);
+            const auto startAt = juce::File::isAbsolutePath(start) ? juce::File(start) : juce::File();
+            const std::weak_ptr<EditorSession> weak = a.session;
+            a->chooserOpen = true;
+           #if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
+            // Test executables never show a dialog: the request waits for the test to answer it.
+            testFileRequest() = { weak, requestId, mode, heading.toStdString(), wildcards.toStdString(),
+                                  startAt.getFullPathName().toStdString(), true };
+            return 1;
+           #else
+            // The dialog belongs to the plug-in window, so it opens over it (also
+            // when the host keeps plug-in windows on top).
+            auto chooser = std::make_unique<juce::FileChooser>(heading, startAt, wildcards, true, false, a->component);
+            auto* raw = chooser.get();
+            openChoosers().push_back(std::move(chooser));
+            const int flags = mode == JCP_FILE_SAVE
+                                ? juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting
+                                : juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+            raw->launchAsync(flags, [weak, requestId](const juce::FileChooser& fc)
+            {
+                std::string path;
+                try
+                {
+                    const auto result = fc.getResult();
+                    if (result != juce::File())
+                    {
+                        path = result.getFullPathName().toStdString();
+                        if (path.size() > JCP_MAX_PATH)
+                            path.clear();
+                    }
+                }
+                catch (...) { path.clear(); }
+                deliverFileChosen(weak, requestId, path, 0);
+                forgetChooser(&fc);
+            });
+            return 1;
+           #endif
+        }
+        catch (...)
+        {
+            a->chooserOpen = false;
+            return 0;
+        }
+    }
+
+    //--------------------------------------------------------------------------
     static int32_t JCP_CALL getParameterCount(jcp_editor* e) noexcept
     {
         Access a(e);
@@ -3637,7 +3899,7 @@ struct EditorApi
             &fillEllipse, &drawEllipse, &drawLine,
             &pathBegin, &pathMoveTo, &pathLineTo, &pathQuadTo, &pathCubicTo, &pathArc, &pathClose, &fillPath, &strokePath,
             &setFont, &drawText, &drawImage, &saveState, &restoreState, &clipRect, &translate,
-            &setDesignSize, &getScale, &openUrl, &setLook
+            &setDesignSize, &getScale, &openUrl, &setLook, &chooseFile
         };
         return api;
     }
@@ -3790,6 +4052,32 @@ bool pascaljuce_test_spawn_launcher(const std::string& program, const std::strin
     args[0] = program;
     return pascaljuce::spawnDetached(args);
    #endif
+}
+#endif
+
+#if defined(PASCALJUCE_EDITOR_TEST_HOOKS)
+// The file dialog a choose_file call would show now, if any.
+bool pascaljuce_test_file_request(int* mode, std::string* title, std::string* patterns, std::string* initial)
+{
+    const auto& r = pascaljuce::testFileRequest();
+    if (! r.pending)
+        return false;
+    if (mode != nullptr) *mode = r.mode;
+    if (title != nullptr) *title = r.title;
+    if (patterns != nullptr) *patterns = r.patterns;
+    if (initial != nullptr) *initial = r.initial;
+    return true;
+}
+
+// Answers it, as the user would: a path (UTF-8), or nullptr for Cancel.
+bool pascaljuce_test_answer_file_request(const char* path)
+{
+    auto& r = pascaljuce::testFileRequest();
+    if (! r.pending)
+        return false;
+    r.pending = false;
+    pascaljuce::EditorApi::deliverFileChosen(r.session, r.requestId, path != nullptr ? std::string(path) : std::string(), 0);
+    return true;
 }
 #endif
 

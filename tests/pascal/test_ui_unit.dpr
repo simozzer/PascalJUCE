@@ -55,6 +55,9 @@ type
     MinScale, MaxScale, Scale: Single;
     LastUrl, LastLookFont: string;
     LastLook: TJcpEditorLook;
+    FileCalls, LastFileRequest, LastFileMode: Integer;
+    LastFileTitle, LastFilePatterns, LastFileInitial: string;
+    RefuseFile: Boolean;
   end;
 
 var
@@ -316,6 +319,21 @@ begin
   Result := 1;
 end;
 
+function FChooseFile(E: PJcpEditor; RequestId, Mode: Int32; Title, Patterns, Initial: PAnsiChar): Int32; cdecl;
+begin
+  CheckEd(E);
+  Inc(FE.FileCalls);
+  FE.LastFileRequest := RequestId;
+  FE.LastFileMode := Mode;
+  FE.LastFileTitle := FromUtf8(Title);
+  FE.LastFilePatterns := FromUtf8(Patterns);
+  FE.LastFileInitial := FromUtf8(Initial);
+  if FE.RefuseFile then
+    Result := 0
+  else
+    Result := 1;
+end;
+
 procedure FSetLook(E: PJcpEditor; Look: PJcpEditorLook); cdecl;
 begin
   CheckEd(E);
@@ -338,6 +356,9 @@ begin
   FE.LastText := '';
   FE.LastUrl := '';
   FE.LastLookFont := '';
+  FE.LastFileTitle := '';
+  FE.LastFilePatterns := '';
+  FE.LastFileInitial := '';
   FillChar(FE, SizeOf(FE), 0);
   for I := 0 to NumTestParams - 1 do
   begin
@@ -400,6 +421,7 @@ begin
   FakeApi.GetScale := FGetScale;
   FakeApi.OpenUrl := FOpenUrl;
   FakeApi.SetLook := FSetLook;
+  FakeApi.ChooseFile := FChooseFile;
   FE.Scale := 1;
 end;
 
@@ -427,6 +449,10 @@ type
     Broken: TBrokenControl;
     Film: TJuceKnob;
     ContextMenus, Clicks, Changes, MenuAnswers, LastAnswer, LinkClicks: Integer;
+    FileAnswers: Integer;
+    FileChosenOk: Boolean;
+    FilePath: string;
+    procedure OnFile(Sender: TJuceEditor; Chosen: Boolean; const Path: string);
 
     constructor Create(APlugin: TJucePlugin); override;
     procedure OnMenu(Sender: TJuceControl; X, Y: Single; var Handled: Boolean);
@@ -536,6 +562,13 @@ begin
   Inc(Changes);
 end;
 
+procedure TTestEditor.OnFile(Sender: TJuceEditor; Chosen: Boolean; const Path: string);
+begin
+  Inc(FileAnswers);
+  FileChosenOk := Chosen;
+  FilePath := Path;
+end;
+
 procedure TTestEditor.OnAnswer(Sender: TJuceEditor; MenuId, ItemId: Integer);
 begin
   Inc(MenuAnswers);
@@ -640,16 +673,21 @@ var
   L: TJcpEditorLook;
 begin
   Suite('Editor ABI layout (= static_asserts in pascaljuce_plugin_processor.cpp)');
-  CheckEquals(88, SizeOf(TJcpHostApi), 'jcp_host_api size');
+  CheckEquals(96, SizeOf(TJcpHostApi), 'jcp_host_api size');
   CheckEquals(80, OffsetOf(@H, @@H.SetMeter), 'set_meter offset');
-  CheckEquals(96, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size');
+  CheckEquals(88, OffsetOf(@H, @@H.ProgramsChanged), 'programs_changed offset');
+  CheckEquals(128, SizeOf(TJcpPluginVTable), 'jcp_plugin_vtable size');
   CheckEquals(88, OffsetOf(@V, @@V.CreateEditor), 'create_editor offset');
+  CheckEquals(96, OffsetOf(@V, @@V.GetProgramCount), 'get_program_count offset');
+  CheckEquals(120, OffsetOf(@V, @@V.GetProgramName), 'get_program_name offset');
   CheckEquals(32, SizeOf(TJcpMouseEvent), 'jcp_mouse_event size');
   CheckEquals(28, OffsetOf(@M, @M.WheelDY), 'wheel_dy offset');
-  CheckEquals(64, SizeOf(TJcpEditorVTable), 'jcp_editor_vtable size');
+  CheckEquals(72, SizeOf(TJcpEditorVTable), 'jcp_editor_vtable size');
   CheckEquals(56, OffsetOf(@EV, @@EV.PopupResult), 'popup_result offset');
+  CheckEquals(64, OffsetOf(@EV, @@EV.FileChosen), 'file_chosen offset');
   CheckEquals(16, SizeOf(TJcpMenuItem), 'jcp_menu_item size');
-  CheckEquals(424, SizeOf(TJcpEditorApi), 'jcp_editor_api size');
+  CheckEquals(432, SizeOf(TJcpEditorApi), 'jcp_editor_api size');
+  CheckEquals(424, OffsetOf(@A, @@A.ChooseFile), 'choose_file offset');
   CheckEquals(144, OffsetOf(@A, @@A.GetMeter), 'get_meter offset');
   CheckEquals(184, OffsetOf(@A, @@A.SetColour), 'set_colour offset');
   CheckEquals(384, OffsetOf(@A, @@A.Translate), 'translate offset');
@@ -878,6 +916,27 @@ begin
   CheckEquals(2, E.LastAnswer, 'with the chosen id');
   EdVT.PopupResult(Ed, Id, 1);
   CheckEquals(1, E.MenuAnswers, 'a second answer for the same menu is ignored');
+  { file dialogs }
+  Check(E.OpenFile('Open a disk', '*.hfe;*.img', 'C:\Disks', E.OnFile), 'OpenFile shown');
+  Check((FE.FileCalls = 1) and (FE.LastFileMode = JCP_FILE_OPEN) and (FE.LastFileTitle = 'Open a disk')
+    and (FE.LastFilePatterns = '*.hfe;*.img') and (FE.LastFileInitial = 'C:\Disks') and (FE.LastFileRequest > 0),
+    'its mode, title, patterns and folder reach the wrapper');
+  Check(E.FileDialogOpen, 'a dialog is waiting');
+  Check(not E.SaveFile('Save', '', '', E.OnFile) and (FE.FileCalls = 1), 'one dialog at a time');
+  EdVT.FileChosen(Ed, FE.LastFileRequest + 1, 'C:\x.img');
+  CheckEquals(0, E.FileAnswers, 'an answer to another request is ignored');
+  EdVT.FileChosen(Ed, FE.LastFileRequest, PAnsiChar(UTF8String('C:\Disks\caf' + #$C3#$A9 + '.hfe')));
+  Check((E.FileAnswers = 1) and E.FileChosenOk and (Length(E.FilePath) > 0) and not E.FileDialogOpen,
+    'the answer reaches the handler, and the dialog is done');
+  EdVT.FileChosen(Ed, FE.LastFileRequest, 'C:\again.hfe');
+  CheckEquals(1, E.FileAnswers, 'a second answer to the same request is ignored');
+  Check(E.SaveFile('Save as', '*.img', '', E.OnFile) and (FE.LastFileMode = JCP_FILE_SAVE), 'SaveFile: save mode');
+  EdVT.FileChosen(Ed, FE.LastFileRequest, nil);
+  Check((E.FileAnswers = 2) and not E.FileChosenOk and (E.FilePath = ''), 'Cancel: not chosen, no path');
+  FE.RefuseFile := True;
+  Check(not E.OpenFile('x', '', '', E.OnFile) and not E.FileDialogOpen, 'refused by the wrapper: False, nothing waiting');
+  FE.RefuseFile := False;
+
   FE.RefuseMenu := True;
   CheckEquals(0, E.PopupMenu([JuceMenuItem(1, 'x')], 0, 0, E.OnAnswer), 'host refused the menu -> 0');
   FE.RefuseMenu := False;
@@ -1562,5 +1621,8 @@ begin
   FE.LastText := '';
   FE.LastUrl := '';
   FE.LastLookFont := '';
+  FE.LastFileTitle := '';
+  FE.LastFilePatterns := '';
+  FE.LastFileInitial := '';
   Halt(TestSummary);
 end.

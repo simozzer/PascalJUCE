@@ -1,0 +1,1025 @@
+# Mz808 equivalence scenarios: read by both render_cpp.cpp (the original C++ engine) and
+# render_pas.dpr (the Pascal port). Each renders to <name>.f32 (raw little-endian floats).
+#
+#   scenario NAME RATE        new engine, prepare(RATE), pending settings = defaults
+#   prepare RATE              prepare the same engine again (its noise runs on)
+#   set ID VALUE              change a pending setting (parameter IDs as in Params.cpp)
+#   patch NAME                pending settings = defaults + factory preset NAME
+#   apply                     engine.setSettings(pending)
+#   on N [VEL]                note on (velocity 100 if none given; above 100 is an accent)
+#   hit CODE [accent]         engine.trigger(voice), by the code on its pad (BD, SD, ...)
+#   allsoundoff
+#   render SAMPLES [BLOCK]    render, in blocks of BLOCK (default: one block)
+#   end
+
+scenario silence 48000
+apply
+render 9600
+end
+
+scenario bass_drum 48000
+apply
+on 36
+render 24000
+on 35 127
+render 72000 512
+end
+
+scenario bass_drum_knobs 44100
+set bdDecay 10
+set bdTone 0
+apply
+on 36
+render 66150 441
+set bdDecay 0
+set bdTone 10
+set bdLevel 10
+apply
+on 36 127
+render 22050 441
+set bdDecay 7.3
+set bdTone 2.2
+apply
+on 36
+render 3000
+on 36 127
+render 30000 1024
+end
+
+scenario bass_drum_roll 48000
+set accent 10
+apply
+on 36 127
+render 1200
+on 36 127
+render 1200
+on 36
+render 1200
+on 36 127
+render 1200
+on 36
+render 48000 256
+end
+
+scenario snare 48000
+apply
+on 38
+render 12000
+on 40 127
+render 12000
+set sdTone 0
+set sdSnappy 10
+apply
+on 38
+render 12000
+set sdTone 10
+set sdSnappy 0
+apply
+on 38 127
+render 12000
+set sdTone 3.7
+set sdSnappy 6.1
+set sdLevel 10
+apply
+on 38
+render 2000
+on 38
+render 24000 333
+end
+
+scenario toms_low 48000
+apply
+on 43
+render 14400
+on 41 127
+render 14400
+on 45
+render 2400
+on 64
+render 14400
+on 43
+render 14400
+set ltTuning 0
+set ltLevel 10
+apply
+on 43 127
+render 12000
+set ltTuning 10
+apply
+on 64 127
+render 12000
+end
+
+scenario toms_mid 44100
+set mtTuning 2.5
+apply
+on 47
+render 13230
+on 48 127
+render 13230
+on 63
+render 4410
+on 47
+render 13230
+set mtTuning 9
+apply
+on 63
+render 13230 64
+end
+
+scenario toms_high 96000
+set htTuning 7.5
+set htLevel 9
+apply
+on 50
+render 28800
+on 62 127
+render 9600
+on 50
+render 2400
+on 62
+render 28800 480
+end
+
+scenario rim_claves 48000
+apply
+on 37
+render 4800
+on 75
+render 4800
+on 37 127
+render 1200
+on 75 127
+render 600
+on 37
+render 9600
+set rsLevel 10
+apply
+hit CL
+render 9600
+end
+
+scenario clap_maracas 48000
+apply
+on 39
+render 14400
+on 70
+render 4800
+on 39 127
+render 600
+on 39
+render 14400
+on 70 127
+render 600
+on 70
+render 9600
+set cpLevel 2
+apply
+on 39
+render 14400 100
+end
+
+scenario cowbell 48000
+apply
+on 56
+render 9600
+on 56 127
+render 9600
+set cbLevel 10
+set accent 0
+apply
+on 56 127
+render 2400
+on 56
+render 12000
+end
+
+scenario cymbal 48000
+apply
+on 49
+render 48000
+on 52 127
+render 2400
+on 55
+render 2400
+on 57
+render 24000
+set cyTone 0
+set cyDecay 10
+apply
+on 49 127
+render 48000 1024
+set cyTone 10
+set cyDecay 0
+set cyLevel 10
+apply
+on 49
+render 24000
+end
+
+scenario hats_choke 48000
+apply
+on 46
+render 9600
+on 42
+render 4800
+on 46 127
+render 2400
+on 44
+render 2400
+on 42 127
+render 4800
+set ohLevel 10
+set chLevel 2
+apply
+on 46
+render 1200
+on 42
+render 4800
+on 46
+render 24000
+end
+
+scenario hats_decay_while_open 48000
+set ohDecay 10
+apply
+on 46
+render 4800
+set ohDecay 0
+apply
+render 4800
+set ohDecay 6
+apply
+on 46 127
+render 2400
+set ohLevel 3
+set chLevel 9
+apply
+render 4800
+on 42
+render 2400
+set ohDecay 10
+apply
+render 9600
+end
+
+scenario accents 48000
+set accent 0
+apply
+hit BD accent
+render 4800
+hit BD
+render 4800
+on 38 100
+render 4800
+on 38 101
+render 4800
+set accent 10
+apply
+on 38 101
+render 4800
+on 38 127
+render 4800
+set accent 5
+apply
+hit CY accent
+render 4800
+hit OH accent
+render 4800
+hit CP accent
+render 4800
+hit MA accent
+render 4800
+hit RS accent
+render 4800
+hit CB accent
+render 4800
+hit LC accent
+render 4800
+hit MT accent
+render 4800
+hit HC accent
+render 9600
+end
+
+scenario every_note 48000
+apply
+on 35
+on 36
+render 3000
+on 37
+on 38
+render 3000
+on 39
+on 40
+render 3000
+on 41
+on 42
+render 3000
+on 43
+on 44
+render 3000
+on 45
+on 46
+render 3000
+on 47
+on 48
+render 3000
+on 49
+on 50
+render 3000
+on 51
+on 52
+render 3000
+on 53
+on 54
+on 55
+render 3000
+on 56
+on 57
+on 58
+render 3000
+on 59
+on 60
+on 61
+on 62
+render 3000
+on 63
+on 64
+on 65
+render 3000
+on 70
+on 71
+on 75
+on 76
+render 3000
+on 0
+on 34
+on 127
+on 36 0
+render 24000
+end
+
+scenario all_voices_441 44100
+apply
+hit BD
+hit CH
+render 5512
+hit SD accent
+hit CH
+render 5512
+hit LT
+hit OH
+render 5512
+hit LC
+hit CP
+render 5512
+hit MT
+hit CB
+render 5512
+hit MC
+hit RS
+render 5512
+hit HT
+hit CL
+render 5512
+hit HC
+hit MA
+hit CY accent
+render 44100 441
+end
+
+scenario all_voices_96k 96000
+apply
+hit BD accent
+hit CH
+render 12000
+hit SD
+hit CH accent
+render 12000
+hit LT
+hit OH
+render 12000
+hit LC
+hit CP accent
+render 12000
+hit MT
+hit CB
+render 12000
+hit MC accent
+hit RS
+render 12000
+hit HT
+hit CL
+render 12000
+hit HC
+hit MA
+hit CY
+render 96000 960
+end
+
+scenario all_voices_192k 192000
+set accent 8
+apply
+hit BD
+hit CH accent
+render 24000
+hit SD accent
+hit CH
+render 24000
+hit LT accent
+hit OH
+render 24000
+hit LC
+hit CP
+render 24000
+hit MT
+hit CB accent
+render 24000
+hit MC
+hit RS
+render 24000
+hit HT
+hit CL accent
+render 24000
+hit HC
+hit MA
+hit CY
+render 192000 4096
+end
+
+scenario knobs_move 48000
+apply
+on 36
+on 38
+on 46
+on 49
+render 2400
+set bdLevel 0
+set sdLevel 10
+set ohLevel 0
+set cyLevel 10
+set volume 10
+apply
+render 2400 64
+set volume 0
+apply
+render 2400 64
+set volume 4.4
+set bdTone 9
+set sdTone 1
+set cyTone 8
+set cyDecay 1
+apply
+render 9600 128
+end
+
+scenario all_sound_off 48000
+apply
+on 36
+on 38
+on 46
+on 49
+on 39
+render 2400
+allsoundoff
+render 2400
+on 36
+on 50
+render 4800
+allsoundoff
+on 42
+render 9600
+end
+
+scenario prepare_again 48000
+apply
+on 36
+on 46
+render 6000
+prepare 96000
+on 36
+on 46
+render 12000
+prepare 44100
+set cyDecay 9
+apply
+on 49
+on 56
+render 22050
+end
+
+scenario sleep_and_wake 48000
+apply
+on 36
+on 49
+on 46
+on 56
+on 39
+render 240000 512
+on 36
+on 49
+on 46
+on 56
+on 39
+render 4800 512
+end
+
+scenario out_of_range 48000
+set bdDecay 14
+set bdTone -3
+set sdSnappy 11
+set ltTuning -2
+set htTuning 12
+set cyTone 20
+set accent 15
+set volume 11
+apply
+hit BD accent
+hit SD accent
+hit LT
+hit HT
+hit CY accent
+render 24000
+end
+
+scenario odd_blocks 48000
+patch Electro
+apply
+on 36 127
+on 42
+render 7777 1
+on 38
+on 42 120
+render 7777 7
+on 39
+on 46
+render 7777 31
+on 37
+on 49
+render 7777 33
+on 56
+on 43
+render 7777 333
+on 36
+render 7777 4096
+end
+
+scenario patch_init 48000
+patch Init
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
+
+scenario patch_long_boom 48000
+patch Long Boom
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
+
+scenario patch_tight 44100
+patch Tight
+apply
+on 36 127
+on 42
+render 5512
+on 42
+render 5512
+on 38
+on 42 110
+render 5512
+on 42
+render 5512
+on 36
+on 46
+render 5512
+on 39
+on 75
+render 5512
+on 38 127
+on 42
+render 5512
+on 37
+on 70
+render 5512
+on 36
+on 43
+render 5512
+on 47 120
+on 42
+render 5512
+on 38
+on 50
+render 5512
+on 64
+on 63
+on 62
+render 5512
+on 36 127
+on 49 127
+render 5512
+on 56
+render 5512
+on 38
+on 46 127
+render 5512
+on 42
+render 5512
+render 44100 512
+end
+
+scenario patch_electro 48000
+patch Electro
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
+
+scenario patch_deep_toms 96000
+patch Deep Toms
+apply
+on 36 127
+on 42
+render 12000
+on 42
+render 12000
+on 38
+on 42 110
+render 12000
+on 42
+render 12000
+on 36
+on 46
+render 12000
+on 39
+on 75
+render 12000
+on 38 127
+on 42
+render 12000
+on 37
+on 70
+render 12000
+on 36
+on 43
+render 12000
+on 47 120
+on 42
+render 12000
+on 38
+on 50
+render 12000
+on 64
+on 63
+on 62
+render 12000
+on 36 127
+on 49 127
+render 12000
+on 56
+render 12000
+on 38
+on 46 127
+render 12000
+on 42
+render 12000
+render 96000 512
+end
+
+scenario patch_latin 48000
+patch Latin
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
+
+scenario patch_bright_metal 48000
+patch Bright Metal
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
+
+scenario patch_soft_accents 192000
+patch Soft Accents
+apply
+on 36 127
+on 42
+render 24000
+on 42
+render 24000
+on 38
+on 42 110
+render 24000
+on 42
+render 24000
+on 36
+on 46
+render 24000
+on 39
+on 75
+render 24000
+on 38 127
+on 42
+render 24000
+on 37
+on 70
+render 24000
+on 36
+on 43
+render 24000
+on 47 120
+on 42
+render 24000
+on 38
+on 50
+render 24000
+on 64
+on 63
+on 62
+render 24000
+on 36 127
+on 49 127
+render 24000
+on 56
+render 24000
+on 38
+on 46 127
+render 24000
+on 42
+render 24000
+render 192000 512
+end
+
+scenario patch_hard_accents 48000
+patch Hard Accents
+apply
+on 36 127
+on 42
+render 6000
+on 42
+render 6000
+on 38
+on 42 110
+render 6000
+on 42
+render 6000
+on 36
+on 46
+render 6000
+on 39
+on 75
+render 6000
+on 38 127
+on 42
+render 6000
+on 37
+on 70
+render 6000
+on 36
+on 43
+render 6000
+on 47 120
+on 42
+render 6000
+on 38
+on 50
+render 6000
+on 64
+on 63
+on 62
+render 6000
+on 36 127
+on 49 127
+render 6000
+on 56
+render 6000
+on 38
+on 46 127
+render 6000
+on 42
+render 6000
+render 48000 512
+end
