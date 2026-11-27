@@ -230,6 +230,7 @@ var
   Meter: TJuceMeter;
   Caption: TJuceLabel;
   Scope: TJuceScope;
+  Time: TJuceKnob;
 
   procedure AddKnob(const Name, Id, Title, Tip: string; X: Integer);
   var
@@ -276,8 +277,14 @@ begin
   Caption.Color := Ed.Theme.TextDim;
   Scope := TJuceScope.Create(Panel);
   Scope.Name := 'OutScope';
-  Scope.SetBounds(16, 196, 436, 80);
+  Scope.SetBounds(16, 196, 364, 80);
   Scope.Hint := 'The output, triggered on a rising zero crossing';
+  Time := TJuceKnob.Create(Panel); { unbound: the editor gives it its value }
+  Time.Name := 'ScopeTime';
+  Time.SetBounds(388, 190, 64, 92);
+  Time.Caption := 'TIME';
+  Time.DefaultValue := 0.5833;
+  Time.Hint := 'How much the scope shows: 1 to 170 ms';
   Caption := TJuceLabel.Create(Panel);
   Caption.Name := 'HelpLabel';
   Caption.SetBounds(16, 170, 300, 18);

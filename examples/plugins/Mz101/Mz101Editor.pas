@@ -48,7 +48,13 @@ type
     FMenuLearning: Boolean;         // it was learning when the menu opened
     FSeenLearning, FSeenVersion: Integer;
     FKeysShown: array[0..NumKeyMeters - 1] of Integer;
+    FScope: TJuceScope;             // the SCOPE box's scope
+    FScopeTime: TJuceParamControl;  // its TIME slider: not bound to a parameter
+    FShownTimeMs: Single;           // the plug-in's ScopeTimeMs the slider shows
     function Synth: TMz101;
+    procedure ScopeTimeChanged(Sender: TObject);
+    procedure ScopeTimeText(Sender: TJuceParamControl; Normalised: Single; var Text: string);
+    procedure UpdateScopeTime;
     function SpecIndexOf(Control: TJuceControl): Integer;
     procedure ControlMenu(Sender: TJuceControl; X, Y: Single; var Handled: Boolean);
     procedure MenuChosen(Sender: TJuceEditor; MenuId, ItemId: Integer);
@@ -100,7 +106,7 @@ const
 implementation
 
 uses
-  SysUtils, Math, JuceLayout, Sh101Settings, Sh101Engine, Sh101Sync;
+  Classes, SysUtils, Math, JuceLayout, Sh101Settings, Sh101Engine, Sh101Sync;
 
 // The designed panel, compiled into an RCDATA resource named after the form's class
 // (TMZ101EDITORFORM).
@@ -212,6 +218,21 @@ begin
     FKeyboard.OnNoteOn := KeyDown;
     FKeyboard.OnNoteOff := KeyUp;
   end;
+  // The scope's TIME slider changes the view, not the sound: not a parameter. It keeps
+  // its own value, logarithmic over 1..170 ms; the plug-in keeps the time for the project.
+  C := FindControl('Scope');
+  if C is TJuceScope then
+    FScope := TJuceScope(C);
+  C := FindControl('ScopeTime');
+  if (FScope <> nil) and (C is TJuceParamControl) then
+  begin
+    FScopeTime := TJuceParamControl(C);
+    FScopeTime.DefaultValue := JuceScopeValueFromTime(20);
+    FScopeTime.OnValueText := ScopeTimeText;
+    FShownTimeMs := -1;             // shown by the first Poll
+    UpdateScopeTime;
+    FScopeTime.OnChange := ScopeTimeChanged;
+  end;
 
   // On top of everything, hidden until a control learns.
   FMarker := TLearnMarker.Create(Root);
@@ -260,6 +281,37 @@ begin
   UpdateLearning;
   UpdateReadout;
   UpdateKeys;
+  UpdateScopeTime;
+end;
+
+// The TIME slider and the scope from the plug-in's time: at the start, and after a
+// project loads while the window is open.
+procedure TMz101Editor.UpdateScopeTime;
+var
+  Handler: TNotifyEvent;
+begin
+  if (FScopeTime = nil) or (Synth = nil) or (Synth.ScopeTimeMs = FShownTimeMs) then
+    Exit;
+  FShownTimeMs := Synth.ScopeTimeMs;
+  Handler := FScopeTime.OnChange;
+  FScopeTime.OnChange := nil;       // showing the time, not choosing one
+  FScopeTime.Value := JuceScopeValueFromTime(FShownTimeMs);
+  FScopeTime.OnChange := Handler;
+  FScope.TimeMs := FShownTimeMs;
+end;
+
+procedure TMz101Editor.ScopeTimeChanged(Sender: TObject);
+begin
+  if Synth = nil then
+    Exit;
+  FShownTimeMs := JuceScopeTimeFromValue(FScopeTime.Value);
+  Synth.ScopeTimeMs := FShownTimeMs;
+  FScope.TimeMs := FShownTimeMs;
+end;
+
+procedure TMz101Editor.ScopeTimeText(Sender: TJuceParamControl; Normalised: Single; var Text: string);
+begin
+  Text := JuceScopeTimeText(JuceScopeTimeFromValue(Normalised));
 end;
 
 // A control learning, or a CC changing (which may come from the audio thread): the hints

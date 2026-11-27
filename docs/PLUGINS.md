@@ -288,8 +288,8 @@ begin
   Caption.Caption := 'OUT';
   Caption.FontSize := 11;
   Caption.Color := Theme.TextDim;
-  TJuceScope.Create(Panel).SetBounds(16, 196, 436, 80); { the output }
-  { ... and the help line, a second TJuceLabel }
+  TJuceScope.Create(Panel).SetBounds(16, 196, 364, 80); { the output }
+  { ... its TIME knob (unbound: see "Oscilloscopes"), and the help line }
 end;
 ```
 
@@ -453,6 +453,19 @@ In code, `ShowSamples(Samples, Count, Span)` puts samples of your own on a
 scope, with the same triggering. In the form designer, a scope shows a
 sample wave (a 220 Hz tone), so you can judge `TimeMs`, `Gain` and the
 colours while you lay out the panel.
+
+**A TIME control.** Different notes need different spans: a few ms shows
+one cycle of a high note, 100 ms and more a bass note or an envelope's
+attack. Give the scope a knob or slider of its own, *not* bound to a
+parameter (it changes the view, not the sound, so it has no place in the
+host's automation or undo). `JuceScopeTimeFromValue` and
+`JuceScopeValueFromTime` map its 0..1 logarithmically over 1..170 ms, and
+`JuceScopeTimeText` gives its readout ('2.5 ms', '40 ms'); set the scope's
+`TimeMs` in its `OnChange`, and `OnValueText` for the readout. To keep the
+setting with the project, hold it in the plug-in and save it in `SaveState`.
+Pascal Synth (`SynthEditor.pas`) and Mz101 do this, and so does
+`examples/plugins/Scope`, an oscilloscope effect: put it on a track to see
+that track (TIME and a trigger choice, both saved with the project).
 
 ### Meters the editor predicts
 

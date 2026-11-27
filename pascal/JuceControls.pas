@@ -586,8 +586,20 @@ const
     (TJuceKnob, TJuceSlider, TJuceSwitch, TJuceButton, TJuceLed, TJuceLabel, TJuceMeter, TJucePanel,
      TJuceDisplay, TJuceComboBox, TJuceKeyboard, TJuceLink, TJuceScope);
 
+  { A TIME control for a scope (a knob or slider not bound to a parameter):
+    its 0..1 is logarithmic over this range, so short times are as easy to
+    set as long ones. 170 ms is about the longest sweep at 48 kHz. }
+  JuceScopeMinTimeMs = 1;
+  JuceScopeMaxTimeMs = 170;
+
 { Registers the control classes with Classes.RegisterClasses (FindClass). }
 procedure JuceRegisterControls;
+
+{ A TIME control's 0..1 as milliseconds, and back (both clamped to the range). }
+function JuceScopeTimeFromValue(Value: Single): Single;
+function JuceScopeValueFromTime(Ms: Single): Single;
+{ Milliseconds as a TIME control shows them: '2.5 ms', '40 ms'. }
+function JuceScopeTimeText(Ms: Single): string;
 
 implementation
 
@@ -2541,6 +2553,35 @@ end;
 { ---------------------------------------------------------------------------- }
 { TJuceScope                                                                   }
 { ---------------------------------------------------------------------------- }
+
+function JuceScopeTimeFromValue(Value: Single): Single;
+begin
+  if IsNan(Value) or (Value <= 0) then
+    Value := 0
+  else if Value > 1 then
+    Value := 1;
+  Result := JuceScopeMinTimeMs * Exp(Value * Ln(JuceScopeMaxTimeMs / JuceScopeMinTimeMs));
+end;
+
+function JuceScopeValueFromTime(Ms: Single): Single;
+begin
+  if IsNan(Ms) or (Ms <= JuceScopeMinTimeMs) then
+    Result := 0
+  else if Ms >= JuceScopeMaxTimeMs then
+    Result := 1
+  else
+    Result := Ln(Ms / JuceScopeMinTimeMs) / Ln(JuceScopeMaxTimeMs / JuceScopeMinTimeMs);
+end;
+
+function JuceScopeTimeText(Ms: Single): string;
+begin
+  if IsNan(Ms) then
+    Ms := 0;
+  if Ms < 9.95 then
+    Result := FormatFloat('0.0', Ms) + ' ms'
+  else
+    Result := FormatFloat('0', Ms) + ' ms';
+end;
 
 { A sample fit to draw and to compare: NaN and infinities are silence, and
   the rest is kept within +-1000 so the arithmetic below cannot overflow. }

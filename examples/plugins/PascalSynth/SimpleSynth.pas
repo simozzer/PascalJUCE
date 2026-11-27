@@ -37,6 +37,7 @@ type
     FVoices: array[0..7] of TVoice;
     FTuning: Single;        { A4 in Hz: extra state, saved with SaveState }
     FPeak: Single;          { loudest output sample of the block, for the meter }
+    FScopeTimeMs: Single;   { the scope's TIME knob: a view setting, saved with SaveState }
     procedure NoteOn(Note, Velocity: Integer);
     procedure NoteOff(Note: Integer);
     procedure HandleMidi(const Event: TJuceMidiEvent);
@@ -53,6 +54,10 @@ type
       files, i.e. strangers: check the size, the version and every value. }
     function SaveState: TBytes; override;
     procedure LoadState(const Data: TBytes); override;
+    { How much the scope shows, in ms: set by the editor's TIME knob (message
+      thread). Not a parameter, so the host doesn't automate it or record it
+      for undo; it is saved with the project all the same. }
+    property ScopeTimeMs: Single read FScopeTimeMs write FScopeTimeMs;
   end;
 
 implementation
@@ -69,6 +74,7 @@ constructor TSimpleSynth.Create;
 begin
   inherited Create;
   FTuning := 440;
+  FScopeTimeMs := 20;
   Reset;
 end;
 
@@ -89,27 +95,36 @@ begin
 end;
 
 const
-  StateVersion = 1;
+  StateVersion = 2;
 
-{ Layout: version byte, then the tuning as a little-endian Single. }
+{ Layout: version byte, then the tuning as a little-endian Single, then (from
+  version 2) the scope's time in ms, the same way. Version 1 (no scope time)
+  still loads. }
 function TSimpleSynth.SaveState: TBytes;
 begin
   Result := nil;
-  SetLength(Result, 1 + SizeOf(Single));
+  SetLength(Result, 1 + 2 * SizeOf(Single));
   Result[0] := StateVersion;
   Move(FTuning, Result[1], SizeOf(Single));
+  Move(FScopeTimeMs, Result[1 + SizeOf(Single)], SizeOf(Single));
 end;
 
 procedure TSimpleSynth.LoadState(const Data: TBytes);
 var
-  Tuning: Single;
+  Tuning, ScopeTime: Single;
 begin
   { Never trust the length, the version or the values. }
-  if (Length(Data) < 1 + SizeOf(Single)) or (Data[0] <> StateVersion) then
+  if (Length(Data) = 1 + SizeOf(Single)) and (Data[0] = 1) then
+    ScopeTime := FScopeTimeMs { version 1: keep the scope as it is }
+  else if (Length(Data) = 1 + 2 * SizeOf(Single)) and (Data[0] = 2) then
+    Move(Data[1 + SizeOf(Single)], ScopeTime, SizeOf(Single))
+  else
     Exit; { unknown or damaged: keep the defaults }
   Move(Data[1], Tuning, SizeOf(Single));
   if (Tuning >= 400) and (Tuning <= 480) then { also false for NaN }
     FTuning := Tuning;
+  if (ScopeTime >= 1) and (ScopeTime <= 1000) then
+    FScopeTimeMs := ScopeTime;
 end;
 
 function TSimpleSynth.TailSeconds: Double;

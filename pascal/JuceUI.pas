@@ -232,10 +232,12 @@ type
     FValue: Single;
     FDefaultValue: Single;
     FGestureOpen: Boolean;
+    FValueSet: Boolean;  { the value has been set (until then an unbound control shows DefaultValue) }
     FOnChange: TNotifyEvent;
     FOnValueText: TJuceValueTextEvent;
     procedure SetParameterId(const Value: string);
     procedure SetValue(Value: Single);
+    procedure SetDefaultValue(Value: Single);
   protected
     { The value bubble (see TJuceEditor.ShowValueBubble), pointing at
       BubbleAnchor, with ValueText; HideAfterTicks > 0 hides it after that
@@ -271,8 +273,8 @@ type
     property Value: Single read FValue write SetValue;
   published
     property ParameterId: string read FParameterId write SetParameterId;
-    { For unbound controls; bound ones use the parameter's default. }
-    property DefaultValue: Single read FDefaultValue write FDefaultValue;
+    { For unbound controls, which also start at it; bound ones use the parameter's default. }
+    property DefaultValue: Single read FDefaultValue write SetDefaultValue;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     { Your own value text, e.g. a rate shown as a note length while synced. }
     property OnValueText: TJuceValueTextEvent read FOnValueText write FOnValueText;
@@ -1026,6 +1028,7 @@ begin
   if FParamIndex >= 0 then
   begin
     FValue := Ed.ParamNormalised(FParamIndex);
+    FValueSet := True;
     FDefaultValue := Ed.ParamDefault(FParamIndex);
     Invalidate;
   end;
@@ -1044,6 +1047,7 @@ begin
   if Normalised <> FValue then
   begin
     FValue := Normalised;
+    FValueSet := True;
     Invalidate;
     if BubbleShown then
       ShowBubble(Editor.FBubbleTicks);
@@ -1110,10 +1114,26 @@ begin
     Ed.EndGesture(FParamIndex);
 end;
 
+procedure TJuceParamControl.SetDefaultValue(Value: Single);
+begin
+  FDefaultValue := Value;
+  if not FValueSet then { an unbound control starts at its default (a bound one takes the parameter's value) }
+  begin
+    if IsNan(Value) or (Value <= 0) then
+      FValue := 0
+    else if Value > 1 then
+      FValue := 1
+    else
+      FValue := Value;
+    Invalidate;
+  end;
+end;
+
 procedure TJuceParamControl.SetValueFromUser(Value: Single);
 var
   Ed: TJuceEditor;
 begin
+  FValueSet := True;
   if IsNan(Value) or (Value <= 0) then
     Value := 0
   else if Value > 1 then

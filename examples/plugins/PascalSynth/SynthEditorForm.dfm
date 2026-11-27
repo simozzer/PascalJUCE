@@ -76,9 +76,18 @@ object SynthEditorForm: TSynthEditorForm
     object OutScope: TJuceScope
       Left = 16
       Top = 196
-      Width = 436
+      Width = 364
       Height = 80
       Hint = 'The output, triggered on a rising zero crossing'
+    end
+    object ScopeTime: TJuceKnob
+      Left = 388
+      Top = 190
+      Width = 64
+      Height = 92
+      Hint = 'How much the scope shows: 1 to 170 ms'
+      Caption = 'TIME'
+      DefaultValue = 0.5833
     end
     object HelpLabel: TJuceLabel
       Left = 16

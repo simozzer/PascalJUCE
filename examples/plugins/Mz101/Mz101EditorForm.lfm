@@ -773,10 +773,20 @@ object Mz101EditorForm: TMz101EditorForm
     CaptionSeparator = True
     object Scope: TJuceScope
       Left = 12
-      Height = 297
+      Height = 225
       Hint = 'The output, triggered on a rising zero crossing'
       Top = 36
       Width = 321
+    end
+    object ScopeTime: TJuceSlider
+      Left = 12
+      Height = 75
+      Hint = 'How much the scope shows: 1 to 170 ms'
+      Top = 264
+      Width = 321
+      Caption = 'TIME'
+      DefaultValue = 0.5833
+      Orientation = joHorizontal
     end
   end
   object Theme: TJuceThemeResource

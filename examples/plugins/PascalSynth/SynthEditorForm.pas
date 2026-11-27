@@ -33,6 +33,7 @@ type
     OutMeter: TJuceMeter;
     OutLabel: TJuceLabel;
     OutScope: TJuceScope;
+    ScopeTime: TJuceKnob;
     HelpLabel: TJuceLabel;
   end;
 

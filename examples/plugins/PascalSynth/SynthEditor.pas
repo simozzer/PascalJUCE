@@ -32,8 +32,16 @@ type
   TSynthEditor = class(TJuceEditor)
   private
     FMenuControl: TJuceParamControl;  { the control a right-click menu is for }
+    FScope: TJuceControl;             { OutScope (a TJuceScope) }
+    FScopeTime: TJuceParamControl;    { its TIME knob: not bound to a parameter }
+    FShownTimeMs: Single;             { the plug-in's ScopeTimeMs the knob shows }
     procedure ControlMenu(Sender: TJuceControl; X, Y: Single; var Handled: Boolean);
     procedure ControlMenuChosen(Sender: TJuceEditor; MenuId, ItemId: Integer);
+    procedure ScopeTimeChanged(Sender: TObject);
+    procedure ScopeTimeText(Sender: TJuceParamControl; Normalised: Single; var Text: string);
+    procedure ShowScopeTime;
+  protected
+    procedure TimerTick; override;
   public
     constructor Create(APlugin: TJucePlugin); override;
   end;
@@ -44,7 +52,7 @@ const
 implementation
 
 uses
-  JuceControls, JuceLayout;
+  Classes, JuceControls, JuceLayout, SimpleSynth;
 
 { The designed panel, compiled into an RCDATA resource named after the
   form's class (TSYNTHEDITORFORM). }
@@ -76,6 +84,53 @@ begin
     if Knob <> nil then
       Knob.OnContextMenu := ControlMenu;
   end;
+
+  { The scope's TIME knob is not bound to a parameter (it changes the view,
+    not the sound): it keeps its own value, logarithmic over 1..170 ms, and
+    the plug-in keeps the time so the project saves it. }
+  FScope := FindControl('OutScope');
+  Knob := FindControl('ScopeTime');
+  if (FScope is TJuceScope) and (Knob is TJuceParamControl) then
+  begin
+    FScopeTime := TJuceParamControl(Knob);
+    FScopeTime.DefaultValue := JuceScopeValueFromTime(20);
+    FScopeTime.OnValueText := ScopeTimeText;
+    ShowScopeTime;
+    FScopeTime.OnChange := ScopeTimeChanged;
+  end;
+end;
+
+{ The knob and the scope from the plug-in's time (also after a project load). }
+procedure TSynthEditor.ShowScopeTime;
+var
+  Handler: TNotifyEvent;
+begin
+  FShownTimeMs := TSimpleSynth(Plugin).ScopeTimeMs;
+  Handler := FScopeTime.OnChange;
+  FScopeTime.OnChange := nil; { showing the time, not choosing one }
+  FScopeTime.Value := JuceScopeValueFromTime(FShownTimeMs);
+  FScopeTime.OnChange := Handler;
+  TJuceScope(FScope).TimeMs := FShownTimeMs;
+end;
+
+procedure TSynthEditor.ScopeTimeChanged(Sender: TObject);
+begin
+  FShownTimeMs := JuceScopeTimeFromValue(FScopeTime.Value);
+  TSimpleSynth(Plugin).ScopeTimeMs := FShownTimeMs;
+  TJuceScope(FScope).TimeMs := FShownTimeMs;
+end;
+
+procedure TSynthEditor.ScopeTimeText(Sender: TJuceParamControl; Normalised: Single; var Text: string);
+begin
+  Text := JuceScopeTimeText(JuceScopeTimeFromValue(Normalised));
+end;
+
+procedure TSynthEditor.TimerTick;
+begin
+  { a project or preset loaded while the window is open }
+  if (FScopeTime <> nil) and (TSimpleSynth(Plugin).ScopeTimeMs <> FShownTimeMs) then
+    ShowScopeTime;
+  inherited TimerTick;
 end;
 
 { Right-click on a knob: a small menu. The answer arrives later, in

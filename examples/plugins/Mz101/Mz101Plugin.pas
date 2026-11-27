@@ -85,6 +85,7 @@ type
     // Shared with the panel (message thread): atomics only.
     FCcOf: array[0..NumSpecs - 1] of Integer;   // the CC each control answers to, -1 none
     FLearning: Integer;                         // the control waiting for a CC, -1 none
+    FScopeTimeMs: Single;                       // the panel scope's TIME (a view setting)
     FMapVersion: Integer;                       // bumped on every change of the above
     FTransposePresses, FLegatoPresses: Integer; // presses not yet acted on
     FKeyQueue: array[0..KeyQueueSize - 1] of Integer;  // note, + 128 for a key down
@@ -135,6 +136,10 @@ type
     // if the queue is full (the key is dropped).
     function QueueKey(Note: Integer; Down: Boolean): Boolean;
 
+    // How much the panel's scope shows, in ms: set by its TIME slider (message thread).
+    // Not a parameter (it changes the view, not the sound), but saved with the project.
+    property ScopeTimeMs: Single read FScopeTimeMs write FScopeTimeMs;
+
     // For tests: the engine, read-only use.
     property Engine: TEngine read FEngine;
   end;
@@ -161,10 +166,16 @@ const
   //   entries x         id length (1 byte, 1..64), id (ASCII), CC (1 byte; 255 = none)
   // Version 1 (before MIDI learn) loads with the default CCs. A build that knows only
   // version 1 refuses version 2 as "a later version" and keeps its own sequence.
+  // From version 3, after the map, the panel scope's TIME:
+  //   'S' 'T'           magic
+  //   time              4 bytes, the milliseconds as a little-endian Single
+  // Version 2 loads with the scope as it is. Each build refuses a later version.
   StateMagic: array[0..3] of Byte = (Ord('M'), Ord('z'), Ord('S'), Ord('q'));
-  StateVersion = 2;
+  StateVersion = 3;
   StateHeader = 6;
   MapMagic: array[0..1] of Byte = (Ord('C'), Ord('C'));
+  ScopeMagic: array[0..1] of Byte = (Ord('S'), Ord('T'));
+  ScopeBytes = 6;
   NoCcByte = 255;
   MaxIdLength = 64;
 
@@ -233,6 +244,7 @@ begin
   FPendingTimeout := 48000;
   FPatchDebounce := 2400;
   FLearning := -1;
+  FScopeTimeMs := 20;
   ResetCcs;
 end;
 
@@ -694,12 +706,13 @@ end;
 function TMz101.SaveState: TBytes;
 var
   N, I, J, P, Size, Cc: Integer;
-  Step: UInt32;
+  Step, Bits: UInt32;
   Id: AnsiString;
+  Time: Single;
 begin
   N := FEngine.SeqLength;
   Result := nil;
-  Size := StateHeader + 4 * N + 3;
+  Size := StateHeader + 4 * N + 3 + ScopeBytes;
   for I := 0 to NumSpecs - 1 do
     Inc(Size, 2 + Length(Specs[I].Id));
   SetLength(Result, Size);
@@ -735,12 +748,22 @@ begin
       Result[P] := Cc;
     Inc(P);
   end;
+  // the scope's TIME
+  Time := FScopeTimeMs;
+  Move(Time, Bits, SizeOf(Bits));
+  Result[P] := ScopeMagic[0];
+  Result[P + 1] := ScopeMagic[1];
+  Result[P + 2] := Bits and $FF;
+  Result[P + 3] := (Bits shr 8) and $FF;
+  Result[P + 4] := (Bits shr 16) and $FF;
+  Result[P + 5] := (Bits shr 24) and $FF;
 end;
 
-// The CC map of a version 2 state, from Data[Start] to its end: the entries with an id
-// this build knows and a CC it would learn (or none), Count of them in Index / Cc. False
-// if the map is malformed (bounds-checked throughout).
-function ParseMap(const Data: TBytes; Start: Integer; var Index, Cc: array of Integer;
+// The CC map of a version 2 or 3 state, from Data[Start] to Data[Stop - 1]: the entries
+// with an id this build knows and a CC it would learn (or none), Count of them in Index /
+// Cc. False if the map is malformed or does not end exactly at Stop (bounds-checked
+// throughout).
+function ParseMap(const Data: TBytes; Start, Stop: Integer; var Index, Cc: array of Integer;
   out Count: Integer): Boolean;
 var
   P, Entries, E, Len, J, I, C: Integer;
@@ -749,16 +772,16 @@ begin
   Result := False;
   Count := 0;
   P := Start;
-  if (P < 0) or (P + 3 > Length(Data)) or (Data[P] <> MapMagic[0]) or (Data[P + 1] <> MapMagic[1]) then
+  if (Stop > Length(Data)) or (P < 0) or (P + 3 > Stop) or (Data[P] <> MapMagic[0]) or (Data[P + 1] <> MapMagic[1]) then
     Exit;
   Entries := Data[P + 2];
   Inc(P, 3);
   for E := 1 to Entries do
   begin
-    if P >= Length(Data) then
+    if P >= Stop then
       Exit;
     Len := Data[P];
-    if (Len < 1) or (Len > MaxIdLength) or (P + Len + 2 > Length(Data)) then
+    if (Len < 1) or (Len > MaxIdLength) or (P + Len + 2 > Stop) then
       Exit;
     Id := '';
     for J := 1 to Len do
@@ -780,7 +803,24 @@ begin
       Inc(Count);
     end;
   end;
-  Result := P = Length(Data);
+  Result := P = Stop;
+end;
+
+// The scope's TIME of a version 3 state: its last ScopeBytes. False if malformed.
+function ParseScope(const Data: TBytes; out Ms: Single): Boolean;
+var
+  P: Integer;
+  Bits: UInt32;
+begin
+  Ms := 0;
+  P := Length(Data) - ScopeBytes;
+  Result := (P >= 0) and (Data[P] = ScopeMagic[0]) and (Data[P + 1] = ScopeMagic[1]);
+  if not Result then
+    Exit;
+  Bits := UInt32(Data[P + 2]) or (UInt32(Data[P + 3]) shl 8) or (UInt32(Data[P + 4]) shl 16)
+       or (UInt32(Data[P + 5]) shl 24);
+  Move(Bits, Ms, SizeOf(Ms));
+  Result := (Ms >= 1) and (Ms <= 1000); // also false for NaN
 end;
 
 procedure TMz101.LoadState(const Data: TBytes);
@@ -789,12 +829,13 @@ var
   MapIndex, MapCc: array[0..255] of Integer;
   N, I, P, Version, MapCount: Integer;
   Valid: Boolean;
+  ScopeTime: Single;
 begin
-  // The sequence and the CC map. Never trust the data: it comes from a project file. Known
-  // magic and version, a count within the sequencer's length, then exactly the steps
-  // (version 1) or the steps and a well-formed map (version 2); the engine masks each
-  // step to its note, REST and TIE bits. All or nothing: damaged data changes neither the
-  // sequence nor the map.
+  // The sequence, the CC map and the scope's TIME. Never trust the data: it comes from a
+  // project file. Known magic and version, a count within the sequencer's length, then
+  // exactly the steps (version 1), the steps and a well-formed map (version 2), or those
+  // and the scope's time (version 3); the engine masks each step to its note, REST and TIE
+  // bits. All or nothing: damaged data changes neither the sequence nor the map.
   FillChar(Steps, SizeOf(Steps), 0);
   MapCount := 0;
   if Length(Data) = 0 then
@@ -815,14 +856,18 @@ begin
     begin
       Version := Data[4];
       N := Data[5];
-      Valid := ((Version = 1) or (Version = 2)) and (N <= MaxSteps);
+      Valid := (Version >= 1) and (Version <= 3) and (N <= MaxSteps);
     end;
+    ScopeTime := FScopeTimeMs;               // versions 1 and 2: the scope as it is
     if Valid then
     begin
       if Version = 1 then
         Valid := Length(Data) = StateHeader + 4 * N
+      else if Version = 2 then
+        Valid := ParseMap(Data, StateHeader + 4 * N, Length(Data), MapIndex, MapCc, MapCount)
       else
-        Valid := ParseMap(Data, StateHeader + 4 * N, MapIndex, MapCc, MapCount);
+        Valid := ParseScope(Data, ScopeTime)
+             and ParseMap(Data, StateHeader + 4 * N, Length(Data) - ScopeBytes, MapIndex, MapCc, MapCount);
     end;
     if Valid then
     begin
@@ -839,6 +884,7 @@ begin
       ResetCcs;
       for I := 0 to MapCount - 1 do
         AssignCc(MapIndex[I], MapCc[I]);
+      FScopeTimeMs := ScopeTime;
     end;
     // else: damaged or from a later version - keep the sequence and the map there are
   end;

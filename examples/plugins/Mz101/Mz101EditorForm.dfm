@@ -813,8 +813,18 @@ object Mz101EditorForm: TMz101EditorForm
       Left = 8
       Top = 24
       Width = 214
-      Height = 198
+      Height = 150
       Hint = 'The output, triggered on a rising zero crossing'
+    end
+    object ScopeTime: TJuceSlider
+      Left = 8
+      Top = 176
+      Width = 214
+      Height = 50
+      Hint = 'How much the scope shows: 1 to 170 ms'
+      Caption = 'TIME'
+      DefaultValue = 0.5833
+      Orientation = joHorizontal
     end
   end
 end

@@ -1384,6 +1384,29 @@ begin
     CheckEquals(960, S.SweepLength, 'no time: 20 ms');
     S.TimeMs := 1E9;
     CheckEquals(JUCE_SCOPE_MAX_READ div 2 - 1, S.SweepLength, 'capped');
+    { a TIME control: logarithmic over 1..170 ms }
+    CheckEquals(1.0, JuceScopeTimeFromValue(0), 1e-4, 'TIME 0: 1 ms');
+    CheckEquals(170.0, JuceScopeTimeFromValue(1), 1e-2, 'TIME 1: 170 ms');
+    CheckEquals(Sqrt(170.0), JuceScopeTimeFromValue(0.5), 1e-3, 'TIME 0.5: halfway on a log scale');
+    CheckEquals(20.0, JuceScopeTimeFromValue(JuceScopeValueFromTime(20)), 1e-3, 'there and back');
+    CheckEquals(0.0, JuceScopeValueFromTime(0.1), 0, 'below the range: 0');
+    CheckEquals(1.0, JuceScopeValueFromTime(1000), 0, 'above: 1');
+    CheckEquals(0.0, JuceScopeValueFromTime(NaNValue), 0, 'NaN: 0');
+    CheckEquals(1.0, JuceScopeTimeFromValue(NaNValue), 1e-4, 'NaN value: 1 ms');
+    CheckEquals('2.5 ms', StringReplace(JuceScopeTimeText(2.5), ',', '.', []), 'readout under 10 ms: one decimal');
+    CheckEquals('40 ms', JuceScopeTimeText(40.2), 'readout from 10 ms: whole ms');
+    { an unbound control starts at its DefaultValue (a form sets it), until set }
+    with TJuceKnob.Create(nil) do
+      try
+        DefaultValue := 0.3;
+        CheckEquals(0.3, Value, 1e-6, 'an unbound knob starts at its default');
+        Value := 0.6;
+        DefaultValue := 0.1;
+        CheckEquals(0.6, Value, 1e-6, 'once set, a new default leaves the value alone');
+        CheckEquals(0.1, DefaultValue, 1e-6, '(the default is still taken)');
+      finally
+        Free;
+      end;
   finally
     S.Free;
   end;
